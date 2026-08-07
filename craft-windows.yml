@@ -1,0 +1,4 @@
+php-version: 8.4
+extensions: bcmath,ctype,curl,fileinfo,filter,mbstring,openssl,pdo,pdo_sqlite,phar,session,sqlite3,tokenizer,zip,zlib
+sapi:
+  - cli

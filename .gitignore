@@ -6,4 +6,5 @@
 /pkgroot/
 /packaging/
 /source/
+/windows-build/
 .DS_Store

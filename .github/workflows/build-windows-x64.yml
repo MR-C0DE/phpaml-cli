@@ -1,0 +1,35 @@
+name: Build Windows x64
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-2025
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          cache: false
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: Build autonomous AML installer
+        shell: pwsh
+        run: ./scripts/build-windows-x64.ps1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aml-windows-x64
+          path: |
+            dist/aml-windows-x64.zip
+            dist/aml-windows-x64.zip.sha256
+            dist/phpaml-1.0.0-windows-x64.exe
+            dist/phpaml-1.0.0-windows-x64.exe.sha256

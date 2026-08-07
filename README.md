@@ -64,3 +64,16 @@ automatiquement à la fin de la commande précédente :
 Il installe PHPAML dans `/usr/local/lib/aml` et expose la commande
 `/usr/local/bin/aml`. Les paquets Windows, macOS Intel et Linux restent à
 ajouter.
+
+## Installateur Windows x64
+
+GitHub Actions compile un PHP Windows privé, construit `aml.exe`, puis produit
+un installateur Inno Setup :
+
+```powershell
+.\scripts\build-windows-x64.ps1
+```
+
+L’installation se fait dans le profil de l’utilisateur, ne demande pas les
+droits administrateur, ajoute `aml` au `PATH` et retire proprement cette entrée
+lors de la désinstallation.
