@@ -46,7 +46,7 @@ chmod 755 "$PACKAGE/bin/aml" "$PACKAGE/runtime/php/bin/php"
 env -i PATH=/usr/bin:/bin HOME="${TMPDIR:-/tmp}" "$PACKAGE/bin/aml" version
 
 tar -czf "$ROOT/dist/aml-linux-x64.tar.gz" -C "$ROOT/dist" aml-linux-x64
-sha256sum "$ROOT/dist/aml-linux-x64.tar.gz" > "$ROOT/dist/aml-linux-x64.tar.gz.sha256"
+(cd "$ROOT/dist" && sha256sum aml-linux-x64.tar.gz > aml-linux-x64.tar.gz.sha256)
 
 mkdir -p "$DEB_ROOT/DEBIAN" "$DEB_ROOT/opt/phpaml" "$DEB_ROOT/usr/local/bin"
 cp -R "$PACKAGE/." "$DEB_ROOT/opt/phpaml/"
@@ -64,7 +64,7 @@ EOF
 
 dpkg-deb --root-owner-group --build "$DEB_ROOT" \
     "$ROOT/dist/phpaml-$AML_VERSION-linux-x64.deb"
-sha256sum "$ROOT/dist/phpaml-$AML_VERSION-linux-x64.deb" \
-    > "$ROOT/dist/phpaml-$AML_VERSION-linux-x64.deb.sha256"
+(cd "$ROOT/dist" && sha256sum "phpaml-$AML_VERSION-linux-x64.deb" \
+    > "phpaml-$AML_VERSION-linux-x64.deb.sha256")
 
 echo "Paquets créés dans $ROOT/dist"
