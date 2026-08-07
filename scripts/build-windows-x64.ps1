@@ -58,7 +58,7 @@ Compress-Archive -Path "$Package\*" -DestinationPath $Zip -CompressionLevel Opti
 $Iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
 if (-not (Test-Path $Iscc)) { throw 'Inno Setup 6 est introuvable.' }
 & $Iscc (Join-Path $Root 'installer\windows\phpaml.iss')
-if ($LASTEXITCODE -ne 0) { throw 'La création de l’installateur Windows a échoué.' }
+if ($LASTEXITCODE -ne 0) { throw "La création de l'installateur Windows a échoué." }
 
 $Installer = Join-Path $Root 'dist\phpaml-1.0.0-windows-x64.exe'
 foreach ($Artifact in @($Zip, $Installer)) {
