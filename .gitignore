@@ -1,2 +1,8 @@
 /dist/
+/.tools/
+/buildroot/
+/downloads/
+/log/
+/pkgroot/
+/source/
 .DS_Store

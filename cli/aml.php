@@ -326,14 +326,20 @@ function installModules(
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
-    $composer = trim((string) shell_exec('command -v composer 2>/dev/null'));
-    if ($composer === '') {
-        fail('Composer est requis pour installer les modules AML.');
+    $bundledComposer = PHPAML_FRAMEWORK_ROOT . '/runtime/composer/composer.phar';
+    if (is_file($bundledComposer)) {
+        $composer = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($bundledComposer);
+    } else {
+        $systemComposer = trim((string) shell_exec('command -v composer 2>/dev/null'));
+        if ($systemComposer === '') {
+            fail("Composer privé est absent de l'installation AML.");
+        }
+        $composer = escapeshellarg($systemComposer);
     }
     $frameworkVersion = installFramework($root, $version, $refresh, $offline);
     output('Préparation de l’environnement aml_env/…');
     $command = 'cd ' . escapeshellarg($root)
-        . ' && ' . escapeshellarg($composer)
+        . ' && ' . $composer
         . ' install --no-interaction --prefer-dist'
         . ($production ? ' --no-dev --optimize-autoloader' : '');
     passthru($command, $exitCode);

@@ -1,0 +1,8 @@
+{
+  "name": "phpaml",
+  "version": "1.0.0",
+  "description": "Environnement autonome du mini-framework PHPAML",
+  "aml": {
+    "environment": "aml_env"
+  }
+}

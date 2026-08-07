@@ -44,4 +44,14 @@ aml install --production
 - `MR-C0DE/phpaml-framework` : moteur PHPAML;
 - `MR-C0DE/phpaml-template` : modèle téléchargé par `aml create`.
 
-Les installateurs Windows, macOS et Linux seront publiés dans GitHub Releases.
+## Paquet autonome macOS ARM64
+
+Le paquet contient l’exécutable natif `aml`, PHP 8.4 privé, Composer privé et
+le moteur CLI. Il se construit avec :
+
+```bash
+./scripts/build-macos-arm64.sh
+```
+
+Le workflow GitHub Actions produit aussi l’archive et son checksum à chaque
+tag de version. Les paquets Windows, macOS Intel et Linux restent à ajouter.
