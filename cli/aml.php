@@ -68,7 +68,7 @@ function showHelp(): void
     output('Commandes :');
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
     output('  serve [hôte:port]         Lance le serveur de développement');
-    output('  install [--production]    Prépare les dépendances dans aml_env');
+    output('  install [options]         Installe moteur et dépendances dans aml_env');
     output('  routes                    Affiche les routes de l’application');
     output('  make:controller <nom>     Génère un contrôleur');
     output('  make:model <nom>          Génère un modèle');
@@ -88,6 +88,7 @@ function showHelp(): void
     output('  aml create mon-projet --offline');
     output('  aml serve 127.0.0.1:8080');
     output('  aml install');
+    output('  aml install --version 0.1.0');
 }
 
 /** @return list<string> */
@@ -314,7 +315,12 @@ function serve(string $address): never
     exit($exitCode);
 }
 
-function installModules(bool $production = false): never
+function installModules(
+    bool $production = false,
+    ?string $version = null,
+    bool $refresh = false,
+    bool $offline = false
+): never
 {
     $root = projectRoot();
     if (!is_file($root . '/composer.json')) {
@@ -324,7 +330,7 @@ function installModules(bool $production = false): never
     if ($composer === '') {
         fail('Composer est requis pour installer les modules AML.');
     }
-    installFramework($root);
+    $frameworkVersion = installFramework($root, $version, $refresh, $offline);
     output('Préparation de l’environnement aml_env/…');
     $command = 'cd ' . escapeshellarg($root)
         . ' && ' . escapeshellarg($composer)
@@ -337,6 +343,7 @@ function installModules(bool $production = false): never
     $manifest = [
         'installed_at' => date(DATE_ATOM),
         'mode' => $production ? 'production' : 'development',
+        'framework' => $frameworkVersion,
         'lock' => is_file($root . '/composer.lock') ? hash_file('sha256', $root . '/composer.lock') : null,
     ];
     file_put_contents(
@@ -347,39 +354,110 @@ function installModules(bool $production = false): never
     exit(0);
 }
 
-function installFramework(string $projectRoot): void
+/** @return array{version: string, archive: string} */
+function acquireFramework(?string $version, bool $refresh, bool $offline): array
 {
-    $source = PHPAML_FRAMEWORK_ROOT . '/aml_env/framework';
-    $destination = $projectRoot . '/aml_env/framework';
-    if (!is_dir($source)) {
-        fail('Le moteur PHPAML est introuvable dans l’installation globale.');
+    $cacheRoot = PHPAML_FRAMEWORK_ROOT . '/aml_env/cache/framework';
+    if ($offline) {
+        if ($version === null) {
+            $versions = array_filter(glob($cacheRoot . '/*') ?: [], 'is_dir');
+            rsort($versions, SORT_NATURAL);
+            $version = $versions === [] ? null : basename($versions[0]);
+        }
+        if ($version === null) {
+            fail('Aucun moteur PHPAML ne se trouve dans le cache hors connexion.');
+        }
+        $version = ltrim($version, 'v');
+        $archive = "{$cacheRoot}/{$version}/phpaml-framework-{$version}.zip";
+        $checksumFile = $archive . '.sha256';
+        if (!is_file($archive) || !is_file($checksumFile)) {
+            fail("Le moteur PHPAML v{$version} n'est pas disponible hors connexion.");
+        }
+        $expected = strtolower((string) strtok(trim((string) file_get_contents($checksumFile)), " \t"));
+        $actual = hash_file('sha256', $archive);
+        if (!preg_match('/^[a-f0-9]{64}$/', $expected) || !hash_equals($expected, $actual)) {
+            fail('Le moteur PHPAML présent dans le cache est corrompu.');
+        }
+        return compact('version', 'archive');
     }
-    if (realpath($source) === realpath($destination)) {
-        return;
+
+    $endpoint = $version === null
+        ? 'https://api.github.com/repos/MR-C0DE/phpaml-framework/releases/latest'
+        : 'https://api.github.com/repos/MR-C0DE/phpaml-framework/releases/tags/v' . ltrim($version, 'v');
+    $release = json_decode(httpGet($endpoint), true);
+    if (!is_array($release) || !isset($release['tag_name'], $release['assets'])) {
+        fail('La réponse de GitHub pour le moteur PHPAML est invalide.');
     }
-    $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($source, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::SELF_FIRST
-    );
-    foreach ($iterator as $item) {
-        $relative = substr($item->getPathname(), strlen($source) + 1);
-        $target = $destination . '/' . $relative;
-        if ($item->isDir()) {
-            if (!is_dir($target)) {
-                mkdir($target, 0755, true);
-            }
-        } else {
-            if (!is_dir(dirname($target))) {
-                mkdir(dirname($target), 0755, true);
-            }
-            copy($item->getPathname(), $target);
+    $version = ltrim((string) $release['tag_name'], 'v');
+    $archiveName = "phpaml-framework-{$version}.zip";
+    $archiveUrl = null;
+    $checksumUrl = null;
+    foreach ($release['assets'] as $asset) {
+        if (($asset['name'] ?? null) === $archiveName) {
+            $archiveUrl = $asset['browser_download_url'] ?? null;
+        }
+        if (($asset['name'] ?? null) === $archiveName . '.sha256') {
+            $checksumUrl = $asset['browser_download_url'] ?? null;
         }
     }
+    if (!is_string($archiveUrl) || !is_string($checksumUrl)) {
+        fail("La release du moteur v{$version} est incomplète.");
+    }
+    $directory = "{$cacheRoot}/{$version}";
+    $archive = "{$directory}/{$archiveName}";
+    $checksumFile = $archive . '.sha256';
+    if ($refresh || !is_file($archive) || !is_file($checksumFile)) {
+        if (!is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+        file_put_contents($archive, httpGet($archiveUrl));
+        file_put_contents($checksumFile, httpGet($checksumUrl));
+    }
+    $expected = strtolower((string) strtok(trim((string) file_get_contents($checksumFile)), " \t"));
+    $actual = hash_file('sha256', $archive);
+    if (!preg_match('/^[a-f0-9]{64}$/', $expected) || !hash_equals($expected, $actual)) {
+        fail('Le checksum SHA-256 du moteur PHPAML est invalide.');
+    }
+    return compact('version', 'archive');
+}
+
+function installFramework(string $projectRoot, ?string $version, bool $refresh, bool $offline): string
+{
+    $framework = acquireFramework($version, $refresh, $offline);
+    $destination = $projectRoot . '/aml_env/framework';
+    $zip = new ZipArchive();
+    if ($zip->open($framework['archive']) !== true) {
+        fail("Impossible d'ouvrir l'archive du moteur PHPAML.");
+    }
+    for ($index = 0; $index < $zip->numFiles; $index++) {
+        $entry = str_replace('\\', '/', (string) $zip->getNameIndex($index));
+        $prefix = 'phpaml-framework/src/';
+        if (!str_starts_with($entry, $prefix) || str_ends_with($entry, '/')) {
+            continue;
+        }
+        $relative = substr($entry, strlen($prefix));
+        if ($relative === '' || in_array('..', explode('/', $relative), true)) {
+            $zip->close();
+            fail('L’archive du moteur contient un chemin non sécurisé.');
+        }
+        $target = $destination . '/' . $relative;
+        if (!is_dir(dirname($target))) {
+            mkdir(dirname($target), 0755, true);
+        }
+        $content = $zip->getFromIndex($index);
+        if (!is_string($content)) {
+            $zip->close();
+            fail("Impossible d'extraire '{$relative}'.");
+        }
+        file_put_contents($target, $content);
+    }
+    $zip->close();
     foreach ([$projectRoot . '/aml_env/storage', $projectRoot . '/aml_env/storage/cache'] as $runtimeDirectory) {
         if (!is_dir($runtimeDirectory)) {
             mkdir($runtimeDirectory, 0755, true);
         }
     }
+    return $framework['version'];
 }
 
 function runScript(string $name): never
@@ -549,7 +627,12 @@ switch ($command) {
     case 'serve':
         serve($arguments[1] ?? 'localhost:8000');
     case 'install':
-        installModules(in_array('--production', $arguments, true));
+        installModules(
+            in_array('--production', $arguments, true),
+            optionValue($arguments, '--version'),
+            in_array('--refresh', $arguments, true),
+            in_array('--offline', $arguments, true)
+        );
     case 'run':
         isset($arguments[1]) ? runScript($arguments[1]) : fail('Indiquez le nom du script.');
     case 'routes':

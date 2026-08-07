@@ -25,6 +25,19 @@ aml create mon-projet --refresh
 aml create mon-projet --offline
 ```
 
+## Installation du moteur
+
+`aml install` télécharge les releases officielles depuis
+`MR-C0DE/phpaml-framework`, vérifie leur checksum SHA-256 et installe le moteur
+dans `aml_env/framework/`.
+
+```bash
+aml install
+aml install --version 0.1.0
+aml install --refresh
+aml install --production
+```
+
 ## Dépôts
 
 - `MR-C0DE/phpaml-cli` : CLI native et installateurs;
