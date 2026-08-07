@@ -27,3 +27,5 @@ jobs:
           path: |
             dist/aml-macos-arm64.tar.gz
             dist/aml-macos-arm64.tar.gz.sha256
+            dist/phpaml-1.0.0-macos-arm64.pkg
+            dist/phpaml-1.0.0-macos-arm64.pkg.sha256

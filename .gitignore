@@ -4,5 +4,6 @@
 /downloads/
 /log/
 /pkgroot/
+/packaging/
 /source/
 .DS_Store

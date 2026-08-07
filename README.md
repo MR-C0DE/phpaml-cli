@@ -54,4 +54,13 @@ le moteur CLI. Il se construit avec :
 ```
 
 Le workflow GitHub Actions produit aussi l’archive et son checksum à chaque
-tag de version. Les paquets Windows, macOS Intel et Linux restent à ajouter.
+tag de version. L’installateur macOS se construit séparément, ou
+automatiquement à la fin de la commande précédente :
+
+```bash
+./scripts/build-macos-pkg.sh
+```
+
+Il installe PHPAML dans `/usr/local/lib/aml` et expose la commande
+`/usr/local/bin/aml`. Les paquets Windows, macOS Intel et Linux restent à
+ajouter.

@@ -43,4 +43,5 @@ tar -czf "$ROOT/dist/aml-macos-arm64.tar.gz" -C "$ROOT/dist" aml-macos-arm64
 shasum -a 256 "$ROOT/dist/aml-macos-arm64.tar.gz" > "$ROOT/dist/aml-macos-arm64.tar.gz.sha256"
 
 env -i PATH=/usr/bin:/bin HOME="${TMPDIR:-/tmp}" "$PACKAGE/bin/aml" version
+AML_VERSION=1.0.0 "$ROOT/scripts/build-macos-pkg.sh"
 echo "Paquet créé : $ROOT/dist/aml-macos-arm64.tar.gz"
