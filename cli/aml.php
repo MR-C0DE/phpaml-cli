@@ -3,7 +3,7 @@
 
 declare(strict_types=1);
 
-define('PHPAML_FRAMEWORK_ROOT', getenv('AML_HOME') ?: dirname(__DIR__));
+define('PHPAML_FRAMEWORK_ROOT', dirname(__DIR__, 2));
 
 function output(string $message = ''): void
 {
@@ -84,6 +84,8 @@ function showHelp(): void
     output('Exemples :');
     output('  aml create .');
     output('  aml create mon-projet');
+    output('  aml create mon-projet --version 0.1.0');
+    output('  aml create mon-projet --offline');
     output('  aml serve 127.0.0.1:8080');
     output('  aml install');
 }
@@ -113,7 +115,107 @@ function scaffoldFiles(): array
     return $files;
 }
 
-function createProject(string $destination): void
+function httpGet(string $url): string
+{
+    $handle = curl_init($url);
+    curl_setopt_array($handle, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT => 60,
+        CURLOPT_USERAGENT => 'AML-CLI/' . (projectInfo(PHPAML_FRAMEWORK_ROOT)['version'] ?? 'development'),
+        CURLOPT_HTTPHEADER => ['Accept: application/vnd.github+json'],
+    ]);
+    $content = curl_exec($handle);
+    $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+    $error = curl_error($handle);
+    curl_close($handle);
+    if (!is_string($content) || $status < 200 || $status >= 300) {
+        fail("Téléchargement impossible ({$status}) : " . ($error ?: $url));
+    }
+    return $content;
+}
+
+/** @return array{version: string, archive: string, checksum: string} */
+function resolveTemplateRelease(?string $requestedVersion): array
+{
+    $endpoint = $requestedVersion === null
+        ? 'https://api.github.com/repos/MR-C0DE/phpaml-template/releases/latest'
+        : 'https://api.github.com/repos/MR-C0DE/phpaml-template/releases/tags/v' . ltrim($requestedVersion, 'v');
+    $release = json_decode(httpGet($endpoint), true);
+    if (!is_array($release) || !isset($release['tag_name'], $release['assets'])) {
+        fail('La réponse de GitHub pour le modèle est invalide.');
+    }
+    $version = ltrim((string) $release['tag_name'], 'v');
+    $archiveName = "phpaml-template-{$version}.zip";
+    $checksumName = $archiveName . '.sha256';
+    $archiveUrl = null;
+    $checksumUrl = null;
+    foreach ($release['assets'] as $asset) {
+        if (($asset['name'] ?? null) === $archiveName) {
+            $archiveUrl = $asset['browser_download_url'] ?? null;
+        }
+        if (($asset['name'] ?? null) === $checksumName) {
+            $checksumUrl = $asset['browser_download_url'] ?? null;
+        }
+    }
+    if (!is_string($archiveUrl) || !is_string($checksumUrl)) {
+        fail("La release v{$version} ne contient pas l'archive et le checksum attendus.");
+    }
+    return ['version' => $version, 'archive' => $archiveUrl, 'checksum' => $checksumUrl];
+}
+
+/** @return array{version: string, archive: string} */
+function acquireTemplate(?string $version, bool $refresh, bool $offline): array
+{
+    $cacheRoot = PHPAML_FRAMEWORK_ROOT . '/aml_env/cache/templates';
+    if ($offline) {
+        if ($version === null) {
+            $versions = array_filter(glob($cacheRoot . '/*') ?: [], 'is_dir');
+            rsort($versions, SORT_NATURAL);
+            $version = $versions === [] ? null : basename($versions[0]);
+        }
+        if ($version === null) {
+            fail('Aucun modèle PHPAML ne se trouve dans le cache hors connexion.');
+        }
+        $archive = $cacheRoot . '/' . ltrim($version, 'v') . '/phpaml-template-' . ltrim($version, 'v') . '.zip';
+        $checksumFile = $archive . '.sha256';
+        if (!is_file($archive) || !is_file($checksumFile)) {
+            fail("Le modèle v{$version} n'est pas disponible hors connexion.");
+        }
+        $expected = strtolower((string) strtok(trim((string) file_get_contents($checksumFile)), " \t"));
+        $actual = hash_file('sha256', $archive);
+        if (!preg_match('/^[a-f0-9]{64}$/', $expected) || !hash_equals($expected, $actual)) {
+            fail('Le modèle présent dans le cache hors connexion est corrompu.');
+        }
+        return ['version' => ltrim($version, 'v'), 'archive' => $archive];
+    }
+
+    $release = resolveTemplateRelease($version);
+    $directory = $cacheRoot . '/' . $release['version'];
+    $archive = $directory . '/phpaml-template-' . $release['version'] . '.zip';
+    $checksumFile = $archive . '.sha256';
+    if ($refresh || !is_file($archive) || !is_file($checksumFile)) {
+        if (!is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+        file_put_contents($archive, httpGet($release['archive']));
+        file_put_contents($checksumFile, httpGet($release['checksum']));
+    }
+    $checksumContent = trim((string) file_get_contents($checksumFile));
+    $expected = strtolower((string) strtok($checksumContent, " \t"));
+    $actual = hash_file('sha256', $archive);
+    if (!preg_match('/^[a-f0-9]{64}$/', $expected) || !hash_equals($expected, $actual)) {
+        fail('Le checksum SHA-256 du modèle PHPAML est invalide.');
+    }
+    return ['version' => $release['version'], 'archive' => $archive];
+}
+
+function createProject(
+    string $destination,
+    ?string $version = null,
+    bool $refresh = false,
+    bool $offline = false
+): void
 {
     $base = getcwd() ?: PHPAML_FRAMEWORK_ROOT;
     $target = $destination === '.' ? $base : $base . DIRECTORY_SEPARATOR . trim($destination, DIRECTORY_SEPARATOR);
@@ -123,9 +225,28 @@ function createProject(string $destination): void
         fail('Le nom du projet est invalide.');
     }
 
-    $files = scaffoldFiles();
+    $template = acquireTemplate($version, $refresh, $offline);
+    $zip = new ZipArchive();
+    if ($zip->open($template['archive']) !== true) {
+        fail("Impossible d'ouvrir l'archive du modèle.");
+    }
+
+    $files = [];
+    for ($index = 0; $index < $zip->numFiles; $index++) {
+        $entry = str_replace('\\', '/', (string) $zip->getNameIndex($index));
+        $parts = explode('/', $entry, 2);
+        $relative = $parts[1] ?? '';
+        if ($relative === '' || str_ends_with($relative, '/')) {
+            continue;
+        }
+        if (str_starts_with($relative, '/') || in_array('..', explode('/', $relative), true)) {
+            $zip->close();
+            fail('L’archive du modèle contient un chemin non sécurisé.');
+        }
+        $files[$relative] = $index;
+    }
     $conflicts = [];
-    foreach ($files as $relative) {
+    foreach (array_keys($files) as $relative) {
         if (file_exists($target . '/' . $relative)) {
             $conflicts[] = $relative;
         }
@@ -138,16 +259,16 @@ function createProject(string $destination): void
         fail("Impossible de créer '{$target}'.");
     }
 
-    foreach ($files as $relative) {
-        $source = PHPAML_FRAMEWORK_ROOT . '/' . $relative;
+    foreach ($files as $relative => $index) {
         $destinationPath = $target . '/' . $relative;
         $directory = dirname($destinationPath);
         if (!is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
-        $content = file_get_contents($source);
-        if ($content === false) {
-            fail("Impossible de lire '{$source}'.");
+        $content = $zip->getFromIndex($index);
+        if (!is_string($content)) {
+            $zip->close();
+            fail("Impossible d'extraire '{$relative}'.");
         }
         if ($relative === 'info.json') {
             $info = json_decode($content, true);
@@ -162,7 +283,9 @@ function createProject(string $destination): void
         file_put_contents($destinationPath, $content);
     }
 
-    output("Application '{$projectName}' créée dans {$target}");
+    $zip->close();
+
+    output("Application '{$projectName}' créée avec PHPAML v{$template['version']} dans {$target}");
     output($destination === '.'
         ? 'Lancez : aml install && aml serve'
         : "Lancez : cd {$destination} && aml install && aml serve");
@@ -401,9 +524,27 @@ $arguments = $_SERVER['argv'];
 array_shift($arguments);
 $command = $arguments[0] ?? 'help';
 
+function optionValue(array $arguments, string $option): ?string
+{
+    $position = array_search($option, $arguments, true);
+    if ($position === false) {
+        return null;
+    }
+    if (!isset($arguments[$position + 1]) || str_starts_with($arguments[$position + 1], '--')) {
+        fail("L'option '{$option}' nécessite une valeur.");
+    }
+    return $arguments[$position + 1];
+}
+
 switch ($command) {
     case 'create':
-        createProject($arguments[1] ?? '.');
+        $destination = isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : '.';
+        createProject(
+            $destination,
+            optionValue($arguments, '--version'),
+            in_array('--refresh', $arguments, true),
+            in_array('--offline', $arguments, true)
+        );
         break;
     case 'serve':
         serve($arguments[1] ?? 'localhost:8000');

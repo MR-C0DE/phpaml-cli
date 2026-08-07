@@ -20,7 +20,7 @@ func main() {
 	if runtime.GOOS == "windows" {
 		php = filepath.Join(home, "runtime", "php", "php.exe")
 	}
-	cli := filepath.Join(home, "cli", "aml.php")
+	cli := filepath.Join(home, "aml_env", "bin", "aml.php")
 
 	if _, err := os.Stat(php); err != nil {
 		fmt.Fprintln(os.Stderr, "AML: runtime PHP privé introuvable")
