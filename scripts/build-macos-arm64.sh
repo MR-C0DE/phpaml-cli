@@ -40,7 +40,7 @@ cp "$ROOT/info.json" "$PACKAGE/info.json"
 chmod 755 "$PACKAGE/bin/aml" "$PACKAGE/runtime/php/bin/php"
 
 tar -czf "$ROOT/dist/aml-macos-arm64.tar.gz" -C "$ROOT/dist" aml-macos-arm64
-shasum -a 256 "$ROOT/dist/aml-macos-arm64.tar.gz" > "$ROOT/dist/aml-macos-arm64.tar.gz.sha256"
+(cd "$ROOT/dist" && shasum -a 256 aml-macos-arm64.tar.gz > aml-macos-arm64.tar.gz.sha256)
 
 env -i PATH=/usr/bin:/bin HOME="${TMPDIR:-/tmp}" "$PACKAGE/bin/aml" version
 "$ROOT/scripts/build-macos-pkg.sh"
