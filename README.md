@@ -62,8 +62,7 @@ automatiquement à la fin de la commande précédente :
 ```
 
 Il installe PHPAML dans `/usr/local/lib/aml` et expose la commande
-`/usr/local/bin/aml`. Les paquets Windows, macOS Intel et Linux restent à
-ajouter.
+`/usr/local/bin/aml`. Le paquet macOS Intel reste à ajouter.
 
 ## Installateur Windows x64
 
@@ -77,3 +76,17 @@ un installateur Inno Setup :
 L’installation se fait dans le profil de l’utilisateur, ne demande pas les
 droits administrateur, ajoute `aml` au `PATH` et retire proprement cette entrée
 lors de la désinstallation.
+
+## Paquets Linux x64
+
+GitHub Actions construit une archive portable et un paquet Debian autonome :
+
+```bash
+./scripts/build-linux-x64.sh
+sudo dpkg -i dist/phpaml-1.0.0-linux-x64.deb
+aml version
+```
+
+Le paquet installe PHPAML dans `/opt/phpaml` et expose `/usr/local/bin/aml`.
+Il embarque son propre PHP et Composer : aucune installation préalable de PHP
+n’est nécessaire.
