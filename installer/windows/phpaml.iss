@@ -57,24 +57,18 @@ procedure RemoveFromUserPath();
 var
   CurrentPath: string;
   AmlBin: string;
-  Entries: TArrayOfString;
-  NewPath: string;
-  I: Integer;
 begin
   CurrentPath := UserPath();
   AmlBin := ExpandConstant('{app}\bin');
-  Entries := SplitString(CurrentPath, ';');
-  NewPath := '';
-  for I := 0 to GetArrayLength(Entries) - 1 do
-  begin
-    if (Entries[I] <> '') and (CompareText(Entries[I], AmlBin) <> 0) then
-    begin
-      if NewPath <> '' then
-        NewPath := NewPath + ';';
-      NewPath := NewPath + Entries[I];
-    end;
-  end;
-  RegWriteExpandStringValue(HKCU, 'Environment', 'Path', NewPath);
+  CurrentPath := ';' + CurrentPath + ';';
+  StringChangeEx(CurrentPath, ';' + AmlBin + ';', ';', True);
+  while Pos(';;', CurrentPath) > 0 do
+    StringChangeEx(CurrentPath, ';;', ';', True);
+  if (Length(CurrentPath) > 0) and (CurrentPath[1] = ';') then
+    Delete(CurrentPath, 1, 1);
+  if (Length(CurrentPath) > 0) and (CurrentPath[Length(CurrentPath)] = ';') then
+    Delete(CurrentPath, Length(CurrentPath), 1);
+  RegWriteExpandStringValue(HKCU, 'Environment', 'Path', CurrentPath);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
