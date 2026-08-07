@@ -3,7 +3,7 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 export COPYFILE_DISABLE=1
-VERSION=${AML_VERSION:-1.0.0}
+VERSION=${AML_VERSION:-$(awk -F'"' '/"version"/ {print $4; exit}' "$ROOT/info.json")}
 SOURCE="$ROOT/dist/aml-macos-arm64"
 STAGING="$ROOT/packaging/macos-arm64/root"
 INSTALLATION="$STAGING/usr/local/lib/aml"
@@ -38,5 +38,5 @@ pkgbuild \
     --install-location / \
     "$OUTPUT"
 
-shasum -a 256 "$OUTPUT" > "$OUTPUT.sha256"
+(cd "$ROOT/dist" && shasum -a 256 "$(basename "$OUTPUT")" > "$(basename "$OUTPUT").sha256")
 echo "Installateur créé : $OUTPUT"

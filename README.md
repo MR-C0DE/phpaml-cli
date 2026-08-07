@@ -12,6 +12,20 @@ aml serve
 
 L’utilisateur n’a pas besoin d’installer PHP ou Composer séparément.
 
+## Mise à jour d’AML
+
+AML peut rechercher et installer le paquet natif correspondant au système :
+
+```bash
+aml update --check
+aml update
+aml update --version 1.1.0
+```
+
+Chaque paquet est téléchargé depuis la release GitHub officielle et vérifié
+avec SHA-256 avant son installation. Une installation portable est détectée et
+n’est jamais remplacée automatiquement.
+
 ## Création depuis GitHub
 
 `aml create` télécharge les releases officielles depuis
@@ -83,7 +97,7 @@ GitHub Actions construit une archive portable et un paquet Debian autonome :
 
 ```bash
 ./scripts/build-linux-x64.sh
-sudo dpkg -i dist/phpaml-1.0.0-linux-x64.deb
+sudo dpkg -i dist/phpaml-1.1.0-linux-x64.deb
 aml version
 ```
 

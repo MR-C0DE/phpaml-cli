@@ -1,5 +1,7 @@
 #define MyAppName "PHPAML"
-#define MyAppVersion "1.0.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0"
+#endif
 #define MyAppPublisher "PHPAML"
 #define MyAppExeName "aml.exe"
 
@@ -15,7 +17,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\..\dist
-OutputBaseFilename=phpaml-1.0.0-windows-x64
+OutputBaseFilename=phpaml-{#MyAppVersion}-windows-x64
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

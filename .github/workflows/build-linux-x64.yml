@@ -23,7 +23,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Test Debian installation
         run: |
-          sudo dpkg -i dist/phpaml-1.0.0-linux-x64.deb
+          sudo dpkg -i dist/phpaml-*-linux-x64.deb
           env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml version
           sudo dpkg -r phpaml
           test ! -e /usr/local/bin/aml
@@ -33,5 +33,5 @@ jobs:
           path: |
             dist/aml-linux-x64.tar.gz
             dist/aml-linux-x64.tar.gz.sha256
-            dist/phpaml-1.0.0-linux-x64.deb
-            dist/phpaml-1.0.0-linux-x64.deb.sha256
+            dist/phpaml-*-linux-x64.deb
+            dist/phpaml-*-linux-x64.deb.sha256

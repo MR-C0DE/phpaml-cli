@@ -69,6 +69,7 @@ function showHelp(): void
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
     output('  serve [hôte:port]         Lance le serveur de développement');
     output('  install [options]         Installe moteur et dépendances dans aml_env');
+    output('  update [options]          Met à jour l’environnement AML');
     output('  routes                    Affiche les routes de l’application');
     output('  make:controller <nom>     Génère un contrôleur');
     output('  make:model <nom>          Génère un modèle');
@@ -89,6 +90,7 @@ function showHelp(): void
     output('  aml serve 127.0.0.1:8080');
     output('  aml install');
     output('  aml install --version 0.1.0');
+    output('  aml update --check');
 }
 
 /** @return list<string> */
@@ -134,6 +136,141 @@ function httpGet(string $url): string
         fail("Téléchargement impossible ({$status}) : " . ($error ?: $url));
     }
     return $content;
+}
+
+/** @return array{version: string, package: string, checksum: string, package_name: string} */
+function resolveCliRelease(?string $requestedVersion = null): array
+{
+    $endpoint = $requestedVersion === null
+        ? 'https://api.github.com/repos/MR-C0DE/phpaml-cli/releases/latest'
+        : 'https://api.github.com/repos/MR-C0DE/phpaml-cli/releases/tags/v' . ltrim($requestedVersion, 'v');
+    $release = json_decode(httpGet($endpoint), true);
+    if (!is_array($release) || !isset($release['tag_name'], $release['assets'])) {
+        fail('La réponse de GitHub pour AML est invalide.');
+    }
+
+    $version = ltrim((string) $release['tag_name'], 'v');
+    $machine = strtolower(php_uname('m'));
+    $architecture = in_array($machine, ['x86_64', 'amd64'], true) ? 'x64'
+        : (in_array($machine, ['arm64', 'aarch64'], true) ? 'arm64' : '');
+    $packageName = match (PHP_OS_FAMILY) {
+        'Windows' => $architecture === 'x64' ? "phpaml-{$version}-windows-x64.exe" : '',
+        'Darwin' => $architecture === 'arm64' ? "phpaml-{$version}-macos-arm64.pkg" : '',
+        'Linux' => $architecture === 'x64' ? "phpaml-{$version}-linux-x64.deb" : '',
+        default => '',
+    };
+    if ($packageName === '') {
+        fail('Aucune mise à jour automatique n’est disponible pour cette plateforme.');
+    }
+
+    $packageUrl = null;
+    $checksumUrl = null;
+    foreach ($release['assets'] as $asset) {
+        if (($asset['name'] ?? null) === $packageName) {
+            $packageUrl = $asset['browser_download_url'] ?? null;
+        }
+        if (($asset['name'] ?? null) === $packageName . '.sha256') {
+            $checksumUrl = $asset['browser_download_url'] ?? null;
+        }
+    }
+    if (!is_string($packageUrl) || !is_string($checksumUrl)) {
+        fail("La release AML v{$version} ne contient pas le paquet attendu pour cette plateforme.");
+    }
+    return [
+        'version' => $version,
+        'package' => $packageUrl,
+        'checksum' => $checksumUrl,
+        'package_name' => $packageName,
+    ];
+}
+
+function normalizedPath(string $path): string
+{
+    $resolved = realpath($path) ?: $path;
+    return rtrim(strtolower(str_replace('\\', '/', $resolved)), '/');
+}
+
+function isNativeCliInstallation(): bool
+{
+    $root = normalizedPath(PHPAML_FRAMEWORK_ROOT);
+    return match (PHP_OS_FAMILY) {
+        'Windows' => ($local = getenv('LOCALAPPDATA')) !== false
+            && $root === normalizedPath($local . '/Programs/PHPAML'),
+        'Darwin' => $root === normalizedPath('/usr/local/lib/aml'),
+        'Linux' => $root === normalizedPath('/opt/phpaml'),
+        default => false,
+    };
+}
+
+function privilegedCommand(string $command): string
+{
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        return $command;
+    }
+    return 'sudo ' . $command;
+}
+
+function updateCli(?string $requestedVersion, bool $checkOnly, bool $force): never
+{
+    $currentVersion = (string) (projectInfo(PHPAML_FRAMEWORK_ROOT)['version'] ?? '0.0.0');
+    $release = resolveCliRelease($requestedVersion);
+    if (!$force && version_compare($release['version'], $currentVersion, '<=')) {
+        output("AML est déjà à jour (v{$currentVersion}).");
+        exit(0);
+    }
+    output("Mise à jour disponible : v{$currentVersion} → v{$release['version']}");
+    if ($checkOnly) {
+        exit(0);
+    }
+
+    $temporaryRoot = PHP_OS_FAMILY === 'Windows' ? sys_get_temp_dir() : '/tmp';
+    $directory = rtrim($temporaryRoot, '/\\') . DIRECTORY_SEPARATOR
+        . 'phpaml-update-' . bin2hex(random_bytes(6));
+    if (!mkdir($directory, 0700, true) && !is_dir($directory)) {
+        fail('Impossible de créer le dossier temporaire de mise à jour.');
+    }
+    $package = $directory . DIRECTORY_SEPARATOR . $release['package_name'];
+    $checksum = $package . '.sha256';
+    output("Téléchargement de PHPAML v{$release['version']}…");
+    if (file_put_contents($package, httpGet($release['package'])) === false
+        || file_put_contents($checksum, httpGet($release['checksum'])) === false) {
+        fail('Impossible d’enregistrer la mise à jour.');
+    }
+    $expected = strtolower((string) strtok(trim((string) file_get_contents($checksum)), " \t"));
+    $actual = hash_file('sha256', $package);
+    if (!preg_match('/^[a-f0-9]{64}$/', $expected) || !hash_equals($expected, $actual)) {
+        @unlink($package);
+        @unlink($checksum);
+        fail('Le checksum SHA-256 de la mise à jour AML est invalide.');
+    }
+    output('Intégrité de la mise à jour vérifiée.');
+
+    if (!isNativeCliInstallation()) {
+        output('Cette installation est portable : remplacement automatique désactivé.');
+        output("Paquet vérifié disponible ici : {$package}");
+        exit(0);
+    }
+
+    if (PHP_OS_FAMILY === 'Windows') {
+        $command = 'cmd.exe /c start "" ' . escapeshellarg($package)
+            . ' /SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS';
+        pclose(popen($command, 'r'));
+        output('L’installateur Windows a été lancé. Terminez l’installation pour appliquer la mise à jour.');
+        exit(0);
+    }
+
+    $installCommand = PHP_OS_FAMILY === 'Darwin'
+        ? privilegedCommand('installer -pkg ' . escapeshellarg($package) . ' -target /')
+        : privilegedCommand('dpkg -i ' . escapeshellarg($package));
+    passthru($installCommand, $exitCode);
+    if ($exitCode !== 0) {
+        fail('L’installation de la mise à jour a échoué.', $exitCode);
+    }
+    @unlink($package);
+    @unlink($checksum);
+    @rmdir($directory);
+    output("AML v{$release['version']} a été installé avec succès.");
+    exit(0);
 }
 
 /** @return array{version: string, archive: string, checksum: string} */
@@ -638,6 +775,12 @@ switch ($command) {
             optionValue($arguments, '--version'),
             in_array('--refresh', $arguments, true),
             in_array('--offline', $arguments, true)
+        );
+    case 'update':
+        updateCli(
+            optionValue($arguments, '--version'),
+            in_array('--check', $arguments, true),
+            in_array('--force', $arguments, true)
         );
     case 'run':
         isset($arguments[1]) ? runScript($arguments[1]) : fail('Indiquez le nom du script.');

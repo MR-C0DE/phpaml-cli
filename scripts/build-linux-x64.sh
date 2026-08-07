@@ -2,7 +2,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-AML_VERSION=${AML_VERSION:-1.0.0}
+AML_VERSION=${AML_VERSION:-$(awk -F'"' '/"version"/ {print $4; exit}' "$ROOT/info.json")}
 SPC_VERSION=2.8.5
 SPC_SHA256=523ba4279c54c7a377156c0dd3a36adf92ee64b01e9a7f5e9e2ec084b8e458e5
 TOOLS="$ROOT/.tools"

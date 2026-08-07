@@ -8,6 +8,7 @@ $Build = Join-Path $Root 'windows-build'
 $Spc = Join-Path $Build 'spc.exe'
 $Package = Join-Path $Root 'dist\aml-windows-x64'
 $Composer = Join-Path $Build 'composer.phar'
+$Version = (Get-Content (Join-Path $Root 'info.json') -Raw | ConvertFrom-Json).version
 
 New-Item -ItemType Directory -Force -Path $Build, "$Package\bin", "$Package\runtime\php", "$Package\runtime\composer", "$Package\aml_env\bin" | Out-Null
 
@@ -57,10 +58,10 @@ Compress-Archive -Path "$Package\*" -DestinationPath $Zip -CompressionLevel Opti
 
 $Iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
 if (-not (Test-Path $Iscc)) { throw 'Inno Setup 6 est introuvable.' }
-& $Iscc (Join-Path $Root 'installer\windows\phpaml.iss')
+& $Iscc "/DMyAppVersion=$Version" (Join-Path $Root 'installer\windows\phpaml.iss')
 if ($LASTEXITCODE -ne 0) { throw "La création de l'installateur Windows a échoué." }
 
-$Installer = Join-Path $Root 'dist\phpaml-1.0.0-windows-x64.exe'
+$Installer = Join-Path $Root "dist\phpaml-$Version-windows-x64.exe"
 foreach ($Artifact in @($Zip, $Installer)) {
     $Hash = (Get-FileHash $Artifact -Algorithm SHA256).Hash.ToLowerInvariant()
     "$Hash  $([System.IO.Path]::GetFileName($Artifact))" | Set-Content "$Artifact.sha256" -Encoding ascii
