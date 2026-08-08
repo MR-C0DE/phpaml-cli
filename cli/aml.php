@@ -70,6 +70,7 @@ function showHelp(): void
     output('  serve [hôte:port]         Lance le serveur de développement');
     output('  install [options]         Installe moteur et dépendances dans aml_env');
     output('  update [options]          Met à jour l’environnement AML');
+    output('  doctor [options]          Vérifie l’installation et le projet courant');
     output('  routes                    Affiche les routes de l’application');
     output('  make:controller <nom>     Génère un contrôleur');
     output('  make:model <nom>          Génère un modèle');
@@ -91,6 +92,8 @@ function showHelp(): void
     output('  aml install');
     output('  aml install --version 0.1.0');
     output('  aml update --check');
+    output('  aml doctor');
+    output('  aml doctor --port 8080');
 }
 
 /** @return list<string> */
@@ -741,6 +744,182 @@ function runTests(): never
     exit($exitCode);
 }
 
+/** @param list<array{status: string, name: string, message: string}> $checks */
+function doctorAdd(array &$checks, string $status, string $name, string $message): void
+{
+    $checks[] = compact('status', 'name', 'message');
+}
+
+/** @return array{status: int, message: string} */
+function githubStatus(?string $version): array
+{
+    if (!extension_loaded('curl')) {
+        return ['status' => 0, 'message' => 'extension curl absente'];
+    }
+    $handle = curl_init('https://api.github.com/repos/MR-C0DE/phpaml-cli/releases/latest');
+    curl_setopt_array($handle, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_NOBODY => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_CONNECTTIMEOUT => 5,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_USERAGENT => 'AML-Doctor/' . ($version ?? 'development'),
+    ]);
+    curl_exec($handle);
+    $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+    $error = curl_error($handle);
+    curl_close($handle);
+    return ['status' => $status, 'message' => $error];
+}
+
+function doctor(?string $requestedPort, bool $offline, bool $json): never
+{
+    $checks = [];
+    $infoPath = PHPAML_FRAMEWORK_ROOT . '/info.json';
+    $infoContent = is_file($infoPath) ? file_get_contents($infoPath) : false;
+    $info = json_decode($infoContent ?: '', true);
+    $version = is_array($info) && is_string($info['version'] ?? null) ? $info['version'] : null;
+    doctorAdd(
+        $checks,
+        $version !== null ? 'ok' : 'error',
+        'AML',
+        $version !== null ? "version {$version}" : 'info.json absent ou invalide'
+    );
+
+    $phpSupported = version_compare(PHP_VERSION, '8.2.0', '>=');
+    doctorAdd(
+        $checks,
+        $phpSupported ? 'ok' : 'error',
+        'PHP',
+        PHP_VERSION . ($phpSupported ? ' compatible' : ' — PHP 8.2 ou supérieur requis')
+    );
+    doctorAdd($checks, is_executable(PHP_BINARY) ? 'ok' : 'error', 'Runtime PHP', PHP_BINARY);
+
+    $requiredExtensions = ['curl', 'json', 'mbstring', 'openssl', 'pdo', 'phar', 'tokenizer', 'zip'];
+    $missingExtensions = array_values(array_filter(
+        $requiredExtensions,
+        static fn (string $extension): bool => !extension_loaded($extension)
+    ));
+    doctorAdd(
+        $checks,
+        $missingExtensions === [] ? 'ok' : 'error',
+        'Extensions PHP',
+        $missingExtensions === [] ? 'toutes présentes' : 'absentes : ' . implode(', ', $missingExtensions)
+    );
+
+    $composer = PHPAML_FRAMEWORK_ROOT . '/runtime/composer/composer.phar';
+    doctorAdd(
+        $checks,
+        is_file($composer) && is_readable($composer) ? 'ok' : 'error',
+        'Composer privé',
+        is_file($composer) && is_readable($composer) ? 'disponible' : 'runtime/composer/composer.phar introuvable'
+    );
+
+    foreach (['aml_env/tmp' => 'Dossier temporaire', 'aml_env/cache' => 'Cache AML'] as $relative => $label) {
+        $directory = PHPAML_FRAMEWORK_ROOT . '/' . $relative;
+        $writable = is_dir($directory) && is_writable($directory);
+        doctorAdd(
+            $checks,
+            $writable ? 'ok' : 'error',
+            $label,
+            $writable ? 'accessible en écriture' : "{$directory} doit être accessible en écriture"
+        );
+    }
+
+    if ($offline) {
+        doctorAdd($checks, 'info', 'GitHub', 'contrôle ignoré (--offline)');
+    } else {
+        $github = githubStatus($version);
+        $connected = $github['status'] >= 200 && $github['status'] < 400;
+        $rateLimited = $github['status'] === 403 || $github['status'] === 429;
+        doctorAdd(
+            $checks,
+            $connected ? 'ok' : ($rateLimited ? 'warning' : 'error'),
+            'GitHub',
+            $connected ? "accessible (HTTP {$github['status']})"
+                : ($rateLimited ? "accessible, limite API atteinte (HTTP {$github['status']})"
+                    : ($github['message'] ?: "indisponible (HTTP {$github['status']})"))
+        );
+    }
+
+    $port = $requestedPort === null ? 8000 : filter_var($requestedPort, FILTER_VALIDATE_INT);
+    if ($port === false || $port < 1 || $port > 65535) {
+        doctorAdd($checks, 'error', 'Port de développement', 'le port doit être compris entre 1 et 65535');
+    } else {
+        $errno = 0;
+        $error = '';
+        $socket = @stream_socket_server("tcp://127.0.0.1:{$port}", $errno, $error);
+        doctorAdd(
+            $checks,
+            is_resource($socket) ? 'ok' : 'warning',
+            'Port de développement',
+            is_resource($socket) ? "127.0.0.1:{$port} disponible" : "127.0.0.1:{$port} occupé"
+        );
+        if (is_resource($socket)) {
+            fclose($socket);
+        }
+    }
+
+    $current = getcwd() ?: '';
+    $isProject = is_file($current . '/info.json') && is_file($current . '/index.php');
+    if (!$isProject) {
+        doctorAdd($checks, 'info', 'Projet', 'aucun projet PHPAML dans le dossier courant');
+    } else {
+        $projectInfoContent = file_get_contents($current . '/info.json');
+        $projectInfo = json_decode($projectInfoContent ?: '', true);
+        doctorAdd($checks, is_array($projectInfo) ? 'ok' : 'error', 'Projet', $current);
+        doctorAdd(
+            $checks,
+            is_file($current . '/configs/app.php') ? 'ok' : 'error',
+            'Configuration',
+            is_file($current . '/configs/app.php') ? 'configs/app.php présent' : 'configs/app.php absent'
+        );
+        doctorAdd(
+            $checks,
+            is_file($current . '/.env') ? 'ok' : 'warning',
+            'Environnement',
+            is_file($current . '/.env') ? '.env présent' : "créez .env à partir de .env.example"
+        );
+        $framework = $current . '/aml_env/framework/Autoloader.php';
+        $autoload = $current . '/aml_env/autoload.php';
+        $installed = is_file($framework) && is_file($autoload);
+        doctorAdd(
+            $checks,
+            $installed ? 'ok' : 'error',
+            'Moteur du projet',
+            $installed ? 'installé dans aml_env' : "absent — exécutez 'aml install'"
+        );
+        $storage = $current . '/aml_env/storage';
+        doctorAdd(
+            $checks,
+            is_dir($storage) && is_writable($storage) ? 'ok' : 'error',
+            'Stockage du projet',
+            is_dir($storage) && is_writable($storage) ? 'accessible en écriture' : 'aml_env/storage doit être accessible en écriture'
+        );
+    }
+
+    $errors = count(array_filter($checks, static fn (array $check): bool => $check['status'] === 'error'));
+    $warnings = count(array_filter($checks, static fn (array $check): bool => $check['status'] === 'warning'));
+    if ($json) {
+        output((string) json_encode(
+            ['healthy' => $errors === 0, 'errors' => $errors, 'warnings' => $warnings, 'checks' => $checks],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        ));
+    } else {
+        output('Diagnostic PHPAML');
+        output(str_repeat('─', 64));
+        $symbols = ['ok' => 'OK', 'warning' => 'ATTENTION', 'error' => 'ERREUR', 'info' => 'INFO'];
+        foreach ($checks as $check) {
+            output(str_pad('[' . $symbols[$check['status']] . ']', 12) . str_pad($check['name'], 24) . $check['message']);
+        }
+        output(str_repeat('─', 64));
+        output($errors === 0
+            ? "Diagnostic réussi avec {$warnings} avertissement(s)."
+            : "Diagnostic échoué : {$errors} erreur(s), {$warnings} avertissement(s).");
+    }
+    exit($errors === 0 ? 0 : 1);
+}
+
 $arguments = $_SERVER['argv'];
 array_shift($arguments);
 $command = $arguments[0] ?? 'help';
@@ -781,6 +960,12 @@ switch ($command) {
             optionValue($arguments, '--version'),
             in_array('--check', $arguments, true),
             in_array('--force', $arguments, true)
+        );
+    case 'doctor':
+        doctor(
+            optionValue($arguments, '--port'),
+            in_array('--offline', $arguments, true),
+            in_array('--json', $arguments, true)
         );
     case 'run':
         isset($arguments[1]) ? runScript($arguments[1]) : fail('Indiquez le nom du script.');

@@ -19,12 +19,27 @@ AML peut rechercher et installer le paquet natif correspondant au système :
 ```bash
 aml update --check
 aml update
-aml update --version 1.1.0
+aml update --version 1.2.0
 ```
 
 Chaque paquet est téléchargé depuis la release GitHub officielle et vérifié
 avec SHA-256 avant son installation. Une installation portable est détectée et
 n’est jamais remplacée automatiquement.
+
+## Diagnostic
+
+`aml doctor` contrôle l’installation autonome, PHP, Composer, les extensions,
+les permissions, GitHub, le port de développement et le projet courant :
+
+```bash
+aml doctor
+aml doctor --port 8080
+aml doctor --offline
+aml doctor --json
+```
+
+La commande termine avec un code différent de zéro lorsqu’un contrôle
+obligatoire échoue, ce qui permet aussi de l’utiliser en intégration continue.
 
 ## Création depuis GitHub
 
@@ -97,7 +112,7 @@ GitHub Actions construit une archive portable et un paquet Debian autonome :
 
 ```bash
 ./scripts/build-linux-x64.sh
-sudo dpkg -i dist/phpaml-1.1.0-linux-x64.deb
+sudo dpkg -i dist/phpaml-1.2.0-linux-x64.deb
 aml version
 ```
 
