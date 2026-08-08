@@ -13,3 +13,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test aml doctor
         run: ./tests/doctor-smoke.sh
+      - name: Test documentation
+        run: php ./tests/docs-smoke.php
