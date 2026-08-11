@@ -36,7 +36,8 @@ jobs:
           cp info.json .test-runtime/info.json
           AML_LANG=en php .test-runtime/aml_env/bin/aml.php help | grep -q "Usage: aml <command>"
           AML_LANG=fr php .test-runtime/aml_env/bin/aml.php help | grep -q "Utilisation : aml <commande>"
-          AML_LANG=en php .test-runtime/aml_env/bin/aml.php version | grep -q "1.3.0"
+          EXPECTED_VERSION=$(php -r '$i=json_decode(file_get_contents("info.json"), true); echo $i["version"];')
+          AML_LANG=en php .test-runtime/aml_env/bin/aml.php version | grep -q "$EXPECTED_VERSION"
       - name: Test documentation
         shell: bash
         run: php ./tests/docs-smoke.php
