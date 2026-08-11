@@ -30,7 +30,7 @@ printf '%s\n' "$ENGLISH" | grep -q '"name": "PHP extensions"'
 printf '%s\n' "$ENGLISH" | grep -q '"message": "all present"'
 
 mkdir -p "$FIXTURE/project/public" "$FIXTURE/project/configs" \
-    "$FIXTURE/project/aml_env/framework" "$FIXTURE/project/aml_env/storage" "$FIXTURE/project/aml_env/cache"
+    "$FIXTURE/project/aml_env/framework" "$FIXTURE/project/aml_env/storage/cache"
 cp "$ROOT/info.json" "$FIXTURE/project/info.json"
 touch "$FIXTURE/project/public/index.php" "$FIXTURE/project/configs/app.php" \
     "$FIXTURE/project/aml_env/framework/Autoloader.php" "$FIXTURE/project/aml_env/autoload.php"

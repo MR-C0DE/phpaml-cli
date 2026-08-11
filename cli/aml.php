@@ -584,20 +584,22 @@ function createProject(
             $info['name'] = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]+/', '-', $projectName));
             $content = json_encode($info, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
         }
-        if ($relative === 'composer.json') {
-            $composer = json_decode($content, true);
-            $composer['name'] = 'phpaml/' . strtolower((string) preg_replace('/[^a-zA-Z0-9_-]+/', '-', $projectName));
-            $content = json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
-        }
         file_put_contents($destinationPath, $content);
     }
 
     $zip->close();
 
-    output("Application '{$projectName}' créée avec PHPAML v{$template['version']} dans {$target}");
-    output($destination === '.'
-        ? 'Lancez : aml install && aml serve'
-        : "Lancez : cd {$destination} && aml install && aml serve");
+    if (currentLanguage() === 'en') {
+        output("Application '{$projectName}' created with PHPAML v{$template['version']} in {$target}");
+        output($destination === '.'
+            ? 'Run: aml install && aml serve'
+            : "Run: cd {$destination} && aml install && aml serve");
+    } else {
+        output("Application '{$projectName}' créée avec PHPAML v{$template['version']} dans {$target}");
+        output($destination === '.'
+            ? 'Lancez : aml install && aml serve'
+            : "Lancez : cd {$destination} && aml install && aml serve");
+    }
 }
 
 function serve(string $address): never
@@ -1067,7 +1069,9 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
             doctorAdd($checks, str_starts_with($appUrl, 'https://') ? 'ok' : 'error', 'HTTPS', $appUrl !== '' ? $appUrl : 'APP_URL HTTPS est absent');
             $appKey = trim($environment['APP_KEY'] ?? '');
             doctorAdd($checks, strlen($appKey) >= 32 ? 'ok' : 'error', 'Secret applicatif', strlen($appKey) >= 32 ? 'configuré' : 'APP_KEY doit contenir au moins 32 caractères');
-            doctorAdd($checks, is_dir($current . '/aml_env/cache') && is_writable($current . '/aml_env/cache') ? 'ok' : 'error', 'Cache de production', 'aml_env/cache doit être prêt et accessible en écriture');
+            $productionCache = $current . '/aml_env/storage/cache';
+            $cacheReady = is_dir($productionCache) && is_writable($productionCache);
+            doctorAdd($checks, $cacheReady ? 'ok' : 'error', 'Cache de production', $cacheReady ? 'prêt et accessible en écriture' : 'aml_env/storage/cache doit être prêt et accessible en écriture');
         }
         $framework = $current . '/aml_env/framework/Autoloader.php';
         $autoload = $current . '/aml_env/autoload.php';
