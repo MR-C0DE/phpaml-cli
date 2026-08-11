@@ -28,7 +28,7 @@ autonome AML.
 
 ## Version documentée
 
-Cette documentation décrit PHPAML CLI **1.2.x**, le modèle officiel et le
+Cette documentation décrit PHPAML CLI **1.3.x**, le modèle officiel et le
 moteur actuellement publiés. La version installée est visible avec :
 
 ```bash

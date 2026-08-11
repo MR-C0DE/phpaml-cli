@@ -8,10 +8,20 @@ on:
 
 jobs:
   doctor:
-    runs-on: ubuntu-24.04
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
     steps:
       - uses: actions/checkout@v4
+      - name: Validate PHP sources
+        shell: bash
+        run: find cli tests -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Test aml doctor
+        shell: bash
         run: ./tests/doctor-smoke.sh
       - name: Test documentation
+        shell: bash
         run: php ./tests/docs-smoke.php

@@ -40,8 +40,8 @@ Source: "..\..\dist\aml-windows-x64\*"; DestDir: "{app}"; Flags: ignoreversion r
 Name: "{group}\Terminal PHPAML"; Filename: "{cmd}"; Parameters: "/K aml help"; WorkingDir: "{userdocs}"
 
 [Run]
-Filename: "{app}\bin\{#MyAppExeName}"; Parameters: "language en"; Flags: runhidden; Check: Language = 'english'
-Filename: "{app}\bin\{#MyAppExeName}"; Parameters: "language fr"; Flags: runhidden; Check: Language = 'french'
+Filename: "{app}\bin\{#MyAppExeName}"; Parameters: "language en"; Flags: runhidden; Languages: english
+Filename: "{app}\bin\{#MyAppExeName}"; Parameters: "language fr"; Flags: runhidden; Languages: french
 Filename: "{app}\bin\{#MyAppExeName}"; Parameters: "version"; Description: "{cm:VerifyInstallation}"; Flags: postinstall runhidden
 
 [Code]
