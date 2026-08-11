@@ -29,4 +29,23 @@ ENGLISH=$(cd "${TMPDIR:-/tmp}" && AML_LANG=en php "$FIXTURE/aml_env/bin/aml.php"
 printf '%s\n' "$ENGLISH" | grep -q '"name": "PHP extensions"'
 printf '%s\n' "$ENGLISH" | grep -q '"message": "all present"'
 
+mkdir -p "$FIXTURE/project/public" "$FIXTURE/project/configs" \
+    "$FIXTURE/project/aml_env/framework" "$FIXTURE/project/aml_env/storage" "$FIXTURE/project/aml_env/cache"
+cp "$ROOT/info.json" "$FIXTURE/project/info.json"
+touch "$FIXTURE/project/public/index.php" "$FIXTURE/project/configs/app.php" \
+    "$FIXTURE/project/aml_env/framework/Autoloader.php" "$FIXTURE/project/aml_env/autoload.php"
+cat > "$FIXTURE/project/.env" <<'ENV'
+APP_ENV=production
+APP_DEBUG=true
+APP_URL=http://example.test
+APP_KEY=short
+ENV
+if PRODUCTION=$(cd "$FIXTURE/project" && AML_LANG=fr php "$FIXTURE/aml_env/bin/aml.php" doctor --offline --production --json); then
+    echo "aml doctor --production devait refuser la configuration non sécurisée." >&2
+    exit 1
+fi
+printf '%s\n' "$PRODUCTION" | grep -q '"name": "Mode debug"'
+printf '%s\n' "$PRODUCTION" | grep -q '"name": "HTTPS"'
+printf '%s\n' "$PRODUCTION" | grep -q '"name": "Secret applicatif"'
+
 echo "Tests aml doctor réussis."

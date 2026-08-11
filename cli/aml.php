@@ -115,6 +115,10 @@ function localize(string $message): string
         'Environnement' => 'Environment', 'créez .env à partir de .env.example' => 'create .env from .env.example',
         'Moteur du projet' => 'Project engine', 'installé dans aml_env' => 'installed in aml_env',
         'Stockage du projet' => 'Project storage', 'ou supérieur requis' => 'or later required',
+        'Mode debug' => 'Debug mode', 'désactivé' => 'disabled', 'est obligatoire en production' => 'is required in production',
+        'HTTPS' => 'HTTPS', 'est absent' => 'is missing', 'Secret applicatif' => 'Application secret',
+        'doit contenir au moins' => 'must contain at least', 'caractères' => 'characters',
+        'Cache de production' => 'Production cache', 'doit être prêt et accessible en écriture' => 'must be ready and writable',
     ]);
 }
 
@@ -133,7 +137,7 @@ function fail(string $message, int $code = 1): never
 function projectRoot(): string
 {
     $current = getcwd() ?: PHPAML_FRAMEWORK_ROOT;
-    if (is_file($current . '/info.json') && is_file($current . '/index.php')) {
+    if (is_file($current . '/info.json') && is_file($current . '/public/index.php')) {
         return $current;
     }
     fail("Le dossier courant n'est pas un projet PHPAML. Utilisez 'aml create .'.");
@@ -183,7 +187,7 @@ function showHelp(): void
             '  serve [host:port]        Start the development server',
             '  install [options]        Install the engine and dependencies into aml_env',
             '  update [options]         Update the AML environment',
-            '  doctor [options]         Check the installation and current project',
+            '  doctor [options]         Check the installation and current project (--production for deployment)',
             '  routes                   List application routes',
             '  make:controller <name>   Generate a controller',
             '  make:model <name>        Generate a model',
@@ -250,6 +254,7 @@ function showHelp(): void
     output('  aml install --version 0.1.0');
     output('  aml update --check');
     output('  aml doctor');
+    output('  aml doctor --production');
     output('  aml doctor --port 8080');
     output('  aml env:init');
     output('  aml env:set APP_DEBUG false');
@@ -259,7 +264,7 @@ function showHelp(): void
 /** @return list<string> */
 function scaffoldFiles(): array
 {
-    $files = ['index.php', 'info.json', 'readme', '.htaccess', '.gitignore'];
+    $files = ['info.json', 'readme', '.gitignore'];
     $files[] = '.env.example';
     $files[] = 'composer.json';
     $files[] = 'phpstan.neon';
@@ -937,7 +942,7 @@ function githubStatus(?string $version): array
     return ['status' => $status, 'message' => $error];
 }
 
-function doctor(?string $requestedPort, bool $offline, bool $json): never
+function doctor(?string $requestedPort, bool $offline, bool $json, bool $production = false): never
 {
     $checks = [];
     $infoPath = PHPAML_FRAMEWORK_ROOT . '/info.json';
@@ -1026,7 +1031,7 @@ function doctor(?string $requestedPort, bool $offline, bool $json): never
     }
 
     $current = getcwd() ?: '';
-    $isProject = is_file($current . '/info.json') && is_file($current . '/index.php');
+    $isProject = is_file($current . '/info.json') && is_file($current . '/public/index.php');
     if (!$isProject) {
         doctorAdd($checks, 'info', 'Projet', 'aucun projet PHPAML dans le dossier courant');
     } else {
@@ -1045,6 +1050,16 @@ function doctor(?string $requestedPort, bool $offline, bool $json): never
             'Environnement',
             is_file($current . '/.env') ? '.env présent' : "créez .env à partir de .env.example"
         );
+        $environment = readEnvValues($current . '/.env');
+        if ($production) {
+            $debugDisabled = strtolower($environment['APP_DEBUG'] ?? '') === 'false';
+            doctorAdd($checks, $debugDisabled ? 'ok' : 'error', 'Mode debug', $debugDisabled ? 'désactivé' : 'APP_DEBUG=false est obligatoire en production');
+            $appUrl = trim($environment['APP_URL'] ?? '');
+            doctorAdd($checks, str_starts_with($appUrl, 'https://') ? 'ok' : 'error', 'HTTPS', $appUrl !== '' ? $appUrl : 'APP_URL HTTPS est absent');
+            $appKey = trim($environment['APP_KEY'] ?? '');
+            doctorAdd($checks, strlen($appKey) >= 32 ? 'ok' : 'error', 'Secret applicatif', strlen($appKey) >= 32 ? 'configuré' : 'APP_KEY doit contenir au moins 32 caractères');
+            doctorAdd($checks, is_dir($current . '/aml_env/cache') && is_writable($current . '/aml_env/cache') ? 'ok' : 'error', 'Cache de production', 'aml_env/cache doit être prêt et accessible en écriture');
+        }
         $framework = $current . '/aml_env/framework/Autoloader.php';
         $autoload = $current . '/aml_env/autoload.php';
         $installed = is_file($framework) && is_file($autoload);
@@ -1279,7 +1294,8 @@ switch ($command) {
         doctor(
             optionValue($arguments, '--port'),
             in_array('--offline', $arguments, true),
-            in_array('--json', $arguments, true)
+            in_array('--json', $arguments, true),
+            in_array('--production', $arguments, true)
         );
     case 'run':
         isset($arguments[1]) ? runScript($arguments[1]) : fail('Indiquez le nom du script.');
