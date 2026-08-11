@@ -1,5 +1,21 @@
 # Référence de la commande AML
 
+## Langue du CLI
+
+Au premier lancement interactif, AML demande de choisir `English` ou
+`Français`. Le choix est enregistré pour toutes les commandes, y compris les
+messages d'erreur et de diagnostic.
+
+```bash
+aml language
+aml language en
+aml language fr
+```
+
+La variable temporaire `AML_LANG=en` ou `AML_LANG=fr` permet de remplacer la
+langue pour une seule exécution. L'installateur Windows présente également le
+choix de langue et le transmet au CLI.
+
 ## Projet et serveur
 
 | Commande | Description |
@@ -43,9 +59,28 @@ AML refuse de remplacer une classe existante.
 ## Base, cache et scripts
 
 ```bash
+aml env:init
+aml env:list
+aml env:get APP_DEBUG
+aml env:set APP_DEBUG false
+aml db:configure sqlite
+aml db:show
 aml migrate
 aml cache:clear
 aml run start
+```
+
+`aml env:init` copie `.env.example` vers `.env`. Utilisez `--force` seulement
+pour remplacer une configuration existante. `env:list` masque les mots de
+passe, secrets, clés et jetons.
+
+La configuration SQLite par défaut crée `aml_env/storage/database.sqlite` et
+enregistre `root`/`root` dans `.env` par convention. SQLite n'utilise toutefois
+pas ces identifiants. MySQL est aussi configurable :
+
+```bash
+aml db:configure mysql --host 127.0.0.1 --port 3306 \
+  --database phpaml --user root --password root
 ```
 
 `aml run <nom>` exécute une entrée de `scripts` déclarée dans `info.json`.
@@ -69,7 +104,7 @@ faire échouer un environnement autrement sain.
 aml version
 aml update --check
 aml update
-aml update --version 1.2.0
+aml update --version 1.3.0
 aml update --force
 ```
 

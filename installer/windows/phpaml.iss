@@ -12,6 +12,7 @@ AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={localappdata}\Programs\PHPAML
 DefaultGroupName=PHPAML
+ShowLanguageDialog=yes
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
@@ -24,6 +25,14 @@ WizardStyle=modern
 ChangesEnvironment=yes
 UninstallDisplayName=PHPAML
 
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "french"; MessagesFile: "compiler:Languages\French.isl"
+
+[CustomMessages]
+english.VerifyInstallation=Verify the PHPAML installation
+french.VerifyInstallation=Vérifier l’installation de PHPAML
+
 [Files]
 Source: "..\..\dist\aml-windows-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
@@ -31,7 +40,9 @@ Source: "..\..\dist\aml-windows-x64\*"; DestDir: "{app}"; Flags: ignoreversion r
 Name: "{group}\Terminal PHPAML"; Filename: "{cmd}"; Parameters: "/K aml help"; WorkingDir: "{userdocs}"
 
 [Run]
-Filename: "{app}\bin\{#MyAppExeName}"; Parameters: "version"; Description: "Vérifier l’installation de PHPAML"; Flags: postinstall runhidden
+Filename: "{app}\bin\{#MyAppExeName}"; Parameters: "language en"; Flags: runhidden; Check: Language = 'english'
+Filename: "{app}\bin\{#MyAppExeName}"; Parameters: "language fr"; Flags: runhidden; Check: Language = 'french'
+Filename: "{app}\bin\{#MyAppExeName}"; Parameters: "version"; Description: "{cm:VerifyInstallation}"; Flags: postinstall runhidden
 
 [Code]
 function UserPath(): string;

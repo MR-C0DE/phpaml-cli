@@ -5,14 +5,128 @@ declare(strict_types=1);
 
 define('PHPAML_FRAMEWORK_ROOT', dirname(__DIR__, 2));
 
+function languageFile(): string
+{
+    $base = PHP_OS_FAMILY === 'Windows'
+        ? (getenv('APPDATA') ?: getenv('USERPROFILE'))
+        : getenv('HOME');
+    return rtrim((string) ($base ?: sys_get_temp_dir()), '/\\') . '/.phpaml/language';
+}
+
+function currentLanguage(): string
+{
+    static $language = null;
+    if (is_string($language)) {
+        return $language;
+    }
+    $fromEnvironment = strtolower((string) (getenv('AML_LANG') ?: ''));
+    if (in_array($fromEnvironment, ['en', 'fr'], true)) {
+        return $language = $fromEnvironment;
+    }
+    $path = languageFile();
+    if (is_file($path)) {
+        $saved = strtolower(trim((string) file_get_contents($path)));
+        if (in_array($saved, ['en', 'fr'], true)) {
+            return $language = $saved;
+        }
+    }
+    $arguments = $_SERVER['argv'] ?? [];
+    $interactive = function_exists('stream_isatty') && stream_isatty(STDIN);
+    if ($interactive && (($arguments[1] ?? '') !== 'language')) {
+        fwrite(STDOUT, "Choose your language / Choisissez votre langue:\n  1) English\n  2) Français\n> ");
+        $answer = strtolower(trim((string) fgets(STDIN)));
+        $language = in_array($answer, ['2', 'fr', 'français', 'francais'], true) ? 'fr' : 'en';
+        saveLanguage($language, false);
+        return $language;
+    }
+    return $language = 'en';
+}
+
+function saveLanguage(string $language, bool $announce = true): void
+{
+    $language = strtolower($language);
+    if (!in_array($language, ['en', 'fr'], true)) {
+        fwrite(STDERR, "Error / Erreur: supported languages are en and fr.\n");
+        exit(1);
+    }
+    $path = languageFile();
+    if (!is_dir(dirname($path)) && !mkdir(dirname($path), 0775, true) && !is_dir(dirname($path))) {
+        fwrite(STDERR, "Error / Erreur: unable to save the language.\n");
+        exit(1);
+    }
+    file_put_contents($path, $language . PHP_EOL);
+    if ($announce) {
+        fwrite(STDOUT, $language === 'fr' ? "✓ Langue définie : français\n" : "✓ Language set: English\n");
+    }
+}
+
+function localize(string $message): string
+{
+    if (currentLanguage() === 'fr' || $message === '') {
+        return $message;
+    }
+    return strtr($message, [
+        'Le dossier courant n\'est pas un projet PHPAML.' => 'The current directory is not a PHPAML project.',
+        'Utilisez' => 'Use', 'Exécutez' => 'Run', 'Indiquez' => 'Provide',
+        'L\'environnement AML est absent.' => 'The AML environment is missing.',
+        'est introuvable ou invalide' => 'is missing or invalid', 'est introuvable' => 'is missing',
+        'Téléchargement impossible' => 'Download failed', 'La réponse de GitHub' => 'The GitHub response',
+        'est invalide' => 'is invalid', 'Aucune mise à jour automatique' => 'No automatic update',
+        'n’est disponible pour cette plateforme' => 'is available for this platform',
+        'ne contient pas' => 'does not contain', 'déjà à jour' => 'already up to date',
+        'Mise à jour disponible' => 'Update available', 'Impossible de créer' => 'Unable to create',
+        'Téléchargement de' => 'Downloading', 'Impossible d’enregistrer' => 'Unable to save',
+        'Le checksum SHA-256' => 'The SHA-256 checksum', 'Intégrité de la mise à jour vérifiée.' => 'Update integrity verified.',
+        'Cette installation est portable' => 'This is a portable installation', 'remplacement automatique désactivé' => 'automatic replacement disabled',
+        'Paquet vérifié disponible ici' => 'Verified package available here', 'a été lancé' => 'was launched',
+        'Terminez l’installation' => 'Complete the installation', 'a échoué' => 'failed',
+        'a été installé avec succès' => 'was installed successfully', 'Aucun modèle PHPAML' => 'No PHPAML template',
+        'hors connexion' => 'offline', 'est corrompu' => 'is corrupted', 'Le nom du projet est invalide.' => 'The project name is invalid.',
+        'Impossible d\'ouvrir' => 'Unable to open', 'contient un chemin non sécurisé' => 'contains an unsafe path',
+        'Création annulée pour éviter un écrasement' => 'Creation cancelled to prevent overwriting',
+        'Impossible d\'extraire' => 'Unable to extract', 'Application' => 'Application', 'créée avec' => 'created with',
+        'Adresse invalide' => 'Invalid address', 'Le port doit être compris entre' => 'The port must be between',
+        'Les dépendances sont absentes.' => 'Dependencies are missing.', 'écoute sur' => 'is listening at',
+        'Utilisez Ctrl+C pour arrêter le serveur.' => 'Use Ctrl+C to stop the server.',
+        'Composer privé est absent' => 'Private Composer is missing', 'Préparation de l’environnement' => 'Preparing the environment',
+        'Environnement AML installé avec succès.' => 'AML environment installed successfully.',
+        'Aucun moteur PHPAML' => 'No PHPAML engine', 'est incomplète' => 'is incomplete',
+        'Script' => 'Script', 'inconnu' => 'unknown', 'Scripts disponibles' => 'Available scripts',
+        'Aucune route trouvée.' => 'No routes found.', 'MÉTHODE' => 'METHOD', 'Le nom de classe est invalide.' => 'The class name is invalid.',
+        'existe déjà' => 'already exists', 'Créé :' => 'Created:', 'Le nom de migration est invalide.' => 'The migration name is invalid.',
+        'Aucune migration en attente.' => 'No pending migrations.', 'Migrée :' => 'Migrated:', 'Cache vidé.' => 'Cache cleared.',
+        'Diagnostic PHPAML' => 'PHPAML diagnostics', 'Diagnostic réussi' => 'Diagnostics passed', 'avertissement' => 'warning',
+        'Diagnostic échoué' => 'Diagnostics failed', 'erreur' => 'error', 'L\'option' => 'Option', 'nécessite une valeur' => 'requires a value',
+        '.env existe déjà.' => '.env already exists.', 'pour le remplacer' => 'to replace it', 'Impossible de modifier' => 'Unable to update',
+        'créé depuis' => 'created from', 'mis à jour' => 'updated', 'est absent ou vide' => 'is missing or empty',
+        'Variable inconnue' => 'Unknown variable', 'Pilote non pris en charge' => 'Unsupported driver',
+        'Configuration de la base de données' => 'Database configuration', 'Pilote' => 'Driver', 'Utilisateur' => 'Username',
+        'Mot de passe' => 'Password', 'non défini' => 'not set', '(vide)' => '(empty)', 'prêt' => 'ready', 'configuré' => 'configured',
+        'Commande inconnue' => 'Unknown command', 'version inconnue' => 'unknown version', 'Clé invalide' => 'Invalid key',
+        'utilisez des majuscules, chiffres et underscores' => 'use uppercase letters, digits, and underscores',
+        'Extensions PHP' => 'PHP extensions', 'toutes présentes' => 'all present', 'absentes :' => 'missing:',
+        'Composer privé' => 'Private Composer', 'disponible' => 'available', 'introuvable' => 'not found',
+        'Dossier temporaire' => 'Temporary directory', 'doit être accessible en écriture' => 'must be writable',
+        'accessible en écriture' => 'writable', 'contrôle ignoré' => 'check skipped',
+        'limite API atteinte' => 'API limit reached', 'indisponible' => 'unavailable',
+        'Port de développement' => 'Development port', 'occupé' => 'in use',
+        'Projet' => 'Project', 'aucun projet PHPAML dans le dossier courant' => 'no PHPAML project in the current directory',
+        'Configuration' => 'Configuration', 'présent' => 'present', 'absent' => 'missing',
+        'Environnement' => 'Environment', 'créez .env à partir de .env.example' => 'create .env from .env.example',
+        'Moteur du projet' => 'Project engine', 'installé dans aml_env' => 'installed in aml_env',
+        'Stockage du projet' => 'Project storage', 'ou supérieur requis' => 'or later required',
+    ]);
+}
+
 function output(string $message = ''): void
 {
-    fwrite(STDOUT, $message . PHP_EOL);
+    fwrite(STDOUT, localize($message) . PHP_EOL);
 }
 
 function fail(string $message, int $code = 1): never
 {
-    fwrite(STDERR, "Erreur : {$message}" . PHP_EOL);
+    $prefix = currentLanguage() === 'fr' ? 'Erreur' : 'Error';
+    fwrite(STDERR, $prefix . ' : ' . localize($message) . PHP_EOL);
     exit($code);
 }
 
@@ -61,6 +175,42 @@ function projectInfo(?string $root = null): array
 
 function showHelp(): void
 {
+    if (currentLanguage() === 'en') {
+        foreach ([
+            'AML — PHPAML command-line interface', '',
+            'Usage: aml <command> [options]', '', 'Commands:',
+            '  create <directory>       Create an application (use . for the current directory)',
+            '  serve [host:port]        Start the development server',
+            '  install [options]        Install the engine and dependencies into aml_env',
+            '  update [options]         Update the AML environment',
+            '  doctor [options]         Check the installation and current project',
+            '  routes                   List application routes',
+            '  make:controller <name>   Generate a controller',
+            '  make:model <name>        Generate a model',
+            '  make:middleware <name>   Generate middleware',
+            '  make:migration <name>    Generate a migration',
+            '  migrate                  Run pending migrations',
+            '  db:configure [driver]    Configure the database (sqlite or mysql)',
+            '  db:show                  Show database configuration',
+            '  env:init [--force]       Create .env from .env.example',
+            '  env:list                 List .env variables',
+            '  env:get <key>            Read an .env variable',
+            '  env:set <key> <value>    Create or update an .env variable',
+            '  language [en|fr]         Show or change the CLI language',
+            '  cache:clear              Clear the application cache',
+            '  run <script>             Run a script declared in info.json',
+            '  test                     Run automated tests',
+            '  version                  Show the framework version',
+            '  help                     Show this help', '', 'Examples:',
+            '  aml create .', '  aml create my-project', '  aml serve 127.0.0.1:8080',
+            '  aml install', '  aml update --check', '  aml doctor',
+            '  aml env:init', '  aml env:set APP_DEBUG false',
+            '  aml db:configure sqlite', '  aml language fr',
+        ] as $line) {
+            output($line);
+        }
+        return;
+    }
     output('AML — interface en ligne de commande de PHPAML');
     output();
     output('Utilisation : aml <commande> [options]');
@@ -77,6 +227,13 @@ function showHelp(): void
     output('  make:middleware <nom>     Génère un middleware');
     output('  make:migration <nom>      Génère une migration');
     output('  migrate                   Exécute les migrations en attente');
+    output('  db:configure [pilote]     Configure la base (sqlite ou mysql)');
+    output('  db:show                   Affiche la configuration de la base');
+    output('  env:init [--force]        Crée .env depuis .env.example');
+    output('  env:list                  Affiche les variables de .env');
+    output('  env:get <clé>             Lit une variable de .env');
+    output('  env:set <clé> <valeur>    Crée ou modifie une variable de .env');
+    output('  language [en|fr]          Affiche ou change la langue du CLI');
     output('  cache:clear               Vide le cache de l’application');
     output('  run <script>              Exécute un script déclaré dans info.json');
     output('  test                      Exécute les tests automatisés');
@@ -94,6 +251,9 @@ function showHelp(): void
     output('  aml update --check');
     output('  aml doctor');
     output('  aml doctor --port 8080');
+    output('  aml env:init');
+    output('  aml env:set APP_DEBUG false');
+    output('  aml db:configure sqlite');
 }
 
 /** @return list<string> */
@@ -747,6 +907,8 @@ function runTests(): never
 /** @param list<array{status: string, name: string, message: string}> $checks */
 function doctorAdd(array &$checks, string $status, string $name, string $message): void
 {
+    $name = localize($name);
+    $message = localize($message);
     $checks[] = compact('status', 'name', 'message');
 }
 
@@ -908,7 +1070,9 @@ function doctor(?string $requestedPort, bool $offline, bool $json): never
     } else {
         output('Diagnostic PHPAML');
         output(str_repeat('─', 64));
-        $symbols = ['ok' => 'OK', 'warning' => 'ATTENTION', 'error' => 'ERREUR', 'info' => 'INFO'];
+        $symbols = currentLanguage() === 'fr'
+            ? ['ok' => 'OK', 'warning' => 'ATTENTION', 'error' => 'ERREUR', 'info' => 'INFO']
+            : ['ok' => 'OK', 'warning' => 'WARNING', 'error' => 'ERROR', 'info' => 'INFO'];
         foreach ($checks as $check) {
             output(str_pad('[' . $symbols[$check['status']] . ']', 12) . str_pad($check['name'], 24) . $check['message']);
         }
@@ -936,7 +1100,154 @@ function optionValue(array $arguments, string $option): ?string
     return $arguments[$position + 1];
 }
 
+function envFilePath(): string
+{
+    return projectRoot() . '/.env';
+}
+
+/** @return array<string, string> */
+function readEnvValues(string $path): array
+{
+    $values = [];
+    if (!is_file($path)) {
+        return $values;
+    }
+    foreach (file($path, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+        $line = trim($line);
+        if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) {
+            continue;
+        }
+        [$key, $value] = explode('=', $line, 2);
+        $values[trim($key)] = trim($value);
+    }
+    return $values;
+}
+
+function envInit(bool $force = false): void
+{
+    $root = projectRoot();
+    $target = $root . '/.env';
+    $example = $root . '/.env.example';
+    if (is_file($target) && !$force) {
+        fail(".env existe déjà. Utilisez 'aml env:init --force' pour le remplacer.");
+    }
+    if (!is_file($example)) {
+        fail(".env.example est introuvable.");
+    }
+    if (!copy($example, $target)) {
+        fail("Impossible de créer .env.");
+    }
+    output('✓ .env créé depuis .env.example');
+}
+
+function envSet(string $key, string $value): void
+{
+    if (preg_match('/^[A-Z_][A-Z0-9_]*$/', $key) !== 1) {
+        fail("Clé invalide : utilisez des majuscules, chiffres et underscores.");
+    }
+    $path = envFilePath();
+    if (!is_file($path)) {
+        envInit();
+    }
+    $lines = file($path, FILE_IGNORE_NEW_LINES) ?: [];
+    $escaped = str_replace(["\r", "\n"], '', $value);
+    $replacement = $key . '=' . $escaped;
+    $found = false;
+    foreach ($lines as &$line) {
+        if (preg_match('/^\s*' . preg_quote($key, '/') . '\s*=/', $line) === 1) {
+            $line = $replacement;
+            $found = true;
+            break;
+        }
+    }
+    unset($line);
+    if (!$found) {
+        $lines[] = $replacement;
+    }
+    if (file_put_contents($path, implode(PHP_EOL, $lines) . PHP_EOL) === false) {
+        fail("Impossible de modifier .env.");
+    }
+    output("✓ {$key} mis à jour");
+}
+
+function envList(): void
+{
+    $values = readEnvValues(envFilePath());
+    if ($values === []) {
+        fail(".env est absent ou vide. Exécutez 'aml env:init'.");
+    }
+    foreach ($values as $key => $value) {
+        $display = preg_match('/(PASSWORD|SECRET|TOKEN|KEY)$/', $key) === 1 && $value !== ''
+            ? str_repeat('*', 8)
+            : $value;
+        output(str_pad($key, 24) . $display);
+    }
+}
+
+function envGet(string $key): void
+{
+    $values = readEnvValues(envFilePath());
+    if (!array_key_exists($key, $values)) {
+        fail("Variable inconnue : {$key}.");
+    }
+    output($values[$key]);
+}
+
+function configureDatabase(string $driver, array $arguments): void
+{
+    $driver = strtolower($driver);
+    if ($driver === 'sqlite') {
+        $relativePath = optionValue($arguments, '--path') ?? 'aml_env/storage/database.sqlite';
+        $absolutePath = str_starts_with($relativePath, DIRECTORY_SEPARATOR)
+            ? $relativePath
+            : projectRoot() . '/' . ltrim($relativePath, '/\\');
+        $directory = dirname($absolutePath);
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+            fail("Impossible de créer {$directory}.");
+        }
+        if (!is_file($absolutePath) && touch($absolutePath) === false) {
+            fail("Impossible de créer {$absolutePath}.");
+        }
+        envSet('DATABASE_DRIVER', 'sqlite');
+        envSet('DATABASE_DSN', 'sqlite:' . $relativePath);
+        envSet('DATABASE_USER', optionValue($arguments, '--user') ?? 'root');
+        envSet('DATABASE_PASSWORD', optionValue($arguments, '--password') ?? 'root');
+        output("✓ SQLite prêt : {$relativePath}");
+        return;
+    }
+    if ($driver === 'mysql') {
+        $host = optionValue($arguments, '--host') ?? '127.0.0.1';
+        $port = optionValue($arguments, '--port') ?? '3306';
+        $database = optionValue($arguments, '--database') ?? 'phpaml';
+        envSet('DATABASE_DRIVER', 'mysql');
+        envSet('DATABASE_DSN', "mysql:host={$host};port={$port};dbname={$database};charset=utf8mb4");
+        envSet('DATABASE_USER', optionValue($arguments, '--user') ?? 'root');
+        envSet('DATABASE_PASSWORD', optionValue($arguments, '--password') ?? 'root');
+        output("✓ MySQL configuré : {$host}:{$port}/{$database}");
+        return;
+    }
+    fail("Pilote non pris en charge : {$driver}. Utilisez sqlite ou mysql.");
+}
+
+function showDatabaseConfig(): void
+{
+    $values = readEnvValues(envFilePath());
+    output('Configuration de la base de données');
+    output('  Pilote       : ' . ($values['DATABASE_DRIVER'] ?? 'sqlite'));
+    output('  DSN          : ' . ($values['DATABASE_DSN'] ?? 'non défini'));
+    output('  Utilisateur  : ' . ($values['DATABASE_USER'] ?? ''));
+    output('  Mot de passe : ' . (isset($values['DATABASE_PASSWORD']) && $values['DATABASE_PASSWORD'] !== '' ? '********' : '(vide)'));
+}
+
 switch ($command) {
+    case 'language':
+    case 'lang':
+        if (isset($arguments[1])) {
+            saveLanguage($arguments[1]);
+        } else {
+            output(currentLanguage() === 'fr' ? 'Langue actuelle : français' : 'Current language: English');
+        }
+        break;
     case 'create':
         $destination = isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : '.';
         createProject(
@@ -984,6 +1295,26 @@ switch ($command) {
         break;
     case 'migrate':
         migrate();
+        break;
+    case 'db:configure':
+        configureDatabase($arguments[1] ?? 'sqlite', $arguments);
+        break;
+    case 'db:show':
+        showDatabaseConfig();
+        break;
+    case 'env:init':
+        envInit(in_array('--force', $arguments, true));
+        break;
+    case 'env:list':
+        envList();
+        break;
+    case 'env:get':
+        isset($arguments[1]) ? envGet($arguments[1]) : fail('Indiquez la clé à lire.');
+        break;
+    case 'env:set':
+        isset($arguments[1], $arguments[2])
+            ? envSet($arguments[1], $arguments[2])
+            : fail('Utilisation : aml env:set <clé> <valeur>.');
         break;
     case 'cache:clear':
         clearCache();

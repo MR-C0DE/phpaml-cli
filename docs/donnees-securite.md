@@ -6,9 +6,31 @@ Le modèle charge `.env` avant `configs/app.php` :
 
 ```dotenv
 APP_DEBUG=true
-DATABASE_DSN=sqlite:/chemin/vers/database.sqlite
-DATABASE_USER=
-DATABASE_PASSWORD=
+DATABASE_DRIVER=sqlite
+DATABASE_DSN=sqlite:aml_env/storage/database.sqlite
+DATABASE_USER=root
+DATABASE_PASSWORD=root
+```
+
+SQLite fonctionne sans authentification : les valeurs `root`/`root` sont
+conservées comme convention de développement et pour faciliter un passage à
+MySQL. La configuration peut être créée et modifiée entièrement avec AML :
+
+```bash
+aml env:init
+aml env:set APP_DEBUG false
+aml env:get APP_DEBUG
+aml env:list
+aml db:configure sqlite
+aml db:configure sqlite --path storage/app.sqlite
+aml db:show
+```
+
+Pour MySQL :
+
+```bash
+aml db:configure mysql --host 127.0.0.1 --port 3306 \
+  --database phpaml --user root --password root
 ```
 
 Lecture dans la configuration :
