@@ -673,6 +673,13 @@ function installModules(
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
+    if ($version === null) {
+        $project = projectInfo($root);
+        $declaredFramework = $project['aml']['framework'] ?? null;
+        if (is_string($declaredFramework) && trim($declaredFramework) !== '') {
+            $version = ltrim(trim($declaredFramework), 'v');
+        }
+    }
     $bundledComposer = PHPAML_FRAMEWORK_ROOT . '/runtime/composer/composer.phar';
     if (is_file($bundledComposer)) {
         $composer = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($bundledComposer);

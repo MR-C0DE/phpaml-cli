@@ -50,6 +50,18 @@ aml doctor
 
 Le paquet installe AML dans `/opt/phpaml` et crée `/usr/local/bin/aml`.
 
+## Installer un projet
+
+Depuis la racine d’un projet créé par AML :
+
+```bash
+aml install
+```
+
+Le modèle déclare sa version compatible du moteur dans `info.json`. AML la
+sélectionne automatiquement. Une option `--version` donnée explicitement reste
+prioritaire.
+
 ## Archives portables
 
 Chaque release propose aussi :
