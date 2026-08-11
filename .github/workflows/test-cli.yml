@@ -16,12 +16,24 @@ jobs:
         os: [ubuntu-24.04, macos-14, windows-2022]
     steps:
       - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, pdo, pdo_sqlite
       - name: Validate PHP sources
         shell: bash
         run: find cli tests -name '*.php' -print0 | xargs -0 -n1 php -l
-      - name: Test aml doctor
+      - name: Test aml doctor on Unix
+        if: runner.os != 'Windows'
         shell: bash
         run: ./tests/doctor-smoke.sh
+      - name: Test bilingual CLI on Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          AML_LANG=en php cli/aml.php help | grep -q "Usage: aml <command>"
+          AML_LANG=fr php cli/aml.php help | grep -q "Utilisation : aml <commande>"
+          AML_LANG=en php cli/aml.php version | grep -q "1.3.0"
       - name: Test documentation
         shell: bash
         run: php ./tests/docs-smoke.php
