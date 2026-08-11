@@ -24,6 +24,7 @@ printf '%s\n' "$BROKEN" | grep -q '"healthy": false'
 printf '%s\n' "$BROKEN" | grep -q 'Composer privé'
 printf '%s\n' "$BROKEN" | grep -q 'le port doit être compris entre 1 et 65535'
 
+touch "$FIXTURE/runtime/composer/composer.phar"
 ENGLISH=$(cd "${TMPDIR:-/tmp}" && AML_LANG=en php "$FIXTURE/aml_env/bin/aml.php" doctor --offline --json)
 printf '%s\n' "$ENGLISH" | grep -q '"name": "PHP extensions"'
 printf '%s\n' "$ENGLISH" | grep -q '"message": "all present"'
