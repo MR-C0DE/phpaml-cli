@@ -120,6 +120,24 @@ function localize(string $message): string
         'HTTPS' => 'HTTPS', 'est absent' => 'is missing', 'Secret applicatif' => 'Application secret',
         'doit contenir au moins' => 'must contain at least', 'caractères' => 'characters',
         'Cache de production' => 'Production cache', 'doit être prêt et accessible en écriture' => 'must be ready and writable',
+        'La configuration SEO est absente.' => 'SEO configuration is missing.', 'La configuration SEO est invalide.' => 'SEO configuration is invalid.',
+        'Impossible d’enregistrer la configuration SEO.' => 'Unable to save SEO configuration.',
+        'existe déjà.' => 'already exists.', 'pour le remplacer' => 'to replace it',
+        'Configuration SEO créée' => 'SEO configuration created', 'Clé SEO inconnue' => 'Unknown SEO key',
+        'Valeurs acceptées' => 'Accepted values', 'L’URL de base SEO est invalide.' => 'The SEO base URL is invalid.',
+        'Cette valeur SEO ne peut pas être vide.' => 'This SEO value cannot be empty.', 'mis à jour' => 'updated',
+        'Configurez une base_url SEO valide avant la génération.' => 'Configure a valid SEO base_url before generation.',
+        'public/robots.txt et public/sitemap.xml générés' => 'public/robots.txt and public/sitemap.xml generated',
+        'Impossible d’enregistrer public/sitemap.xml.' => 'Unable to save public/sitemap.xml.',
+        'Impossible d’enregistrer public/robots.txt.' => 'Unable to save public/robots.txt.',
+        'L’URL à auditer est invalide.' => 'The audit URL is invalid.',
+        'Audit SEO impossible' => 'SEO audit failed', 'manquant' => 'missing', 'caractères' => 'characters',
+        'Le fichier HTML à auditer est introuvable ou illisible.' => 'The HTML file to audit is missing or unreadable.',
+        'Impossible de lire le fichier HTML à auditer.' => 'Unable to read the HTML file to audit.',
+        'Le chemin SEO doit commencer par /.' => 'The SEO path must start with /.',
+        'Le chemin SEO contient des caractères interdits.' => 'The SEO path contains forbidden characters.',
+        'La règle SEO doit être allow ou disallow.' => 'The SEO rule must be allow or disallow.',
+        'Règle SEO ajoutée' => 'SEO rule added', 'Règle SEO supprimée' => 'SEO rule removed',
     ]);
 }
 
@@ -198,6 +216,14 @@ function showHelp(): void
             '  migrate:rollback         Roll back the latest migration (--steps N)',
             '  db:configure [driver]    Configure the database (sqlite or mysql)',
             '  db:show                  Show database configuration',
+            '  seo:init                 Create the SEO configuration',
+            '  seo:set <key> <value>    Update an SEO setting',
+            '  seo:show                 Show the SEO configuration',
+            '  seo:allow <path>         Allow crawlers on a path',
+            '  seo:disallow <path>      Block crawlers on a path',
+            '  seo:remove <rule> <path> Remove an allow/disallow rule',
+            '  seo:generate             Generate robots.txt and sitemap.xml',
+            '  seo:audit [url]          Audit SEO metadata (--json, --file)',
             '  env:init [--force]       Create .env from .env.example',
             '  env:list                 List .env variables',
             '  env:get <key>            Read an .env variable',
@@ -236,6 +262,14 @@ function showHelp(): void
     output('  migrate:rollback          Annule la dernière migration (--steps N)');
     output('  db:configure [pilote]     Configure la base (sqlite ou mysql)');
     output('  db:show                   Affiche la configuration de la base');
+    output('  seo:init                  Crée la configuration SEO');
+    output('  seo:set <clé> <valeur>    Modifie un réglage SEO');
+    output('  seo:show                  Affiche la configuration SEO');
+    output('  seo:allow <chemin>        Autorise l’exploration d’un chemin');
+    output('  seo:disallow <chemin>     Bloque l’exploration d’un chemin');
+    output('  seo:remove <règle> <chemin> Supprime une règle allow/disallow');
+    output('  seo:generate              Génère robots.txt et sitemap.xml');
+    output('  seo:audit [url]           Audite les métadonnées SEO (--json, --file)');
     output('  env:init [--force]        Crée .env depuis .env.example');
     output('  env:list                  Affiche les variables de .env');
     output('  env:get <clé>             Lit une variable de .env');
@@ -1270,6 +1304,270 @@ function showDatabaseConfig(): void
     output('  Mot de passe : ' . (isset($values['DATABASE_PASSWORD']) && $values['DATABASE_PASSWORD'] !== '' ? '********' : '(vide)'));
 }
 
+function seoConfigPath(): string
+{
+    return projectRoot() . '/configs/seo.json';
+}
+
+/** @return array<string, mixed> */
+function seoConfig(): array
+{
+    $path = seoConfigPath();
+    if (!is_file($path)) {
+        fail("La configuration SEO est absente. Exécutez 'aml seo:init'.");
+    }
+    try {
+        $config = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+    } catch (JsonException) {
+        fail('La configuration SEO est invalide.');
+    }
+    if (!is_array($config)) {
+        fail('La configuration SEO est invalide.');
+    }
+    return $config;
+}
+
+/** @param array<string, mixed> $config */
+function writeSeoConfig(array $config): void
+{
+    $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    if (file_put_contents(seoConfigPath(), $json . PHP_EOL, LOCK_EX) === false) {
+        fail('Impossible d’enregistrer la configuration SEO.');
+    }
+}
+
+function seoInit(bool $force = false): void
+{
+    $path = seoConfigPath();
+    if (is_file($path) && !$force) {
+        fail("configs/seo.json existe déjà. Utilisez 'aml seo:init --force' pour le remplacer.");
+    }
+    $environment = readEnvValues(projectRoot() . '/.env');
+    $info = projectInfo();
+    $name = (string) ($info['name'] ?? 'PHPAML application');
+    writeSeoConfig([
+        'site_name' => $name,
+        'title' => $name,
+        'description' => '',
+        'base_url' => rtrim((string) ($environment['APP_URL'] ?? 'http://localhost:8000'), '/'),
+        'locale' => currentLanguage() === 'fr' ? 'fr_CA' : 'en_CA',
+        'robots' => 'index,follow',
+        'image' => '',
+        'twitter_card' => 'summary_large_image',
+        'type' => 'WebSite',
+        'author' => '',
+        'theme_color' => '#6d28d9',
+        'allow' => ['/'],
+        'disallow' => [],
+    ]);
+    output('✓ Configuration SEO créée : configs/seo.json');
+}
+
+function seoSet(string $key, string $value): void
+{
+    $allowed = ['site_name', 'title', 'description', 'base_url', 'locale', 'robots', 'image', 'twitter_card', 'type', 'author', 'theme_color'];
+    if (!in_array($key, $allowed, true)) {
+        fail('Clé SEO inconnue : ' . $key . '. Valeurs acceptées : ' . implode(', ', $allowed));
+    }
+    if ($key === 'base_url' && filter_var($value, FILTER_VALIDATE_URL) === false) {
+        fail('L’URL de base SEO est invalide.');
+    }
+    if (in_array($key, ['title', 'site_name'], true) && trim($value) === '') {
+        fail('Cette valeur SEO ne peut pas être vide.');
+    }
+    $config = seoConfig();
+    $config[$key] = trim(str_replace(["\r", "\n"], ' ', $value));
+    writeSeoConfig($config);
+    output("✓ SEO {$key} mis à jour");
+}
+
+function seoShow(bool $json): void
+{
+    $config = seoConfig();
+    if ($json) {
+        output((string) json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return;
+    }
+    output(currentLanguage() === 'fr' ? 'Configuration SEO' : 'SEO configuration');
+    foreach ($config as $key => $value) {
+        $display = is_array($value) ? implode(', ', array_filter($value, 'is_scalar')) : (is_scalar($value) ? (string) $value : '');
+        output(str_pad((string) $key, 18) . $display);
+    }
+}
+
+function normalizeSeoPath(string $path): string
+{
+    $path = trim($path);
+    if ($path === '' || !str_starts_with($path, '/')) {
+        fail('Le chemin SEO doit commencer par /.');
+    }
+    if (preg_match('/[\r\n#]/', $path)) {
+        fail('Le chemin SEO contient des caractères interdits.');
+    }
+    return $path;
+}
+
+function seoRule(string $rule, string $path, bool $remove = false): void
+{
+    if (!in_array($rule, ['allow', 'disallow'], true)) {
+        fail('La règle SEO doit être allow ou disallow.');
+    }
+    $path = normalizeSeoPath($path);
+    $config = seoConfig();
+    $rules = is_array($config[$rule] ?? null) ? $config[$rule] : [];
+    $rules = array_values(array_unique(array_filter($rules, 'is_string')));
+    if ($remove) {
+        $rules = array_values(array_filter($rules, static fn (string $item): bool => $item !== $path));
+        $message = "✓ Règle SEO supprimée : {$rule} {$path}";
+    } else {
+        $rules[] = $path;
+        $rules = array_values(array_unique($rules));
+        sort($rules, SORT_STRING);
+        $message = "✓ Règle SEO ajoutée : {$rule} {$path}";
+    }
+    $config[$rule] = $rules;
+    writeSeoConfig($config);
+    output($message);
+}
+
+/** @param list<string> $disallowed @param list<string> $allowed */
+function seoPathIsDisallowed(string $path, array $disallowed, array $allowed = ['/']): bool
+{
+    $specificAllow = -1;
+    foreach ($allowed as $rule) {
+        if ($rule === '/' || $path === $rule || str_starts_with($path, rtrim($rule, '/') . '/')) {
+            $specificAllow = max($specificAllow, strlen($rule));
+        }
+    }
+    $specificDisallow = -1;
+    foreach ($disallowed as $rule) {
+        if ($rule === '/' || $path === $rule || str_starts_with($path, rtrim($rule, '/') . '/')) {
+            $specificDisallow = max($specificDisallow, strlen($rule));
+        }
+    }
+    return $specificDisallow >= 0 && $specificDisallow >= $specificAllow;
+}
+
+function seoGenerate(): void
+{
+    $root = projectRoot();
+    $seo = seoConfig();
+    $baseUrl = rtrim((string) ($seo['base_url'] ?? ''), '/');
+    if (filter_var($baseUrl, FILTER_VALIDATE_URL) === false) {
+        fail('Configurez une base_url SEO valide avant la génération.');
+    }
+    $config = loadProjectConfig();
+    $routes = is_array($config['routes'] ?? null) ? $config['routes'] : [];
+    $allow = array_values(array_filter(is_array($seo['allow'] ?? null) ? $seo['allow'] : ['/'], 'is_string'));
+    $disallow = array_values(array_filter(is_array($seo['disallow'] ?? null) ? $seo['disallow'] : [], 'is_string'));
+    $paths = ['/'];
+    foreach (array_keys($routes) as $definition) {
+        if (!is_string($definition) || !str_starts_with($definition, 'GET ')) {
+            continue;
+        }
+        $path = substr($definition, 4);
+        if (!str_contains($path, '{')) {
+            $paths[] = $path;
+        }
+    }
+    $paths = array_values(array_unique($paths));
+    $paths = array_values(array_filter($paths, static fn (string $path): bool => !seoPathIsDisallowed($path, $disallow, $allow)));
+    sort($paths, SORT_STRING);
+    $urls = '';
+    foreach ($paths as $path) {
+        $location = htmlspecialchars($baseUrl . ($path === '/' ? '/' : '/' . ltrim($path, '/')), ENT_XML1 | ENT_QUOTES, 'UTF-8');
+        $urls .= "  <url><loc>{$location}</loc></url>\n";
+    }
+    $sitemap = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n{$urls}</urlset>\n";
+    if (file_put_contents($root . '/public/sitemap.xml', $sitemap, LOCK_EX) === false) {
+        fail('Impossible d’enregistrer public/sitemap.xml.');
+    }
+    $robots = "User-agent: *\n";
+    foreach ($allow as $path) {
+        $robots .= 'Allow: ' . normalizeSeoPath($path) . "\n";
+    }
+    foreach ($disallow as $path) {
+        $robots .= 'Disallow: ' . normalizeSeoPath($path) . "\n";
+    }
+    $robots .= "Sitemap: {$baseUrl}/sitemap.xml\n";
+    if (file_put_contents($root . '/public/robots.txt', $robots, LOCK_EX) === false) {
+        fail('Impossible d’enregistrer public/robots.txt.');
+    }
+    output('✓ public/robots.txt et public/sitemap.xml générés');
+}
+
+/** @return list<array{status: string, name: string, message: string}> */
+function seoAuditChecks(string $url, string $html): array
+{
+    $checks = [];
+    $add = static function (bool $ok, string $name, string $message) use (&$checks): void {
+        $checks[] = ['status' => $ok ? 'ok' : 'error', 'name' => $name, 'message' => $message];
+    };
+    preg_match('/<title[^>]*>(.*?)<\/title>/is', $html, $titleMatch);
+    $title = trim(strip_tags(html_entity_decode($titleMatch[1] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+    $add($title !== '' && mb_strlen($title) <= 60, 'Title', $title === '' ? 'missing' : mb_strlen($title) . ' characters');
+    preg_match('/<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']*)/i', $html, $descriptionMatch);
+    if (!isset($descriptionMatch[1])) {
+        preg_match('/<meta[^>]+content=["\']([^"\']*)["\'][^>]+name=["\']description["\']/i', $html, $descriptionMatch);
+    }
+    $description = trim(html_entity_decode($descriptionMatch[1] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $add(mb_strlen($description) >= 50 && mb_strlen($description) <= 160, 'Description', $description === '' ? 'missing' : mb_strlen($description) . ' characters');
+    $add((bool) preg_match('/<link[^>]+rel=["\']canonical["\'][^>]+href=/i', $html), 'Canonical', 'canonical link');
+    $add((bool) preg_match('/<meta[^>]+property=["\']og:title["\']/i', $html), 'Open Graph', 'og:title');
+    $add((bool) preg_match('/<meta[^>]+name=["\']twitter:card["\']/i', $html), 'Twitter Card', 'twitter:card');
+    $add((bool) preg_match('/<html[^>]+lang=["\'][^"\']+["\']/i', $html), 'Language', 'html lang');
+    $add((bool) preg_match('/<meta[^>]+name=["\']viewport["\']/i', $html), 'Viewport', 'mobile viewport');
+    $add((bool) preg_match('/<script[^>]+type=["\']application\/ld\+json["\']/i', $html), 'Structured data', 'JSON-LD');
+    $add(substr_count(strtolower($html), '<h1') === 1, 'H1', substr_count(strtolower($html), '<h1') . ' found');
+    preg_match_all('/<img\b[^>]*>/i', $html, $images);
+    $missingAlt = count(array_filter($images[0], static fn (string $image): bool => !preg_match('/\balt=["\'][^"\']*["\']/i', $image)));
+    $add($missingAlt === 0, 'Image alt', "{$missingAlt} missing");
+    $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+    $isLocal = in_array($host, ['localhost', '127.0.0.1', '::1'], true);
+    $add(str_starts_with($url, 'https://') || $isLocal, 'HTTPS', $url);
+    return $checks;
+}
+
+function seoAudit(?string $url, bool $json, ?string $file = null): never
+{
+    $seo = is_file(seoConfigPath()) ? seoConfig() : [];
+    $url ??= (string) ($seo['base_url'] ?? 'http://localhost:8000');
+    if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+        fail('L’URL à auditer est invalide.');
+    }
+    if ($file !== null) {
+        $path = str_starts_with($file, '/') ? $file : projectRoot() . '/' . ltrim($file, '/');
+        if (!is_file($path) || !is_readable($path)) {
+            fail('Le fichier HTML à auditer est introuvable ou illisible.');
+        }
+        $html = file_get_contents($path);
+        if (!is_string($html)) {
+            fail('Impossible de lire le fichier HTML à auditer.');
+        }
+    } else {
+        $handle = curl_init($url);
+        curl_setopt_array($handle, [CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_TIMEOUT => 15, CURLOPT_USERAGENT => 'AML-SEO/1.0']);
+        $html = curl_exec($handle);
+        $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($handle);
+        curl_close($handle);
+        if (!is_string($html) || $status < 200 || $status >= 400) {
+            fail("Audit SEO impossible (HTTP {$status}) : " . ($error ?: $url));
+        }
+    }
+    $checks = seoAuditChecks($url, $html);
+    $errors = count(array_filter($checks, static fn (array $check): bool => $check['status'] === 'error'));
+    if ($json) {
+        output((string) json_encode(['url' => $url, 'healthy' => $errors === 0, 'errors' => $errors, 'checks' => $checks], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    } else {
+        output((currentLanguage() === 'fr' ? 'Audit SEO : ' : 'SEO audit: ') . $url);
+        foreach ($checks as $check) {
+            output(str_pad('[' . strtoupper($check['status']) . ']', 10) . str_pad($check['name'], 20) . $check['message']);
+        }
+    }
+    exit($errors === 0 ? 0 : 1);
+}
+
 switch ($command) {
     case 'language':
     case 'lang':
@@ -1341,6 +1639,31 @@ switch ($command) {
     case 'db:show':
         showDatabaseConfig();
         break;
+    case 'seo:init':
+        seoInit(in_array('--force', $arguments, true));
+        break;
+    case 'seo:set':
+        isset($arguments[1], $arguments[2]) ? seoSet($arguments[1], $arguments[2]) : fail('Utilisation : aml seo:set <clé> <valeur>.');
+        break;
+    case 'seo:show':
+        seoShow(in_array('--json', $arguments, true));
+        break;
+    case 'seo:allow':
+        isset($arguments[1]) ? seoRule('allow', $arguments[1]) : fail('Utilisation : aml seo:allow <chemin>.');
+        break;
+    case 'seo:disallow':
+        isset($arguments[1]) ? seoRule('disallow', $arguments[1]) : fail('Utilisation : aml seo:disallow <chemin>.');
+        break;
+    case 'seo:remove':
+        isset($arguments[1], $arguments[2]) ? seoRule($arguments[1], $arguments[2], true) : fail('Utilisation : aml seo:remove <allow|disallow> <chemin>.');
+        break;
+    case 'seo:generate':
+        seoGenerate();
+        break;
+    case 'seo:audit':
+    case 'seo':
+        $seoUrl = isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : null;
+        seoAudit($seoUrl, in_array('--json', $arguments, true), optionValue($arguments, '--file'));
     case 'env:init':
         envInit(in_array('--force', $arguments, true));
         break;

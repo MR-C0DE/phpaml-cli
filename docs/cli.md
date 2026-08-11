@@ -86,6 +86,22 @@ aml db:configure mysql --host 127.0.0.1 --port 3306 \
 
 `aml run <nom>` exécute une entrée de `scripts` déclarée dans `info.json`.
 
+## SEO
+
+```bash
+aml seo:init
+aml seo:set title "My website"
+aml seo:disallow /admin
+aml seo:allow /public
+aml seo:remove disallow /admin
+aml seo:show --json
+aml seo:generate
+aml seo:audit https://example.com
+```
+
+Consultez le [guide SEO](seo.md) pour la configuration des métadonnées,
+Open Graph, Schema.org, `robots.txt`, le sitemap et l’audit automatisé.
+
 ## Diagnostic
 
 ```bash

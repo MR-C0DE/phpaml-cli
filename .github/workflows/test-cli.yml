@@ -27,6 +27,10 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: ./tests/doctor-smoke.sh
+      - name: Test SEO commands on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: ./tests/seo-smoke.sh
       - name: Test bilingual CLI on Windows
         if: runner.os == 'Windows'
         shell: bash
