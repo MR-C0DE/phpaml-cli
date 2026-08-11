@@ -47,23 +47,23 @@ app/views/partials/footer.php
 Les fichiers publics restent dans :
 
 ```text
-app/public/css/index.css
-app/public/js/main.js
-app/public/img/favicon.svg
+public/css/index.css
+public/js/main.js
+public/img/favicon.svg
 ```
 
 Chargez-les avec leurs chemins depuis la racine HTTP :
 
 ```html
-<link rel="icon" href="/app/public/img/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/app/public/css/index.css">
-<script src="/app/public/js/main.js"></script>
+<link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/css/index.css">
+<script src="/js/main.js"></script>
 ```
 
 `index.php` laisse le serveur PHP servir directement les fichiers existants.
 Si le CSS ne s’affiche pas, vérifiez :
 
-1. que le chemin commence par `/app/public/` ;
+1. que le chemin commence par `/css/`, `/js/` ou `/img/` ;
 2. que le nom et les majuscules correspondent au fichier ;
 3. que `aml serve` est lancé depuis la racine du projet ;
 4. que la réponse CSS n’est pas une page HTML d’erreur.

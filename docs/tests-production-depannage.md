@@ -75,7 +75,7 @@ aml install
 
 ### Le CSS ou le JavaScript ne se charge pas
 
-Utilisez `/app/public/css/index.css` et `/app/public/js/main.js`, puis vérifiez
+Utilisez `/css/index.css` et `/js/main.js`, puis vérifiez
 que la commande `aml serve` a été lancée dans le dossier contenant `index.php`.
 
 ### Le port 8000 est occupé

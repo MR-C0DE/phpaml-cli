@@ -605,11 +605,14 @@ function serve(string $address): never
     if (!is_file($root . '/aml_env/autoload.php')) {
         fail("Les dépendances sont absentes. Exécutez d'abord 'aml install'.");
     }
+    if (!is_file($root . '/public/index.php')) {
+        fail("La racine publique public/index.php est absente.");
+    }
     output("PHPAML écoute sur http://{$address}");
     output('Utilisez Ctrl+C pour arrêter le serveur.');
     passthru(
         escapeshellarg(PHP_BINARY) . ' -S ' . escapeshellarg($address)
-        . ' -t ' . escapeshellarg($root) . ' ' . escapeshellarg($root . '/index.php'),
+        . ' -t ' . escapeshellarg($root . '/public') . ' ' . escapeshellarg($root . '/public/index.php'),
         $exitCode
     );
     exit($exitCode);

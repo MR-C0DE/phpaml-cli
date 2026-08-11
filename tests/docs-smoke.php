@@ -27,6 +27,19 @@ foreach ($files as $file) {
     }
 }
 
+$cliSource = file_get_contents($root . '/cli/aml.php');
+preg_match_all("/case '([a-z][a-z0-9:-]*)':/", (string) $cliSource, $commandMatches);
+$availableCommands = array_unique($commandMatches[1]);
+foreach ($files as $file) {
+    $content = (string) file_get_contents($file);
+    preg_match_all('/\baml\s+([a-z][a-z0-9:-]*)\b/', $content, $documentedMatches);
+    foreach (array_unique($documentedMatches[1]) as $command) {
+        if (!in_array($command, $availableCommands, true)) {
+            $errors[] = basename($file) . " documente une commande AML inexistante : {$command}";
+        }
+    }
+}
+
 if (count($files) < 10) {
     $errors[] = 'La documentation doit contenir une page d’accueil et au moins neuf guides.';
 }

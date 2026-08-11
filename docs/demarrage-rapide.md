@@ -68,9 +68,10 @@ JSON ou SVG. Arrêtez le serveur avec `Ctrl+C`.
 - vue : `app/views/home.php` ;
 - header : `app/views/partials/header.php` ;
 - footer : `app/views/partials/footer.php` ;
-- CSS : `app/public/css/index.css` ;
-- JavaScript : `app/public/js/main.js` ;
-- favicon : `app/public/img/favicon.svg`.
+- point d’entrée public : `public/index.php` ;
+- CSS : `public/css/index.css` ;
+- JavaScript : `public/js/main.js` ;
+- favicon : `public/img/favicon.svg`.
 
 ## Vérifier le projet
 
