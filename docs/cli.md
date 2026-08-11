@@ -66,6 +66,7 @@ aml env:set APP_DEBUG false
 aml db:configure sqlite
 aml db:show
 aml migrate
+aml migrate:rollback --steps 1
 aml cache:clear
 aml run start
 ```

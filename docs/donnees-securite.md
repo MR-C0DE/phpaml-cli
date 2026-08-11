@@ -87,7 +87,13 @@ opérations, utilisez les requêtes préparées PDO.
 ```bash
 aml make:migration create_users_table
 aml migrate
+aml migrate:rollback --steps 1
 ```
+
+Les fichiers sont exécutés dans l'ordre de leur nom sous un verrou exclusif.
+Le retour arrière appelle `down()` de la migration la plus récente. Certaines
+bases valident automatiquement les instructions DDL : sauvegardez toujours la
+base avant une migration de production.
 
 Exemple :
 

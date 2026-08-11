@@ -95,6 +95,7 @@ function localize(string $message): string
         'Aucune route trouvée.' => 'No routes found.', 'MÉTHODE' => 'METHOD', 'Le nom de classe est invalide.' => 'The class name is invalid.',
         'existe déjà' => 'already exists', 'Créé :' => 'Created:', 'Le nom de migration est invalide.' => 'The migration name is invalid.',
         'Aucune migration en attente.' => 'No pending migrations.', 'Migrée :' => 'Migrated:', 'Cache vidé.' => 'Cache cleared.',
+        'Aucune migration à annuler.' => 'No migration to roll back.', 'Annulée :' => 'Rolled back:',
         'Diagnostic PHPAML' => 'PHPAML diagnostics', 'Diagnostic réussi' => 'Diagnostics passed', 'avertissement' => 'warning',
         'Diagnostic échoué' => 'Diagnostics failed', 'erreur' => 'error', 'L\'option' => 'Option', 'nécessite une valeur' => 'requires a value',
         '.env existe déjà.' => '.env already exists.', 'pour le remplacer' => 'to replace it', 'Impossible de modifier' => 'Unable to update',
@@ -194,6 +195,7 @@ function showHelp(): void
             '  make:middleware <name>   Generate middleware',
             '  make:migration <name>    Generate a migration',
             '  migrate                  Run pending migrations',
+            '  migrate:rollback         Roll back the latest migration (--steps N)',
             '  db:configure [driver]    Configure the database (sqlite or mysql)',
             '  db:show                  Show database configuration',
             '  env:init [--force]       Create .env from .env.example',
@@ -231,6 +233,7 @@ function showHelp(): void
     output('  make:middleware <nom>     Génère un middleware');
     output('  make:migration <nom>      Génère une migration');
     output('  migrate                   Exécute les migrations en attente');
+    output('  migrate:rollback          Annule la dernière migration (--steps N)');
     output('  db:configure [pilote]     Configure la base (sqlite ou mysql)');
     output('  db:show                   Affiche la configuration de la base');
     output('  env:init [--force]        Crée .env depuis .env.example');
@@ -876,7 +879,7 @@ PHP;
     output("Créé : {$relative}");
 }
 
-function migrate(): void
+function migrate(bool $rollback = false, int $steps = 1): void
 {
     $root = projectRoot();
     bootstrapProject($root);
@@ -888,8 +891,14 @@ function migrate(): void
         $database['username'] ?: null,
         $database['password'] ?: null
     );
-    $completed = (new \PHPAML\Data\Migrator($connection, $root . '/database/migrations'))->migrate();
-    output($completed === [] ? 'Aucune migration en attente.' : implode(PHP_EOL, array_map(static fn ($name) => "Migrée : {$name}", $completed)));
+    $migrator = new \PHPAML\Data\Migrator($connection, $root . '/database/migrations');
+    $completed = $rollback ? $migrator->rollback($steps) : $migrator->migrate();
+    output($completed === []
+        ? ($rollback ? 'Aucune migration à annuler.' : 'Aucune migration en attente.')
+        : implode(PHP_EOL, array_map(
+            static fn ($name) => ($rollback ? 'Annulée :' : 'Migrée :') . " {$name}",
+            $completed
+        )));
 }
 
 function clearCache(): void
@@ -1314,6 +1323,13 @@ switch ($command) {
         break;
     case 'migrate':
         migrate();
+        break;
+    case 'migrate:rollback':
+        $steps = optionValue($arguments, '--steps') ?? '1';
+        if (filter_var($steps, FILTER_VALIDATE_INT) === false || (int) $steps < 1) {
+            fail("L'option '--steps' nécessite une valeur entière positive.");
+        }
+        migrate(true, (int) $steps);
         break;
     case 'db:configure':
         configureDatabase($arguments[1] ?? 'sqlite', $arguments);
