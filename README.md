@@ -36,6 +36,7 @@ Les installateurs officiels couvrent Windows x64, macOS ARM64 et Linux x64
 - [`phpaml-framework`](https://github.com/MR-C0DE/phpaml-framework) : moteur ;
 - [`phpaml-template`](https://github.com/MR-C0DE/phpaml-template) : modèle de projet.
 
-PHPAML est actuellement un mini-framework expérimental. Consultez la
-[documentation de production](docs/tests-production-depannage.md) avant de
-l’utiliser pour une application exposée publiquement.
+PHPAML CLI 1.6.0 est la première version stable de l’environnement autonome.
+PHPAML reste un jeune mini-framework : consultez la
+[documentation de production](docs/tests-production-depannage.md) et validez
+votre application avant de l’exposer publiquement.
