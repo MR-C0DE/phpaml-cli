@@ -30,7 +30,7 @@ autonome AML.
 
 ## Version documentée
 
-Cette documentation décrit PHPAML CLI **1.6.0-beta.7**, notamment le build de
+Cette documentation décrit PHPAML CLI **1.6.0-beta.8**, notamment le build de
 production, le déploiement SSH/SFTP, le diagnostic IA et la boîte à outils SEO.
 La version installée est visible avec :
 

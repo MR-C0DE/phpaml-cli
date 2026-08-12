@@ -66,6 +66,12 @@ aml deploy:check hostinger
 aml deploy hostinger
 ```
 
+`--public-path` may point to a document root outside `--path`, as is common for
+subdomains. AML adapts the deployed front controller so it can load the private
+application from `--path`. With the `releases` strategy, if the host created a
+real `current` directory beforehand, AML preserves it as
+`current.pre-aml-<release>` before activating the symlink.
+
 Open a manual session with `aml ssh hostinger` or `aml sftp hostinger`. For the
 `releases` strategy, restore the previous release with:
 
@@ -142,6 +148,13 @@ aml deploy:configure hostinger \
 aml deploy:check hostinger
 aml deploy hostinger
 ```
+
+`--public-path` peut désigner une racine web située ailleurs que `--path`, comme
+c’est souvent le cas pour un sous-domaine. AML adapte automatiquement le
+contrôleur frontal déployé afin qu’il charge l’application privée depuis
+`--path`. Avec la stratégie `releases`, si l’hébergeur avait déjà créé un vrai
+dossier `current`, AML le conserve sous le nom
+`current.pre-aml-<release>` avant d’activer le lien symbolique.
 
 Ouvrez une session manuelle avec `aml ssh hostinger` ou `aml sftp hostinger`.
 Avec la stratégie `releases`, restaurez la version précédente avec :
