@@ -1,6 +1,6 @@
 {
   "name": "phpaml",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Environnement autonome du mini-framework PHPAML",
   "aml": {
     "environment": "aml_env"

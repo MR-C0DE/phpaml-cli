@@ -95,6 +95,7 @@ func main() {
 	command.Env = append(
 		os.Environ(),
 		"AML_HOME="+home,
+		"AML_CACHE_HOME="+state,
 		"TMPDIR="+temporary,
 		"COMPOSER_HOME="+composerHome,
 	)
