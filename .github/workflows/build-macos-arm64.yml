@@ -21,6 +21,11 @@ jobs:
         run: ./scripts/build-macos-arm64.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test installed macOS package
+        run: |
+          sudo installer -pkg dist/phpaml-*-macos-arm64.pkg -target /
+          env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml version
+          env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml doctor --offline
       - uses: actions/upload-artifact@v4
         with:
           name: aml-macos-arm64

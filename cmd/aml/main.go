@@ -34,6 +34,22 @@ func message(en, fr string) string {
 	return en
 }
 
+func installationHome(executable string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(executable)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(filepath.Dir(resolved)), nil
+}
+
+func writableHome() string {
+	cache, err := os.UserCacheDir()
+	if err != nil || cache == "" {
+		cache = os.TempDir()
+	}
+	return filepath.Join(cache, "phpaml")
+}
+
 func main() {
 	executable, err := os.Executable()
 	if err != nil {
@@ -41,14 +57,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	home := filepath.Dir(filepath.Dir(executable))
+	home, err := installationHome(executable)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, message("AML: unable to resolve the installation directory", "AML : impossible de résoudre le dossier d’installation"))
+		os.Exit(1)
+	}
 	php := filepath.Join(home, "runtime", "php", "bin", "php")
 	if runtime.GOOS == "windows" {
 		php = filepath.Join(home, "runtime", "php", "php.exe")
 	}
 	cli := filepath.Join(home, "aml_env", "bin", "aml.php")
-	temporary := filepath.Join(home, "aml_env", "tmp")
-	composerHome := filepath.Join(home, "aml_env", "cache", "composer")
+	state := writableHome()
+	temporary := filepath.Join(state, "tmp")
+	composerHome := filepath.Join(state, "composer")
 
 	if _, err := os.Stat(php); err != nil {
 		fmt.Fprintln(os.Stderr, message("AML: private PHP runtime not found", "AML : runtime PHP privé introuvable"))

@@ -1037,8 +1037,11 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
         is_file($composer) && is_readable($composer) ? 'disponible' : 'runtime/composer/composer.phar introuvable'
     );
 
-    foreach (['aml_env/tmp' => 'Dossier temporaire', 'aml_env/cache' => 'Cache AML'] as $relative => $label) {
-        $directory = PHPAML_FRAMEWORK_ROOT . '/' . $relative;
+    $runtimeDirectories = [
+        ((string) (getenv('TMPDIR') ?: PHPAML_FRAMEWORK_ROOT . '/aml_env/tmp')) => 'Dossier temporaire',
+        ((string) (getenv('COMPOSER_HOME') ?: PHPAML_FRAMEWORK_ROOT . '/aml_env/cache')) => 'Cache AML',
+    ];
+    foreach ($runtimeDirectories as $directory => $label) {
         $writable = is_dir($directory) && is_writable($directory);
         doctorAdd(
             $checks,
