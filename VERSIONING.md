@@ -2,10 +2,9 @@
 
 PHPAML uses Semantic Versioning independently for each component:
 
-- AML CLI stable: `1.3.0`
-- AML CLI next pre-release: `1.4.0-beta.2`
-- PHPAML Framework: `0.1.0`
-- PHPAML Template: `0.1.0`
+- AML CLI stable: `1.5.0`
+- PHPAML Framework stable: `0.2.0`
+- PHPAML Template stable: `0.3.0`
 
 The CLI release manifest selects compatible framework and template versions. A CLI update does not imply that all three components share the same number.
 
