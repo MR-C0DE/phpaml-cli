@@ -34,5 +34,5 @@ SEO. La version installée est visible avec :
 
 ```bash
 aml version
-aml update --check
+aml --update --check
 ```

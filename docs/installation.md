@@ -71,7 +71,7 @@ Chaque release propose aussi :
 - `aml-linux-x64.tar.gz`.
 
 Extrayez l’archive puis lancez `bin/aml` (`bin/aml.exe` sous Windows). Une
-installation portable est détectée par `aml update` et n’est jamais remplacée
+installation portable est détectée par `aml --update` et n’est jamais remplacée
 automatiquement.
 
 ## Vérifier l’intégrité
@@ -94,9 +94,9 @@ Comparez le résultat avec la valeur du fichier `.sha256`.
 ## Mettre AML à jour
 
 ```bash
-aml update --check
-aml update
+aml --update --check
+aml --update
 ```
 
-`aml update` choisit le paquet natif, le télécharge depuis GitHub et vérifie son
+`aml --update` choisit le paquet natif, le télécharge depuis GitHub et vérifie son
 SHA-256 avant de lancer l’installation.

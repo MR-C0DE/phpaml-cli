@@ -119,11 +119,13 @@ faire échouer un environnement autrement sain.
 
 ```bash
 aml version
-aml update --check
-aml update
-aml update --version 1.3.0
-aml update --force
+aml --update --check
+aml --update
+aml --update --version 1.3.0
+aml --update --force
 ```
+
+La forme historique `aml update` reste disponible comme alias.
 
 `--force` permet de réinstaller la même version. Il peut aussi autoriser une
 version explicitement demandée plus ancienne : utilisez-le avec prudence.
