@@ -31,13 +31,18 @@ function deployConfigure(string $name, array $arguments): void
     $path = optionValue($arguments, '--path');
     $port = optionValue($arguments, '--port') ?? '22';
     $key = optionValue($arguments, '--key');
+    $strategy = optionValue($arguments, '--strategy') ?? 'releases';
+    $publicPath = optionValue($arguments, '--public-path');
     if (!$host || !$user || !$path || !preg_match('/^[A-Za-z0-9.-]+$/', $host)
-        || !preg_match('/^[A-Za-z0-9._-]+$/', $user) || !str_starts_with($path, '/')
-        || filter_var($port, FILTER_VALIDATE_INT) === false || (int) $port < 1 || (int) $port > 65535) {
-        fail('Utilisation : aml deploy:configure <profil> --host <hôte> --user <utilisateur> --path </chemin> [--port 22] [--key <fichier>].');
+        || !preg_match('/^[A-Za-z0-9._-]+$/', $user) || !preg_match('~^/[A-Za-z0-9._/-]+$~', $path)
+        || filter_var($port, FILTER_VALIDATE_INT) === false || (int) $port < 1 || (int) $port > 65535
+        || !in_array($strategy, ['releases', 'public-html', 'sftp-only'], true)
+        || ($strategy !== 'releases' && (!$publicPath || !preg_match('~^/[A-Za-z0-9._/-]+$~', $publicPath)
+            || rtrim(dirname($publicPath), '/') !== rtrim($path, '/')))) {
+        fail('Utilisation : aml deploy:configure <profil> --host <hôte> --user <utilisateur> --path </chemin> [--strategy releases|public-html|sftp-only] [--public-path </public_html>].');
     }
     $profiles = deployProfiles();
-    $profiles[$name] = ['host' => $host, 'user' => $user, 'path' => rtrim($path, '/'), 'port' => (int) $port, 'key' => $key];
+    $profiles[$name] = ['host' => $host, 'user' => $user, 'path' => rtrim($path, '/'), 'public_path' => $publicPath ? rtrim($publicPath, '/') : null, 'strategy' => $strategy, 'port' => (int) $port, 'key' => $key];
     $config = deployConfigPath();
     if (!is_dir(dirname($config))) mkdir(dirname($config), 0700, true);
     file_put_contents($config, json_encode($profiles, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL, LOCK_EX);
@@ -64,6 +69,14 @@ function deployRun(array $command): int
 function deployCheck(string $name): never
 {
     $profile = deployProfile($name);
+    if (($profile['strategy'] ?? 'releases') === 'sftp-only') {
+        $batch = tempnam(sys_get_temp_dir(), 'aml-sftp-check-');
+        file_put_contents($batch, "pwd\nquit\n");
+        $command = ['sftp', '-b', $batch, '-P', (string) $profile['port'], ...(($profile['key'] ?? '') !== '' ? ['-i', $profile['key']] : []), $profile['user'] . '@' . $profile['host']];
+        $code = deployRun($command); @unlink($batch);
+        if ($code !== 0) fail('Connexion SFTP impossible.', $code);
+        output("✓ Connexion SFTP validée : {$name}"); exit(0);
+    }
     $command = [...deploySshArguments($profile, true), 'printf PHPAML_DEPLOY_OK'];
     $code = deployRun($command);
     if ($code !== 0) fail('Connexion SSH impossible.', $code);
@@ -89,6 +102,9 @@ function deployProject(string $name, bool $skipBuild = false): never
         if (!is_resource($process) || proc_close($process) !== 0) fail('Le build de production a échoué.');
     }
     $profile = deployProfile($name);
+    if (($profile['strategy'] ?? 'releases') === 'sftp-only') {
+        deploySftpOnly($root, $name, $profile);
+    }
     $release = gmdate('Ymd-His');
     $remoteArchive = $profile['path'] . '/releases/' . $release . '.zip';
     $scp = ['scp', '-P', (string) $profile['port'], ...(($profile['key'] ?? '') !== '' ? ['-i', $profile['key']] : []), $root . '/output/phpaml-build.zip', $profile['user'] . '@' . $profile['host'] . ':' . $remoteArchive];
@@ -97,17 +113,49 @@ function deployProject(string $name, bool $skipBuild = false): never
     $directory = $profile['path'] . '/releases/' . $release;
     $activate = 'mkdir -p ' . escapeshellarg($directory)
         . ' && unzip -q ' . escapeshellarg($remoteArchive) . ' -d ' . escapeshellarg($directory)
-        . ' && test -f ' . escapeshellarg($directory . '/public/index.php')
-        . ' && ln -sfn ' . escapeshellarg($directory) . ' ' . escapeshellarg($profile['path'] . '/current');
+        . ' && test -f ' . escapeshellarg($directory . '/public/index.php');
+    if (($profile['strategy'] ?? 'releases') === 'public-html') {
+        $public = (string) $profile['public_path'];
+        $activate .= ' && mkdir -p ' . escapeshellarg($public)
+            . ' && cp -a ' . escapeshellarg($directory . '/public/.') . ' ' . escapeshellarg($public . '/')
+            . ' && for item in app configs database aml_env composer.json composer.lock info.json; do [ ! -e '
+            . escapeshellarg($directory) . '/"$item" ] || cp -a ' . escapeshellarg($directory) . '/"$item" ' . escapeshellarg($profile['path'] . '/');
+        $activate .= ' done';
+    } else {
+        $activate .= ' && ln -sfn ' . escapeshellarg($directory) . ' ' . escapeshellarg($profile['path'] . '/current');
+    }
     if (deployRun([...deploySshArguments($profile, true), $activate]) !== 0) fail('Activation distante impossible.');
     output("✓ Release déployée : {$release}");
-    output('Document root distant : ' . $profile['path'] . '/current/public');
+    output('Document root distant : ' . (($profile['strategy'] ?? 'releases') === 'public-html' ? $profile['public_path'] : $profile['path'] . '/current/public'));
     exit(0);
+}
+
+function deploySftpOnly(string $root, string $name, array $profile): never
+{
+    $staging = sys_get_temp_dir() . '/phpaml-sftp-' . bin2hex(random_bytes(5));
+    mkdir($staging, 0700, true);
+    $zip = new ZipArchive();
+    if ($zip->open($root . '/output/phpaml-build.zip') !== true || !$zip->extractTo($staging)) fail('Impossible de préparer le transfert SFTP.');
+    $zip->close();
+    $batch = $staging . '/deploy.sftp';
+    $commands = [
+        '-mkdir ' . $profile['path'], '-mkdir ' . $profile['public_path'],
+        'put -r ' . $staging . '/app ' . $profile['path'] . '/',
+        'put -r ' . $staging . '/configs ' . $profile['path'] . '/',
+        'put -r ' . $staging . '/aml_env ' . $profile['path'] . '/',
+        'put -r ' . $staging . '/public/* ' . $profile['public_path'] . '/',
+        'put ' . $staging . '/public/.htaccess ' . $profile['public_path'] . '/.htaccess', 'quit',
+    ];
+    file_put_contents($batch, implode("\n", $commands) . "\n");
+    $command = ['sftp', '-b', $batch, '-P', (string) $profile['port'], ...(($profile['key'] ?? '') !== '' ? ['-i', $profile['key']] : []), $profile['user'] . '@' . $profile['host']];
+    if (deployRun($command) !== 0) fail('Déploiement SFTP impossible.');
+    output("✓ Déploiement SFTP terminé : {$name}"); output('Document root distant : ' . $profile['public_path']); exit(0);
 }
 
 function deployRollback(string $name): never
 {
     $profile = deployProfile($name);
+    if (($profile['strategy'] ?? 'releases') !== 'releases') fail('Le rollback atomique exige la stratégie releases.');
     $releases = $profile['path'] . '/releases';
     $command = 'current=$(readlink ' . escapeshellarg($profile['path'] . '/current') . ' 2>/dev/null || true); '
         . 'previous=$(find ' . escapeshellarg($releases) . ' -mindepth 1 -maxdepth 1 -type d -print | sort -r | while read release; do [ "$release" != "$current" ] && { printf "%s" "$release"; break; }; done); '

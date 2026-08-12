@@ -71,6 +71,14 @@ aml deploy production
 aml deploy:rollback production
 ```
 
+Stratégies disponibles :
+
+```bash
+--strategy releases
+--strategy public-html --public-path /home/user/domains/site/public_html
+--strategy sftp-only --public-path /public_html
+```
+
 Les profils sont privés dans `~/.phpaml/deploy.json` et ne contiennent aucun
 mot de passe. `aml deploy` construit l’application, transfère l’archive dans
 `releases/`, puis active atomiquement le lien `current`. Configurez la racine
