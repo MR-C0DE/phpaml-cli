@@ -212,6 +212,9 @@ function showHelp(): void
             '  install [options]        Install the engine and dependencies into aml_env',
             '  update [options]         Update the AML environment',
             '  doctor [options]         Check the installation and current project (--production for deployment)',
+            '  debug [problem]          Diagnose with AI (--fix to apply, --yes to confirm safe changes)',
+            '  ai:configure <provider>  Configure DeepSeek, OpenAI or Claude',
+            '  ai:show                  Show the active AI provider (key remains hidden)',
             '  routes                   List application routes',
             '  make:controller <name>   Generate a controller',
             '  make:model <name>        Generate a model',
@@ -258,6 +261,9 @@ function showHelp(): void
     output('  install [options]         Installe moteur et dépendances dans aml_env');
     output('  update [options]          Met à jour l’environnement AML');
     output('  doctor [options]          Vérifie l’installation et le projet courant');
+    output('  debug [problème]          Diagnostique avec l’IA (--fix applique, --yes confirme)');
+    output('  ai:configure <fournisseur> Configure DeepSeek, OpenAI ou Claude');
+    output('  ai:show                   Affiche le fournisseur IA (clé masquée)');
     output('  routes                    Affiche les routes de l’application');
     output('  make:controller <nom>     Génère un contrôleur');
     output('  make:model <nom>          Génère un modèle');
@@ -1180,6 +1186,8 @@ function optionValue(array $arguments, string $option): ?string
     return $arguments[$position + 1];
 }
 
+require_once __DIR__ . '/ai-debug.php';
+
 function envFilePath(): string
 {
     return projectRoot() . '/.env';
@@ -1584,6 +1592,15 @@ function seoAudit(?string $url, bool $json, ?string $file = null): never
 }
 
 switch ($command) {
+    case 'ai:configure':
+        aiConfigure($arguments[1] ?? 'deepseek', optionValue($arguments, '--key'), optionValue($arguments, '--model'));
+        break;
+    case 'ai:show':
+        aiShow();
+        break;
+    case 'debug':
+        $debugProblem = isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : null;
+        aiDebug(in_array('--fix', $arguments, true), in_array('--yes', $arguments, true), $debugProblem);
     case 'language':
     case 'lang':
         if (isset($arguments[1])) {

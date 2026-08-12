@@ -40,6 +40,7 @@ GOCACHE="${TMPDIR:-/tmp}/phpaml-go-cache" go build -trimpath -ldflags "-s -w" \
 cp "$ROOT/buildroot/bin/php" "$PACKAGE/runtime/php/bin/php"
 cp "$TOOLS/composer.phar" "$PACKAGE/runtime/composer/composer.phar"
 cp "$ROOT/cli/aml.php" "$PACKAGE/aml_env/bin/aml.php"
+cp "$ROOT/cli/ai-debug.php" "$PACKAGE/aml_env/bin/ai-debug.php"
 cp "$ROOT/info.json" "$PACKAGE/info.json"
 chmod 755 "$PACKAGE/bin/aml" "$PACKAGE/runtime/php/bin/php"
 

@@ -8,6 +8,7 @@ trap 'rm -rf "$FIXTURE"' EXIT HUP INT TERM
 mkdir -p "$FIXTURE/aml_env/bin" "$FIXTURE/aml_env/tmp" \
     "$FIXTURE/aml_env/cache" "$FIXTURE/runtime/composer"
 cp "$ROOT/cli/aml.php" "$FIXTURE/aml_env/bin/aml.php"
+cp "$ROOT/cli/ai-debug.php" "$FIXTURE/aml_env/bin/ai-debug.php"
 cp "$ROOT/info.json" "$FIXTURE/info.json"
 touch "$FIXTURE/runtime/composer/composer.phar"
 
