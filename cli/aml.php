@@ -113,9 +113,12 @@ function localize(string $message): string
         'Extensions PHP' => 'PHP extensions', 'toutes présentes' => 'all present', 'absentes :' => 'missing:',
         'Composer privé' => 'Private Composer', 'disponible' => 'available', 'introuvable' => 'not found',
         'Dossier temporaire' => 'Temporary directory', 'doit être accessible en écriture' => 'must be writable',
+        'environnement restreint : écriture interdite' => 'restricted environment: writing is forbidden',
         'accessible en écriture' => 'writable', 'contrôle ignoré' => 'check skipped',
         'limite API atteinte' => 'API limit reached', 'indisponible' => 'unavailable',
         'Port de développement' => 'Development port', 'occupé' => 'in use',
+        'ouverture interdite par l’environnement' => 'opening forbidden by the environment',
+        'indisponible' => 'unavailable',
         'Projet' => 'Project', 'aucun projet PHPAML dans le dossier courant' => 'no PHPAML project in the current directory',
         'Configuration' => 'Configuration', 'présent' => 'present', 'absent' => 'missing',
         'Environnement' => 'Environment', 'créez .env à partir de .env.example' => 'create .env from .env.example',
@@ -1011,6 +1014,41 @@ function githubStatus(?string $version): array
     return ['status' => $status, 'message' => $error];
 }
 
+/** @return array{status:string,message:string} */
+function doctorDirectoryStatus(string $directory): array
+{
+    if (!is_dir($directory)) {
+        return ['status' => 'error', 'message' => "{$directory} doit être accessible en écriture"];
+    }
+    if (is_writable($directory)) {
+        return ['status' => 'ok', 'message' => 'accessible en écriture'];
+    }
+
+    $probe = rtrim($directory, '/\\') . '/.aml-doctor-' . bin2hex(random_bytes(4));
+    $writeError = '';
+    set_error_handler(static function (int $severity, string $message) use (&$writeError): bool {
+        $writeError = $message;
+        return true;
+    });
+    try {
+        $written = file_put_contents($probe, 'aml', LOCK_EX);
+    } finally {
+        restore_error_handler();
+    }
+    if ($written !== false) {
+        @unlink($probe);
+        return ['status' => 'ok', 'message' => 'accessible en écriture'];
+    }
+
+    if (stripos($writeError, 'Operation not permitted') !== false) {
+        return [
+            'status' => 'warning',
+            'message' => "{$directory} — environnement restreint : écriture interdite",
+        ];
+    }
+    return ['status' => 'error', 'message' => "{$directory} doit être accessible en écriture"];
+}
+
 function doctor(?string $requestedPort, bool $offline, bool $json, bool $production = false): never
 {
     $checks = [];
@@ -1059,13 +1097,8 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
         amlCacheRoot() => 'Cache AML',
     ];
     foreach ($runtimeDirectories as $directory => $label) {
-        $writable = is_dir($directory) && is_writable($directory);
-        doctorAdd(
-            $checks,
-            $writable ? 'ok' : 'error',
-            $label,
-            $writable ? 'accessible en écriture' : "{$directory} doit être accessible en écriture"
-        );
+        $directoryStatus = doctorDirectoryStatus($directory);
+        doctorAdd($checks, $directoryStatus['status'], $label, $directoryStatus['message']);
     }
 
     if ($offline) {
@@ -1091,11 +1124,24 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
         $errno = 0;
         $error = '';
         $socket = @stream_socket_server("tcp://127.0.0.1:{$port}", $errno, $error);
+        $portStatus = 'ok';
+        $portMessage = "127.0.0.1:{$port} disponible";
+        if (!is_resource($socket)) {
+            $portStatus = 'warning';
+            if (stripos($error, 'Address already in use') !== false) {
+                $portMessage = "127.0.0.1:{$port} occupé";
+            } elseif (stripos($error, 'Operation not permitted') !== false
+                || stripos($error, 'Permission denied') !== false) {
+                $portMessage = "127.0.0.1:{$port} — ouverture interdite par l’environnement ({$error})";
+            } else {
+                $portMessage = "127.0.0.1:{$port} indisponible ({$error})";
+            }
+        }
         doctorAdd(
             $checks,
-            is_resource($socket) ? 'ok' : 'warning',
+            $portStatus,
             'Port de développement',
-            is_resource($socket) ? "127.0.0.1:{$port} disponible" : "127.0.0.1:{$port} occupé"
+            $portMessage
         );
         if (is_resource($socket)) {
             fclose($socket);
