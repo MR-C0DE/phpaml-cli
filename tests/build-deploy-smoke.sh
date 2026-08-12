@@ -5,18 +5,19 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/phpaml-build-deploy.XXXXXX")"
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 mkdir -p "$fixture/project/public" "$fixture/project/app" "$fixture/project/configs" \
-  "$fixture/project/aml_env/bin" "$fixture/project/tests" "$fixture/home"
+  "$fixture/project/aml_env/bin" "$fixture/project/tests" "$fixture/project/deliverables" "$fixture/home"
 cp "$root/cli/"*.php "$fixture/project/aml_env/bin/"
 cp "$root/info.json" "$fixture/project/info.json"
 printf '%s\n' '<?php' > "$fixture/project/public/index.php"
 printf '%s\n' 'RewriteEngine On' 'RewriteRule ^ index.php [QSA,L]' > "$fixture/project/public/.htaccess"
 printf '%s\n' '<?php exit(0);' > "$fixture/project/tests/run.php"
 printf '%s\n' 'SECRET=yes' > "$fixture/project/.env"
+printf '%s\n' 'archive-only' > "$fixture/project/deliverables/backup.zip"
 
 (cd "$fixture/project" && HOME="$fixture/home" AML_LANG=en php aml_env/bin/aml.php build)
 listing="$(unzip -l "$fixture/project/output/phpaml-build.zip")"
 grep -q 'public/index.php' <<<"$listing"
-if grep -qE '(^|/)(\.env|tests/)' <<<"$listing"; then
+if grep -qE '(^|/)(\.env|tests/|deliverables/)' <<<"$listing"; then
   echo 'The production build contains forbidden files.' >&2
   exit 1
 fi
