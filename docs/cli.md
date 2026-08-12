@@ -54,7 +54,8 @@ aml build --skip-tests
 ```
 
 Le build vérifie les règles d’URL propres, exécute les tests, exclut `.env`,
-les journaux, bases SQLite, tests et fichiers temporaires, puis produit
+les journaux, bases SQLite, tests, fichiers temporaires, `output/` et
+`deliverables/`, puis produit
 `output/phpaml-build.zip`, son checksum SHA-256 et `output/manifest.json`.
 Le serveur de production doit utiliser `public/` comme racine du domaine. Les
 routes publiques sont ainsi `/`, `/about` et `/contact`, jamais `/index.php`.
@@ -83,6 +84,11 @@ Les profils sont privés dans `~/.phpaml/deploy.json` et ne contiennent aucun
 mot de passe. `aml deploy` construit l’application, transfère l’archive dans
 `releases/`, puis active atomiquement le lien `current`. Configurez la racine
 du domaine sur `<chemin>/current/public`.
+
+Si GitHub retourne une erreur temporaire (connexion, HTTP 408, 429 ou 5xx comme
+503), AML retente le téléchargement jusqu’à trois fois. Si le disque est plein
+ou si `output/` n’est pas accessible, `aml build` échoue et supprime les fichiers
+incomplets au lieu d’annoncer un faux succès.
 
 ## Génération de code
 

@@ -12,8 +12,9 @@ autonome AML.
 5. [Écrire des routes et des contrôleurs](routage-controleurs.md)
 6. [Construire les vues et charger les fichiers publics](vues-et-public.md)
 7. [Utiliser la base de données et la sécurité](donnees-securite.md)
-8. [Tester, déployer et dépanner](tests-production-depannage.md)
-9. [Gérer le SEO avec AML](seo.md)
+8. [Créer un build et déployer par SSH/SFTP](build-deployment.md)
+9. [Tester la production et dépanner](tests-production-depannage.md)
+10. [Gérer le SEO avec AML](seo.md)
 
 ## Ce que fournit PHPAML
 
@@ -29,8 +30,9 @@ autonome AML.
 
 ## Version documentée
 
-Cette documentation décrit PHPAML CLI **1.5.x**, notamment sa boîte à outils
-SEO. La version installée est visible avec :
+Cette documentation décrit PHPAML CLI **1.6.0-beta.7**, notamment le build de
+production, le déploiement SSH/SFTP, le diagnostic IA et la boîte à outils SEO.
+La version installée est visible avec :
 
 ```bash
 aml version
