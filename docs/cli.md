@@ -27,6 +27,7 @@ choix de langue et le transmet au CLI.
 | `aml serve hôte:port` | démarre sur une adresse choisie |
 | `aml routes` | affiche les routes enregistrées |
 | `aml test` | exécute `tests/run.php` |
+| `aml build` | produit l’archive de déploiement dans `output/` |
 
 Options de `create` :
 
@@ -44,6 +45,36 @@ aml install --refresh
 aml install --offline
 aml install --production
 ```
+
+## Build de production
+
+```bash
+aml build
+aml build --skip-tests
+```
+
+Le build vérifie les règles d’URL propres, exécute les tests, exclut `.env`,
+les journaux, bases SQLite, tests et fichiers temporaires, puis produit
+`output/phpaml-build.zip`, son checksum SHA-256 et `output/manifest.json`.
+Le serveur de production doit utiliser `public/` comme racine du domaine. Les
+routes publiques sont ainsi `/`, `/about` et `/contact`, jamais `/index.php`.
+
+## SSH, SFTP et déploiement
+
+```bash
+aml deploy:configure production --host example.com --user deploy \
+  --path /home/deploy/site --port 22 --key ~/.ssh/id_ed25519
+aml deploy:check production
+aml ssh production
+aml sftp production
+aml deploy production
+aml deploy:rollback production
+```
+
+Les profils sont privés dans `~/.phpaml/deploy.json` et ne contiennent aucun
+mot de passe. `aml deploy` construit l’application, transfère l’archive dans
+`releases/`, puis active atomiquement le lien `current`. Configurez la racine
+du domaine sur `<chemin>/current/public`.
 
 ## Génération de code
 
