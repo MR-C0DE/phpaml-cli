@@ -359,22 +359,33 @@ function scaffoldFiles(): array
 
 function httpGet(string $url): string
 {
-    $handle = curl_init($url);
-    curl_setopt_array($handle, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_TIMEOUT => 60,
-        CURLOPT_USERAGENT => 'AML-CLI/' . (projectInfo(PHPAML_FRAMEWORK_ROOT)['version'] ?? 'development'),
-        CURLOPT_HTTPHEADER => ['Accept: application/vnd.github+json'],
-    ]);
-    $content = curl_exec($handle);
-    $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-    $error = curl_error($handle);
-    curl_close($handle);
-    if (!is_string($content) || $status < 200 || $status >= 300) {
-        fail("Téléchargement impossible ({$status}) : " . ($error ?: $url));
+    $content = false;
+    $status = 0;
+    $error = '';
+    for ($attempt = 1; $attempt <= 3; $attempt++) {
+        $handle = curl_init($url);
+        curl_setopt_array($handle, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_TIMEOUT => 60,
+            CURLOPT_USERAGENT => 'AML-CLI/' . (projectInfo(PHPAML_FRAMEWORK_ROOT)['version'] ?? 'development'),
+            CURLOPT_HTTPHEADER => ['Accept: application/vnd.github+json'],
+        ]);
+        $content = curl_exec($handle);
+        $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($handle);
+        curl_close($handle);
+        if (is_string($content) && $status >= 200 && $status < 300) {
+            return $content;
+        }
+        if ($attempt < 3 && ($status === 0 || $status === 408 || $status === 429 || $status >= 500)) {
+            usleep(250000 * $attempt);
+            continue;
+        }
+        break;
     }
-    return $content;
+    fail("Téléchargement impossible après 3 tentatives ({$status}) : " . ($error ?: $url));
 }
 
 /** @return array{version: string, package: string, checksum: string, package_name: string} */
@@ -748,10 +759,21 @@ function buildProject(bool $skipTests = false): never
         'files' => $files,
     ];
     $zip->addFromString('build-manifest.json', (string) json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
-    $zip->close();
+    if (!$zip->close() || !is_file($archive) || filesize($archive) === 0) {
+        @unlink($archive);
+        @unlink($archive . '.sha256');
+        @unlink($outputRoot . '/manifest.json');
+        fail('Impossible de finaliser l’archive de production. Vérifiez l’espace disque disponible et les permissions du dossier output.');
+    }
     $checksum = hash_file('sha256', $archive);
-    file_put_contents($archive . '.sha256', "{$checksum}  phpaml-build.zip\n", LOCK_EX);
-    file_put_contents($outputRoot . '/manifest.json', (string) json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL, LOCK_EX);
+    if (!is_string($checksum)
+        || file_put_contents($archive . '.sha256', "{$checksum}  phpaml-build.zip\n", LOCK_EX) === false
+        || file_put_contents($outputRoot . '/manifest.json', (string) json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL, LOCK_EX) === false) {
+        @unlink($archive);
+        @unlink($archive . '.sha256');
+        @unlink($outputRoot . '/manifest.json');
+        fail('Impossible d’écrire les fichiers du build. Vérifiez l’espace disque disponible et les permissions du dossier output.');
+    }
     output('✓ Build créé : output/phpaml-build.zip');
     output('✓ Checksum : output/phpaml-build.zip.sha256');
     output('Document root: public/ — URL propres activées (/about, sans index.php).');
