@@ -37,8 +37,7 @@ function deployConfigure(string $name, array $arguments): void
         || !preg_match('/^[A-Za-z0-9._-]+$/', $user) || !preg_match('~^/[A-Za-z0-9._/-]+$~', $path)
         || filter_var($port, FILTER_VALIDATE_INT) === false || (int) $port < 1 || (int) $port > 65535
         || !in_array($strategy, ['releases', 'public-html', 'sftp-only'], true)
-        || ($strategy !== 'releases' && (!$publicPath || !preg_match('~^/[A-Za-z0-9._/-]+$~', $publicPath)
-            || rtrim(dirname($publicPath), '/') !== rtrim($path, '/')))) {
+        || ($strategy !== 'releases' && (!$publicPath || !preg_match('~^/[A-Za-z0-9._/-]+$~', $publicPath)))) {
         fail('Utilisation : aml deploy:configure <profil> --host <hôte> --user <utilisateur> --path </chemin> [--strategy releases|public-html|sftp-only] [--public-path </public_html>].');
     }
     $profiles = deployProfiles();
@@ -48,6 +47,40 @@ function deployConfigure(string $name, array $arguments): void
     file_put_contents($config, json_encode($profiles, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL, LOCK_EX);
     @chmod($config, 0600);
     output("✓ Profil de déploiement configuré : {$name}");
+}
+
+function deployReleaseActivationCommand(array $profile, string $directory, string $release): string
+{
+    $current = rtrim((string) $profile['path'], '/') . '/current';
+    $backup = rtrim((string) $profile['path'], '/') . '/current.pre-aml-' . $release;
+
+    return 'if [ -e ' . escapeshellarg($current) . ' ] && [ ! -L ' . escapeshellarg($current) . ' ]; then '
+        . 'mv ' . escapeshellarg($current) . ' ' . escapeshellarg($backup) . '; fi'
+        . ' && ln -sfn ' . escapeshellarg($directory) . ' ' . escapeshellarg($current);
+}
+
+function deployPublicRootCommand(string $index, string $projectRoot): string
+{
+    $script = <<<'PHP'
+$file = $argv[1];
+$root = $argv[2];
+$code = file_get_contents($file);
+if (!is_string($code)) exit(1);
+$replacement = '$root = ' . var_export($root, true) . ';';
+$updated = preg_replace('/\$root\s*=\s*dirname\(__DIR__\);/', $replacement, $code, 1, $count);
+if (!is_string($updated) || $count !== 1 || file_put_contents($file, $updated) === false) exit(1);
+PHP;
+
+    return 'php -r ' . escapeshellarg($script) . ' ' . escapeshellarg($index) . ' ' . escapeshellarg($projectRoot);
+}
+
+function deployRewritePublicRoot(string $index, string $projectRoot): bool
+{
+    $code = @file_get_contents($index);
+    if (!is_string($code)) return false;
+    $replacement = '$root = ' . var_export($projectRoot, true) . ';';
+    $updated = preg_replace('/\$root\s*=\s*dirname\(__DIR__\);/', $replacement, $code, 1, $count);
+    return is_string($updated) && $count === 1 && file_put_contents($index, $updated) !== false;
 }
 
 /** @return list<string> */
@@ -120,9 +153,9 @@ function deployProject(string $name, bool $skipBuild = false): never
             . ' && cp -a ' . escapeshellarg($directory . '/public/.') . ' ' . escapeshellarg($public . '/')
             . ' && for item in app configs database aml_env composer.json composer.lock info.json; do [ ! -e '
             . escapeshellarg($directory) . '/"$item" ] || cp -a ' . escapeshellarg($directory) . '/"$item" ' . escapeshellarg($profile['path'] . '/');
-        $activate .= ' done';
+        $activate .= ' done && ' . deployPublicRootCommand($public . '/index.php', (string) $profile['path']);
     } else {
-        $activate .= ' && ln -sfn ' . escapeshellarg($directory) . ' ' . escapeshellarg($profile['path'] . '/current');
+        $activate .= ' && ' . deployReleaseActivationCommand($profile, $directory, $release);
     }
     if (deployRun([...deploySshArguments($profile, true), $activate]) !== 0) fail('Activation distante impossible.');
     output("✓ Release déployée : {$release}");
@@ -137,6 +170,9 @@ function deploySftpOnly(string $root, string $name, array $profile): never
     $zip = new ZipArchive();
     if ($zip->open($root . '/output/phpaml-build.zip') !== true || !$zip->extractTo($staging)) fail('Impossible de préparer le transfert SFTP.');
     $zip->close();
+    if (!deployRewritePublicRoot($staging . '/public/index.php', (string) $profile['path'])) {
+        fail('Impossible d’adapter public/index.php au chemin distant.');
+    }
     $batch = $staging . '/deploy.sftp';
     $commands = [
         '-mkdir ' . $profile['path'], '-mkdir ' . $profile['public_path'],

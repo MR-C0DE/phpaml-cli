@@ -85,6 +85,11 @@ mot de passe. `aml deploy` construit l’application, transfère l’archive dan
 `releases/`, puis active atomiquement le lien `current`. Configurez la racine
 du domaine sur `<chemin>/current/public`.
 
+Pour `public-html` et `sftp-only`, `--public-path` peut être extérieur à
+`--path`, notamment pour un sous-domaine Hostinger. Lors d’une première
+activation `releases`, un dossier `current` préexistant est sauvegardé sous
+`current.pre-aml-<release>` au lieu d’être écrasé.
+
 Si GitHub retourne une erreur temporaire (connexion, HTTP 408, 429 ou 5xx comme
 503), AML retente le téléchargement jusqu’à trois fois. Si le disque est plein
 ou si `output/` n’est pas accessible, `aml build` échoue et supprime les fichiers
