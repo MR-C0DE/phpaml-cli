@@ -731,7 +731,7 @@ function buildProject(bool $skipTests = false): never
     if ($zip->open($archive, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
         fail('Impossible de créer output/phpaml-build.zip.');
     }
-    $excludedRoots = ['.git', '.env', 'tests', 'output', 'tmp', 'tools', 'readme'];
+    $excludedRoots = ['.git', '.env', 'tests', 'output', 'tmp', 'tools', 'readme', 'deliverables'];
     $excludedExtensions = ['log', 'sqlite', 'sqlite3', 'bak'];
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
