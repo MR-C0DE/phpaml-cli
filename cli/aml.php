@@ -210,9 +210,12 @@ function showHelp(): void
             '  create <directory>       Create an application (use . for the current directory)',
             '  serve [host:port]        Start the development server',
             '  install [options]        Install the engine and dependencies into aml_env',
-            '  update [options]         Update the AML environment',
+            '  --update [options]       Update AML itself (also: aml update)',
             '  doctor [options]         Check the installation and current project (--production for deployment)',
             '  debug [problem]          Diagnose with AI (--fix to apply, --yes to confirm safe changes)',
+            '  debug:history            List saved AI diagnostics',
+            '  debug:show <id>          Show a diagnostic report',
+            '  debug:rollback <id>      Roll back changes from a diagnostic',
             '  ai:configure <provider>  Configure DeepSeek, OpenAI or Claude',
             '  ai:show                  Show the active AI provider (key remains hidden)',
             '  routes                   List application routes',
@@ -243,7 +246,7 @@ function showHelp(): void
             '  version                  Show the framework version',
             '  help                     Show this help', '', 'Examples:',
             '  aml create .', '  aml create my-project', '  aml serve 127.0.0.1:8080',
-            '  aml install', '  aml update --check', '  aml doctor',
+            '  aml install', '  aml --update --check', '  aml doctor',
             '  aml env:init', '  aml env:set APP_DEBUG false',
             '  aml db:configure sqlite', '  aml language fr',
         ] as $line) {
@@ -259,9 +262,12 @@ function showHelp(): void
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
     output('  serve [hôte:port]         Lance le serveur de développement');
     output('  install [options]         Installe moteur et dépendances dans aml_env');
-    output('  update [options]          Met à jour l’environnement AML');
+    output('  --update [options]        Met à jour AML (alias : aml update)');
     output('  doctor [options]          Vérifie l’installation et le projet courant');
     output('  debug [problème]          Diagnostique avec l’IA (--fix applique, --yes confirme)');
+    output('  debug:history             Affiche les diagnostics enregistrés');
+    output('  debug:show <id>           Affiche un rapport de diagnostic');
+    output('  debug:rollback <id>       Annule les corrections d’un diagnostic');
     output('  ai:configure <fournisseur> Configure DeepSeek, OpenAI ou Claude');
     output('  ai:show                   Affiche le fournisseur IA (clé masquée)');
     output('  routes                    Affiche les routes de l’application');
@@ -300,7 +306,7 @@ function showHelp(): void
     output('  aml serve 127.0.0.1:8080');
     output('  aml install');
     output('  aml install --version 0.1.0');
-    output('  aml update --check');
+    output('  aml --update --check');
     output('  aml doctor');
     output('  aml doctor --production');
     output('  aml doctor --port 8080');
@@ -1601,6 +1607,14 @@ switch ($command) {
     case 'debug':
         $debugProblem = isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : null;
         aiDebug(in_array('--fix', $arguments, true), in_array('--yes', $arguments, true), $debugProblem);
+    case 'debug:history':
+        aiDebugHistory(in_array('--json', $arguments, true));
+        break;
+    case 'debug:show':
+        isset($arguments[1]) ? aiDebugShow($arguments[1], in_array('--json', $arguments, true)) : fail('Indiquez l’identifiant du diagnostic.');
+        break;
+    case 'debug:rollback':
+        isset($arguments[1]) ? aiDebugRollback($arguments[1], in_array('--yes', $arguments, true)) : fail('Indiquez l’identifiant du diagnostic.');
     case 'language':
     case 'lang':
         if (isset($arguments[1])) {
@@ -1627,6 +1641,7 @@ switch ($command) {
             in_array('--refresh', $arguments, true),
             in_array('--offline', $arguments, true)
         );
+    case '--update':
     case 'update':
         updateCli(
             optionValue($arguments, '--version'),

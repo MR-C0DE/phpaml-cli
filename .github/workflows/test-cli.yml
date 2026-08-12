@@ -47,6 +47,7 @@ jobs:
           AML_LANG=fr php .test-runtime/aml_env/bin/aml.php help | grep -q "Utilisation : aml <commande>"
           EXPECTED_VERSION=$(php -r '$i=json_decode(file_get_contents("info.json"), true); echo $i["version"];')
           AML_LANG=en php .test-runtime/aml_env/bin/aml.php version | grep -q "$EXPECTED_VERSION"
+          AML_LANG=en php .test-runtime/aml_env/bin/aml.php help | grep -q -- "--update \[options\]"
       - name: Test documentation
         shell: bash
         run: php ./tests/docs-smoke.php

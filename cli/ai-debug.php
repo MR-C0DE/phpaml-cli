@@ -178,6 +178,166 @@ function aiSafeCommand(string $command): bool
     return false;
 }
 
+function aiDebugReportDirectory(string $root): string
+{
+    return $root . '/aml_env/storage/debug-reports';
+}
+
+function aiDebugReportId(): string
+{
+    return date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+}
+
+function aiDebugSafeRelativePath(string $relative): bool
+{
+    return $relative !== ''
+        && !str_contains($relative, '..')
+        && !preg_match('~^(\.env(?:/|$)|\.git(?:/|$)|aml_env(?:/|$))~', $relative);
+}
+
+function aiDebugTargetPath(string $root, string $relative): string
+{
+    if (!aiDebugSafeRelativePath($relative)) {
+        fail("Chemin de diagnostic non sécurisé : {$relative}.");
+    }
+    $cursor = rtrim($root, '/\\');
+    foreach (explode('/', str_replace('\\', '/', $relative)) as $segment) {
+        $cursor .= DIRECTORY_SEPARATOR . $segment;
+        if (is_link($cursor)) {
+            fail("Le chemin du diagnostic traverse un lien symbolique : {$relative}.");
+        }
+    }
+    return $root . '/' . str_replace('\\', '/', $relative);
+}
+
+/** @param array<string, mixed> $report */
+function aiDebugWriteReport(string $root, array $report): string
+{
+    $directory = aiDebugReportDirectory($root);
+    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        fail('Impossible de créer le dossier des rapports de diagnostic.');
+    }
+    $path = $directory . '/' . $report['id'] . '.json';
+    $json = json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    if (!is_string($json) || file_put_contents($path, $json . PHP_EOL, LOCK_EX) === false) {
+        fail('Impossible d’enregistrer le rapport de diagnostic.');
+    }
+    return $path;
+}
+
+/** @return array<string, mixed> */
+function aiDebugReadReport(string $root, string $id): array
+{
+    if (!preg_match('/^\d{8}-\d{6}-[a-f0-9]{6}$/', $id)) {
+        fail('Identifiant de diagnostic invalide.');
+    }
+    $path = aiDebugReportDirectory($root) . '/' . $id . '.json';
+    $report = is_file($path) ? json_decode((string) file_get_contents($path), true) : null;
+    if (!is_array($report)) {
+        fail("Rapport de diagnostic introuvable : {$id}.");
+    }
+    return $report;
+}
+
+function aiDebugHistory(bool $json = false): void
+{
+    $root = projectRoot();
+    $files = glob(aiDebugReportDirectory($root) . '/*.json') ?: [];
+    rsort($files, SORT_STRING);
+    $reports = [];
+    foreach ($files as $file) {
+        $report = json_decode((string) file_get_contents($file), true);
+        if (is_array($report)) {
+            $reports[] = [
+                'id' => (string) ($report['id'] ?? basename($file, '.json')),
+                'created_at' => (string) ($report['created_at'] ?? ''),
+                'status' => (string) ($report['status'] ?? 'unknown'),
+                'provider' => (string) ($report['provider'] ?? ''),
+                'summary' => (string) ($report['summary'] ?? $report['diagnosis'] ?? ''),
+            ];
+        }
+    }
+    if ($json) {
+        output((string) json_encode($reports, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return;
+    }
+    if ($reports === []) {
+        output(currentLanguage() === 'fr' ? 'Aucun diagnostic enregistré.' : 'No saved diagnostics.');
+        return;
+    }
+    output(currentLanguage() === 'fr' ? 'Historique des diagnostics' : 'Debug history');
+    foreach ($reports as $report) {
+        output(sprintf('%s  %-11s  %s', $report['id'], $report['status'], $report['summary']));
+    }
+}
+
+function aiDebugShow(string $id, bool $json = false): void
+{
+    $report = aiDebugReadReport(projectRoot(), $id);
+    if ($json) {
+        output((string) json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return;
+    }
+    output('ID       : ' . ($report['id'] ?? $id));
+    output('Status   : ' . ($report['status'] ?? 'unknown'));
+    output('Provider : ' . ($report['provider'] ?? ''));
+    output('Model    : ' . ($report['model'] ?? ''));
+    output('Created  : ' . ($report['created_at'] ?? ''));
+    output('Diagnosis: ' . ($report['diagnosis'] ?? ''));
+    output('Summary  : ' . ($report['summary'] ?? ''));
+    foreach (is_array($report['changes'] ?? null) ? $report['changes'] : [] as $change) {
+        if (is_array($change)) output('  ✎ ' . ($change['path'] ?? '?') . ' [' . ($change['status'] ?? 'planned') . ']');
+    }
+}
+
+function aiDebugRollback(string $id, bool $yes): never
+{
+    $root = projectRoot();
+    $report = aiDebugReadReport($root, $id);
+    if (($report['status'] ?? null) === 'rolled_back') {
+        fail('Ce diagnostic a déjà été annulé.');
+    }
+    $changes = array_values(array_filter(
+        is_array($report['changes'] ?? null) ? $report['changes'] : [],
+        static fn (mixed $change): bool => is_array($change) && ($change['status'] ?? null) === 'applied'
+    ));
+    if ($changes === []) {
+        fail('Ce diagnostic ne contient aucune correction à annuler.');
+    }
+    if (!$yes) {
+        fwrite(STDOUT, (currentLanguage() === 'fr' ? 'Annuler les corrections de ' : 'Roll back changes from ') . "{$id} ? [y/N] ");
+        if (!in_array(strtolower(trim((string) fgets(STDIN))), ['y', 'yes', 'o', 'oui'], true)) {
+            output(currentLanguage() === 'fr' ? 'Annulation abandonnée.' : 'Rollback cancelled.');
+            exit(0);
+        }
+    }
+    foreach (array_reverse($changes) as $change) {
+        $relative = ltrim((string) ($change['path'] ?? ''), '/\\');
+        if (!aiDebugSafeRelativePath($relative)) {
+            fail("Chemin de sauvegarde non sécurisé : {$relative}.");
+        }
+        $target = aiDebugTargetPath($root, $relative);
+        if (($change['existed'] ?? false) === true) {
+            $backup = (string) ($change['backup'] ?? '');
+            $backupRoot = $root . '/aml_env/storage/debug-backups/' . $id;
+            $source = $backupRoot . '/' . $relative;
+            if ($backup !== $relative || !is_file($source)) {
+                fail("Sauvegarde introuvable pour {$relative}.");
+            }
+            if (!is_dir(dirname($target))) mkdir(dirname($target), 0775, true);
+            if (!copy($source, $target)) fail("Impossible de restaurer {$relative}.");
+        } elseif (is_file($target) && !unlink($target)) {
+            fail("Impossible de supprimer le fichier créé {$relative}.");
+        }
+        output('↶ ' . $relative);
+    }
+    $report['status'] = 'rolled_back';
+    $report['rolled_back_at'] = date(DATE_ATOM);
+    aiDebugWriteReport($root, $report);
+    output((currentLanguage() === 'fr' ? 'Corrections annulées : ' : 'Changes rolled back: ') . $id);
+    exit(0);
+}
+
 function aiDebug(bool $fix, bool $yes, ?string $problem): never
 {
     $root = projectRoot();
@@ -197,39 +357,72 @@ PROMPT;
     if (!is_array($plan)) {
         fail('La réponse de l’agent IA n’est pas un plan JSON valide.');
     }
+    $reportId = aiDebugReportId();
+    $report = [
+        'id' => $reportId,
+        'created_at' => date(DATE_ATOM),
+        'status' => $fix ? 'running' : 'simulated',
+        'provider' => $config['provider'],
+        'model' => $config['model'],
+        'problem' => $problem,
+        'diagnosis' => (string) ($plan['diagnosis'] ?? 'Non précisé'),
+        'summary' => (string) ($plan['summary'] ?? 'Diagnostic IA terminé.'),
+        'changes' => [],
+        'commands' => [],
+    ];
     output(); output('Diagnostic : ' . (string) ($plan['diagnosis'] ?? 'Non précisé'));
     $commands = array_values(array_filter(is_array($plan['commands'] ?? null) ? $plan['commands'] : [], 'is_string'));
     $changes = is_array($plan['changes'] ?? null) ? $plan['changes'] : [];
     if (!$fix) {
         foreach ($commands as $command) output('  → ' . $command);
-        foreach ($changes as $change) if (is_array($change)) output('  ✎ ' . ($change['path'] ?? '?') . ' — ' . ($change['reason'] ?? ''));
+        foreach ($changes as $change) if (is_array($change)) {
+            output('  ✎ ' . ($change['path'] ?? '?') . ' — ' . ($change['reason'] ?? ''));
+            $report['changes'][] = ['path' => $change['path'] ?? '?', 'reason' => $change['reason'] ?? '', 'status' => 'planned'];
+        }
+        aiDebugWriteReport($root, $report);
         output(); output("Simulation terminée. Relancez 'aml debug --fix' pour appliquer les corrections sûres.");
+        output('Report: ' . $reportId);
         exit(0);
     }
-    $backup = $root . '/aml_env/storage/debug-backups/' . date('Ymd-His');
+    $backup = $root . '/aml_env/storage/debug-backups/' . $reportId;
     foreach ($changes as $change) {
         if (!is_array($change) || !is_string($change['path'] ?? null) || !is_string($change['content'] ?? null)) continue;
         $relative = ltrim($change['path'], '/\\');
-        if ($relative === '' || str_contains($relative, '..') || preg_match('~^(\.env|\.git|aml_env)(/|$)~', $relative)) {
-            output('⛔ Modification refusée : ' . $relative); continue;
+        if (!aiDebugSafeRelativePath($relative)) {
+            output('⛔ Modification refusée : ' . $relative);
+            $report['changes'][] = ['path' => $relative, 'reason' => $change['reason'] ?? '', 'status' => 'refused'];
+            continue;
         }
         if (!$yes) {
             fwrite(STDOUT, "Appliquer {$relative} ? [y/N] ");
-            if (!in_array(strtolower(trim((string) fgets(STDIN))), ['y', 'yes', 'o', 'oui'], true)) continue;
+            if (!in_array(strtolower(trim((string) fgets(STDIN))), ['y', 'yes', 'o', 'oui'], true)) {
+                $report['changes'][] = ['path' => $relative, 'reason' => $change['reason'] ?? '', 'status' => 'skipped'];
+                continue;
+            }
         }
-        $target = $root . '/' . $relative;
-        if (is_file($target)) {
+        $target = aiDebugTargetPath($root, $relative);
+        $existed = is_file($target);
+        if ($existed) {
             @mkdir($backup . '/' . dirname($relative), 0775, true);
-            copy($target, $backup . '/' . $relative);
+            if (!copy($target, $backup . '/' . $relative)) fail("Impossible de sauvegarder {$relative}.");
         }
         @mkdir(dirname($target), 0775, true);
-        file_put_contents($target, $change['content'], LOCK_EX);
+        if (file_put_contents($target, $change['content'], LOCK_EX) === false) fail("Impossible de modifier {$relative}.");
+        $report['changes'][] = [
+            'path' => $relative, 'reason' => $change['reason'] ?? '', 'status' => 'applied',
+            'existed' => $existed, 'backup' => $existed ? $relative : null,
+        ];
         output('✓ Corrigé : ' . $relative);
     }
     foreach ([...$commands, ...(is_array($plan['verification'] ?? null) ? $plan['verification'] : [])] as $command) {
         if (!is_string($command) || !aiSafeCommand($command)) { output('⛔ Commande refusée : ' . (string) $command); continue; }
-        output('→ ' . $command); output(aiCapture($command, $root));
+        $result = aiCapture($command, $root);
+        output('→ ' . $command); output($result);
+        $report['commands'][] = ['command' => $command, 'result' => $result];
     }
+    $report['status'] = 'fixed';
+    aiDebugWriteReport($root, $report);
     output((string) ($plan['summary'] ?? 'Diagnostic IA terminé.'));
+    output('Report: ' . $reportId);
     exit(0);
 }
