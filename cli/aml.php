@@ -5,6 +5,11 @@ declare(strict_types=1);
 
 define('PHPAML_FRAMEWORK_ROOT', dirname(__DIR__, 2));
 
+function amlCacheRoot(): string
+{
+    return rtrim((string) (getenv('AML_CACHE_HOME') ?: PHPAML_FRAMEWORK_ROOT . '/aml_env/cache'), '/\\');
+}
+
 function languageFile(): string
 {
     $base = PHP_OS_FAMILY === 'Windows'
@@ -510,7 +515,7 @@ function resolveTemplateRelease(?string $requestedVersion): array
 /** @return array{version: string, archive: string} */
 function acquireTemplate(?string $version, bool $refresh, bool $offline): array
 {
-    $cacheRoot = PHPAML_FRAMEWORK_ROOT . '/aml_env/cache/templates';
+    $cacheRoot = amlCacheRoot() . '/templates';
     if ($offline) {
         if ($version === null) {
             $versions = array_filter(glob($cacheRoot . '/*') ?: [], 'is_dir');
@@ -717,7 +722,7 @@ function installModules(
 /** @return array{version: string, archive: string} */
 function acquireFramework(?string $version, bool $refresh, bool $offline): array
 {
-    $cacheRoot = PHPAML_FRAMEWORK_ROOT . '/aml_env/cache/framework';
+    $cacheRoot = amlCacheRoot() . '/framework';
     if ($offline) {
         if ($version === null) {
             $versions = array_filter(glob($cacheRoot . '/*') ?: [], 'is_dir');
@@ -1039,7 +1044,7 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
 
     $runtimeDirectories = [
         ((string) (getenv('TMPDIR') ?: PHPAML_FRAMEWORK_ROOT . '/aml_env/tmp')) => 'Dossier temporaire',
-        ((string) (getenv('COMPOSER_HOME') ?: PHPAML_FRAMEWORK_ROOT . '/aml_env/cache')) => 'Cache AML',
+        amlCacheRoot() => 'Cache AML',
     ];
     foreach ($runtimeDirectories as $directory => $label) {
         $writable = is_dir($directory) && is_writable($directory);
