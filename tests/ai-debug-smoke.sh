@@ -17,5 +17,10 @@ if grep -q 'smoke-secret' <<<"$show"; then
   echo 'The AI key was exposed.' >&2
   exit 1
 fi
-test "$(stat -f '%Lp' "$fixture/home/.phpaml/ai.json" 2>/dev/null || stat -c '%a' "$fixture/home/.phpaml/ai.json")" = 600
+if [[ "$(uname -s)" == Darwin ]]; then
+  permissions="$(stat -f '%Lp' "$fixture/home/.phpaml/ai.json")"
+else
+  permissions="$(stat -c '%a' "$fixture/home/.phpaml/ai.json")"
+fi
+test "$permissions" = 600
 echo 'AI debug smoke: OK'
