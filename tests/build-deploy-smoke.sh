@@ -31,4 +31,8 @@ else
 fi
 test "$permissions" = 600
 ! grep -qiE 'password|secret' "$fixture/home/.phpaml/deploy.json"
+HOME="$fixture/home" AML_LANG=en php "$fixture/project/aml_env/bin/aml.php" \
+  deploy:configure shared --host example.com --user deploy --path /srv/site \
+  --strategy public-html --public-path /srv/site/public_html --key /tmp/key
+grep -q '"strategy": "public-html"' "$fixture/home/.phpaml/deploy.json"
 echo 'Build and deploy smoke: OK'
