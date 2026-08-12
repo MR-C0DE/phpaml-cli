@@ -24,6 +24,7 @@ jobs:
       - name: Test installed macOS package
         run: |
           sudo installer -pkg dist/phpaml-*-macos-arm64.pkg -target /
+          test -f /usr/local/lib/aml/aml_env/bin/deploy.php
           env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml version
           env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml doctor --offline
       - uses: actions/upload-artifact@v4
