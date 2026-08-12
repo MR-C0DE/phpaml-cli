@@ -14,8 +14,9 @@ printf '%s\n' '<?php exit(0);' > "$fixture/project/tests/run.php"
 printf '%s\n' 'SECRET=yes' > "$fixture/project/.env"
 
 (cd "$fixture/project" && HOME="$fixture/home" AML_LANG=en php aml_env/bin/aml.php build)
-unzip -l "$fixture/project/output/phpaml-build.zip" | grep -q 'public/index.php'
-if unzip -l "$fixture/project/output/phpaml-build.zip" | grep -qE '(^|/)(\.env|tests/)'; then
+listing="$(unzip -l "$fixture/project/output/phpaml-build.zip")"
+grep -q 'public/index.php' <<<"$listing"
+if grep -qE '(^|/)(\.env|tests/)' <<<"$listing"; then
   echo 'The production build contains forbidden files.' >&2
   exit 1
 fi
@@ -23,6 +24,11 @@ fi
 
 HOME="$fixture/home" AML_LANG=en php "$fixture/project/aml_env/bin/aml.php" \
   deploy:configure production --host example.com --user deploy --path /srv/site --key /tmp/key
-test "$(stat -f '%Lp' "$fixture/home/.phpaml/deploy.json" 2>/dev/null || stat -c '%a' "$fixture/home/.phpaml/deploy.json")" = 600
+if [[ "$(uname -s)" == Darwin ]]; then
+  permissions="$(stat -f '%Lp' "$fixture/home/.phpaml/deploy.json")"
+else
+  permissions="$(stat -c '%a' "$fixture/home/.phpaml/deploy.json")"
+fi
+test "$permissions" = 600
 ! grep -qiE 'password|secret' "$fixture/home/.phpaml/deploy.json"
 echo 'Build and deploy smoke: OK'
