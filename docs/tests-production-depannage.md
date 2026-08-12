@@ -85,6 +85,19 @@ aml doctor --port 8080
 aml serve 127.0.0.1:8080
 ```
 
+### Le diagnostic fonctionne dans un environnement isolé
+
+`aml doctor` distingue un port réellement occupé (`Address already in use`)
+d’une ouverture interdite par une sandbox (`Operation not permitted`). Une
+restriction de sandbox est affichée comme un avertissement
+« environnement restreint », et non comme une panne du système.
+
+La même distinction s’applique au dossier temporaire et au cache AML. Une
+interdiction explicite de l’environnement isolé produit un avertissement,
+tandis qu’un dossier réellement non accessible en écriture reste une erreur.
+Pour confirmer les permissions réelles de la machine, relancez le diagnostic
+directement dans le Terminal de l’utilisateur.
+
 ### GitHub est inaccessible
 
 Vérifiez la connexion et les éventuelles limites de l’API. Les commandes

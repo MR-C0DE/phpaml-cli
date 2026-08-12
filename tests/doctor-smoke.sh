@@ -29,6 +29,24 @@ touch "$FIXTURE/runtime/composer/composer.phar"
 ENGLISH=$(cd "${TMPDIR:-/tmp}" && AML_LANG=en php "$FIXTURE/aml_env/bin/aml.php" doctor --offline --json)
 printf '%s\n' "$ENGLISH" | grep -q '"name": "PHP extensions"'
 printf '%s\n' "$ENGLISH" | grep -q '"message": "all present"'
+if printf '%s\n' "$ENGLISH" | grep -q 'Operation not permitted'; then
+    printf '%s\n' "$ENGLISH" | grep -q 'opening forbidden by the environment'
+    if printf '%s\n' "$ENGLISH" | grep -q '127.0.0.1:8000 in use'; then
+        echo "A sandbox restriction must not be reported as an occupied port." >&2
+        exit 1
+    fi
+fi
+
+BLOCKED="$FIXTURE/blocked-cache"
+mkdir -p "$BLOCKED"
+chmod 0555 "$BLOCKED"
+if BLOCKED_RESULT=$(cd "${TMPDIR:-/tmp}" && AML_CACHE_HOME="$BLOCKED" AML_LANG=en php "$FIXTURE/aml_env/bin/aml.php" doctor --offline --json); then
+    echo "aml doctor should report a genuinely read-only cache." >&2
+    exit 1
+fi
+printf '%s\n' "$BLOCKED_RESULT" | grep -q '"name": "Cache AML"'
+printf '%s\n' "$BLOCKED_RESULT" | grep -q '"status": "error"'
+chmod 0755 "$BLOCKED"
 
 mkdir -p "$FIXTURE/project/public" "$FIXTURE/project/configs" \
     "$FIXTURE/project/aml_env/framework" "$FIXTURE/project/aml_env/storage/cache"
