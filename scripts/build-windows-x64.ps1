@@ -48,6 +48,7 @@ try {
 Copy-Item "$Build\buildroot\bin\php.exe" "$Package\runtime\php\php.exe" -Force
 Copy-Item $Composer "$Package\runtime\composer\composer.phar" -Force
 Copy-Item "$Root\cli\aml.php" "$Package\aml_env\bin\aml.php" -Force
+Copy-Item "$Root\cli\ai-debug.php" "$Package\aml_env\bin\ai-debug.php" -Force
 Copy-Item "$Root\info.json" "$Package\info.json" -Force
 
 & "$Package\bin\aml.exe" version

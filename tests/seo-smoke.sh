@@ -11,6 +11,7 @@ trap cleanup EXIT HUP INT TERM
 mkdir -p "$fixture/aml_env/bin" "$fixture/project/public" \
     "$fixture/project/configs" "$fixture/project/aml_env"
 cp "$root/cli/aml.php" "$fixture/aml_env/bin/aml.php"
+cp "$root/cli/ai-debug.php" "$fixture/aml_env/bin/ai-debug.php"
 cp "$root/info.json" "$fixture/info.json"
 cp "$root/info.json" "$fixture/project/info.json"
 
