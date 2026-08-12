@@ -21,6 +21,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y autopoint musl-tools re2c
+          sudo mkdir -p /usr/local/musl/lib /usr/local/musl/include
+          sudo cp -a /usr/lib/x86_64-linux-musl/. /usr/local/musl/lib/
+          sudo cp -a /usr/include/x86_64-linux-musl/. /usr/local/musl/include/
       - name: Build autonomous AML packages
         run: ./scripts/build-linux-x64.sh
         env:
