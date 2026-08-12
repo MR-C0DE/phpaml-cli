@@ -17,6 +17,10 @@ jobs:
         with:
           go-version: "1.22"
           cache: false
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autopoint musl-tools re2c
       - name: Build autonomous AML packages
         run: ./scripts/build-linux-x64.sh
         env:
