@@ -6,6 +6,7 @@ fixture="$(mktemp -d "${TMPDIR:-/tmp}/phpaml-ai-test.XXXXXX")"
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 mkdir -p "$fixture/home" "$fixture/runtime/aml_env/bin"
 cp "$root/cli/aml.php" "$root/cli/ai-debug.php" "$fixture/runtime/aml_env/bin/"
+cp "$root/cli/deploy.php" "$fixture/runtime/aml_env/bin/deploy.php"
 cp "$root/info.json" "$fixture/runtime/info.json"
 
 HOME="$fixture/home" AML_LANG=en php "$fixture/runtime/aml_env/bin/aml.php" \

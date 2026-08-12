@@ -35,6 +35,10 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: ./tests/ai-debug-smoke.sh
+      - name: Test build and deployment configuration on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: ./tests/build-deploy-smoke.sh
       - name: Test bilingual CLI on Windows
         if: runner.os == 'Windows'
         shell: bash
@@ -42,6 +46,7 @@ jobs:
           mkdir -p .test-runtime/aml_env/bin
           cp cli/aml.php .test-runtime/aml_env/bin/aml.php
           cp cli/ai-debug.php .test-runtime/aml_env/bin/ai-debug.php
+          cp cli/deploy.php .test-runtime/aml_env/bin/deploy.php
           cp info.json .test-runtime/info.json
           AML_LANG=en php .test-runtime/aml_env/bin/aml.php help | grep -q "Usage: aml <command>"
           AML_LANG=fr php .test-runtime/aml_env/bin/aml.php help | grep -q "Utilisation : aml <commande>"

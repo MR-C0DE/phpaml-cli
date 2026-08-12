@@ -213,6 +213,13 @@ function showHelp(): void
             '  create <directory>       Create an application (use . for the current directory)',
             '  serve [host:port]        Start the development server',
             '  install [options]        Install the engine and dependencies into aml_env',
+            '  build [options]          Create a production deployment archive',
+            '  deploy <profile>         Build and deploy through SSH/SFTP',
+            '  deploy:configure <name>  Configure a deployment profile',
+            '  deploy:check <name>      Test an SSH connection',
+            '  deploy:rollback <name>   Activate the previous release',
+            '  ssh <profile>            Open a remote SSH shell',
+            '  sftp <profile>           Open an SFTP session',
             '  --update [options]       Update AML itself (also: aml update)',
             '  doctor [options]         Check the installation and current project (--production for deployment)',
             '  debug [problem]          Diagnose with AI (--fix to apply, --yes to confirm safe changes)',
@@ -265,6 +272,13 @@ function showHelp(): void
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
     output('  serve [hôte:port]         Lance le serveur de développement');
     output('  install [options]         Installe moteur et dépendances dans aml_env');
+    output('  build [options]           Crée une archive de déploiement production');
+    output('  deploy <profil>           Construit et déploie par SSH/SFTP');
+    output('  deploy:configure <nom>    Configure un serveur de déploiement');
+    output('  deploy:check <nom>        Teste la connexion SSH');
+    output('  deploy:rollback <nom>     Réactive la release précédente');
+    output('  ssh <profil>              Ouvre une session SSH');
+    output('  sftp <profil>             Ouvre une session SFTP');
     output('  --update [options]        Met à jour AML (alias : aml update)');
     output('  doctor [options]          Vérifie l’installation et le projet courant');
     output('  debug [problème]          Diagnostique avec l’IA (--fix applique, --yes confirme)');
@@ -680,6 +694,68 @@ function serve(string $address): never
         $exitCode
     );
     exit($exitCode);
+}
+
+function buildProject(bool $skipTests = false): never
+{
+    $root = projectRoot();
+    if (!$skipTests) {
+        passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($root . '/tests/run.php'), $testCode);
+        if ($testCode !== 0) fail('Le build est annulé car les tests ont échoué.', $testCode);
+    }
+    if (!is_file($root . '/public/.htaccess')) {
+        fail('public/.htaccess est absent : les URL propres ne peuvent pas être garanties.');
+    }
+    $rules = (string) file_get_contents($root . '/public/.htaccess');
+    if (!str_contains($rules, 'RewriteRule ^ index.php')) {
+        fail('public/.htaccess ne redirige pas les routes vers index.php.');
+    }
+
+    $outputRoot = $root . '/output';
+    if (!is_dir($outputRoot) && !mkdir($outputRoot, 0775, true) && !is_dir($outputRoot)) {
+        fail('Impossible de créer le dossier output.');
+    }
+    $archive = $outputRoot . '/phpaml-build.zip';
+    $zip = new ZipArchive();
+    if ($zip->open($archive, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        fail('Impossible de créer output/phpaml-build.zip.');
+    }
+    $excludedRoots = ['.git', '.env', 'tests', 'output', 'tmp', 'tools', 'readme'];
+    $excludedExtensions = ['log', 'sqlite', 'sqlite3', 'bak'];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
+    );
+    $files = [];
+    foreach ($iterator as $file) {
+        if (!$file->isFile()) continue;
+        $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
+        $top = explode('/', $relative, 2)[0];
+        if (in_array($top, $excludedRoots, true)
+            || str_starts_with($relative, 'aml_env/storage/debug-')
+            || str_starts_with($relative, 'aml_env/storage/log')
+            || in_array(strtolower($file->getExtension()), $excludedExtensions, true)) continue;
+        $zip->addFile($file->getPathname(), $relative);
+        $files[] = $relative;
+    }
+    sort($files);
+    $manifest = [
+        'built_at' => date(DATE_ATOM),
+        'aml_version' => projectInfo(PHPAML_FRAMEWORK_ROOT)['version'] ?? null,
+        'project' => projectInfo($root)['name'] ?? basename($root),
+        'entrypoint' => 'public/index.php',
+        'document_root' => 'public',
+        'clean_urls' => true,
+        'files' => $files,
+    ];
+    $zip->addFromString('build-manifest.json', (string) json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+    $zip->close();
+    $checksum = hash_file('sha256', $archive);
+    file_put_contents($archive . '.sha256', "{$checksum}  phpaml-build.zip\n", LOCK_EX);
+    file_put_contents($outputRoot . '/manifest.json', (string) json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL, LOCK_EX);
+    output('✓ Build créé : output/phpaml-build.zip');
+    output('✓ Checksum : output/phpaml-build.zip.sha256');
+    output('Document root: public/ — URL propres activées (/about, sans index.php).');
+    exit(0);
 }
 
 function installModules(
@@ -1239,6 +1315,7 @@ function optionValue(array $arguments, string $option): ?string
 }
 
 require_once __DIR__ . '/ai-debug.php';
+require_once __DIR__ . '/deploy.php';
 
 function envFilePath(): string
 {
@@ -1680,6 +1757,21 @@ switch ($command) {
         break;
     case 'serve':
         serve($arguments[1] ?? 'localhost:8000');
+    case 'build':
+        buildProject(in_array('--skip-tests', $arguments, true));
+    case 'deploy:configure':
+        isset($arguments[1]) ? deployConfigure($arguments[1], $arguments) : fail('Indiquez le nom du profil.');
+        break;
+    case 'deploy:check':
+        isset($arguments[1]) ? deployCheck($arguments[1]) : fail('Indiquez le nom du profil.');
+    case 'deploy':
+        isset($arguments[1]) ? deployProject($arguments[1], in_array('--skip-build', $arguments, true)) : fail('Indiquez le nom du profil.');
+    case 'deploy:rollback':
+        isset($arguments[1]) ? deployRollback($arguments[1]) : fail('Indiquez le nom du profil.');
+    case 'ssh':
+        isset($arguments[1]) ? deployShell($arguments[1]) : fail('Indiquez le nom du profil.');
+    case 'sftp':
+        isset($arguments[1]) ? deployShell($arguments[1], true) : fail('Indiquez le nom du profil.');
     case 'install':
         installModules(
             in_array('--production', $arguments, true),
