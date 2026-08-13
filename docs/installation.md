@@ -58,7 +58,7 @@ Depuis la racine d’un projet créé par AML :
 aml install
 ```
 
-Le modèle déclare sa version compatible du moteur dans `info.json`. AML la
+Le modèle déclare sa version compatible du moteur dans `phpaml.json`. AML la
 sélectionne automatiquement. Une option `--version` donnée explicitement reste
 prioritaire.
 

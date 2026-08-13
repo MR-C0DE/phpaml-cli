@@ -7,7 +7,7 @@ define('PHPAML_FRAMEWORK_ROOT', dirname(__DIR__, 2));
 
 function amlCacheRoot(): string
 {
-    return rtrim((string) (getenv('AML_CACHE_HOME') ?: PHPAML_FRAMEWORK_ROOT . '/aml_env/cache'), '/\\');
+    return rtrim((string) (getenv('AML_CACHE_HOME') ?: PHPAML_FRAMEWORK_ROOT . '/runtime/cache'), '/\\');
 }
 
 function languageFile(): string
@@ -122,7 +122,7 @@ function localize(string $message): string
         'Projet' => 'Project', 'aucun projet PHPAML dans le dossier courant' => 'no PHPAML project in the current directory',
         'Configuration' => 'Configuration', 'présent' => 'present', 'absent' => 'missing',
         'Environnement' => 'Environment', 'créez .env à partir de .env.example' => 'create .env from .env.example',
-        'Moteur du projet' => 'Project engine', 'installé dans aml_env' => 'installed in aml_env',
+        'Moteur du projet' => 'Project engine', 'installé dans runtime' => 'installed in runtime',
         'Stockage du projet' => 'Project storage', 'ou supérieur requis' => 'or later required',
         'Mode debug' => 'Debug mode', 'désactivé' => 'disabled', 'est obligatoire en production' => 'is required in production',
         'HTTPS' => 'HTTPS', 'est absent' => 'is missing', 'Secret applicatif' => 'Application secret',
@@ -164,10 +164,23 @@ function fail(string $message, int $code = 1): never
 function projectRoot(): string
 {
     $current = getcwd() ?: PHPAML_FRAMEWORK_ROOT;
-    if (is_file($current . '/info.json') && is_file($current . '/public/index.php')) {
+    if ((is_file($current . '/phpaml.json') || is_file($current . '/info.json')) && is_file($current . '/public/index.php')) {
         return $current;
     }
     fail("Le dossier courant n'est pas un projet PHPAML. Utilisez 'aml create .'.");
+}
+
+function projectManifestPath(string $root): string
+{
+    return is_file($root . '/phpaml.json') ? $root . '/phpaml.json' : $root . '/info.json';
+}
+
+function projectRuntimePath(string $root): string
+{
+    if (is_dir($root . '/runtime') || !is_dir($root . '/aml_env')) {
+        return $root . '/runtime';
+    }
+    return $root . '/aml_env';
 }
 
 function loadProjectConfig(): array
@@ -180,22 +193,23 @@ function loadProjectConfig(): array
 
 function bootstrapProject(string $root): void
 {
-    $moduleAutoloader = $root . '/aml_env/autoload.php';
+    $runtime = projectRuntimePath($root);
+    $moduleAutoloader = $runtime . '/autoload.php';
     if (is_file($moduleAutoloader)) {
         require_once $moduleAutoloader;
         return;
     }
-    $frameworkAutoloader = $root . '/aml_env/framework/Autoloader.php';
+    $frameworkAutoloader = $runtime . '/framework/Autoloader.php';
     if (!is_file($frameworkAutoloader)) {
         fail("L'environnement AML est absent. Exécutez 'aml install'.");
     }
     require_once $frameworkAutoloader;
-    \PHPAML\Autoloader::register(['PHPAML\\' => $root . '/aml_env/framework', 'App\\' => $root . '/app']);
+    \PHPAML\Autoloader::register(['PHPAML\\' => $runtime . '/framework', 'App\\' => $root . '/app']);
 }
 
 function projectInfo(?string $root = null): array
 {
-    $path = ($root ?? projectRoot()) . '/info.json';
+    $path = projectManifestPath($root ?? projectRoot());
     $content = is_file($path) ? file_get_contents($path) : false;
     $info = json_decode($content ?: '', true);
     if (!is_array($info)) {
@@ -212,7 +226,7 @@ function showHelp(): void
             'Usage: aml <command> [options]', '', 'Commands:',
             '  create <directory>       Create an application (use . for the current directory)',
             '  serve [host:port]        Start the development server',
-            '  install [options]        Install the engine and dependencies into aml_env',
+            '  install [options]        Install the engine and dependencies into runtime',
             '  build [options]          Create a production deployment archive',
             '  deploy <profile>         Build and deploy through SSH/SFTP',
             '  deploy:configure <name>  Configure a deployment profile',
@@ -235,6 +249,7 @@ function showHelp(): void
             '  make:migration <name>    Generate a migration',
             '  migrate                  Run pending migrations',
             '  migrate:rollback         Roll back the latest migration (--steps N)',
+            '  migrate:structure        Preview or apply the legacy structure migration',
             '  db:configure [driver]    Configure the database (sqlite or mysql)',
             '  db:show                  Show database configuration',
             '  seo:init                 Create the SEO configuration',
@@ -251,7 +266,7 @@ function showHelp(): void
             '  env:set <key> <value>    Create or update an .env variable',
             '  language [en|fr]         Show or change the CLI language',
             '  cache:clear              Clear the application cache',
-            '  run <script>             Run a script declared in info.json',
+            '  run <script>             Run a script declared in phpaml.json',
             '  test                     Run automated tests',
             '  version                  Show the framework version',
             '  help                     Show this help', '', 'Examples:',
@@ -271,7 +286,7 @@ function showHelp(): void
     output('Commandes :');
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
     output('  serve [hôte:port]         Lance le serveur de développement');
-    output('  install [options]         Installe moteur et dépendances dans aml_env');
+    output('  install [options]         Installe moteur et dépendances dans runtime');
     output('  build [options]           Crée une archive de déploiement production');
     output('  deploy <profil>           Construit et déploie par SSH/SFTP');
     output('  deploy:configure <nom>    Configure un serveur de déploiement');
@@ -294,6 +309,7 @@ function showHelp(): void
     output('  make:migration <nom>      Génère une migration');
     output('  migrate                   Exécute les migrations en attente');
     output('  migrate:rollback          Annule la dernière migration (--steps N)');
+    output('  migrate:structure         Prévisualise ou applique la migration de structure');
     output('  db:configure [pilote]     Configure la base (sqlite ou mysql)');
     output('  db:show                   Affiche la configuration de la base');
     output('  seo:init                  Crée la configuration SEO');
@@ -310,7 +326,7 @@ function showHelp(): void
     output('  env:set <clé> <valeur>    Crée ou modifie une variable de .env');
     output('  language [en|fr]          Affiche ou change la langue du CLI');
     output('  cache:clear               Vide le cache de l’application');
-    output('  run <script>              Exécute un script déclaré dans info.json');
+    output('  run <script>              Exécute un script déclaré dans phpaml.json');
     output('  test                      Exécute les tests automatisés');
     output('  version                   Affiche la version du framework');
     output('  help                      Affiche cette aide');
@@ -335,7 +351,7 @@ function showHelp(): void
 /** @return list<string> */
 function scaffoldFiles(): array
 {
-    $files = ['info.json', 'readme', '.gitignore'];
+    $files = ['phpaml.json', 'readme', '.gitignore'];
     $files[] = '.env.example';
     $files[] = 'composer.json';
     $files[] = 'phpstan.neon';
@@ -658,7 +674,7 @@ function createProject(
             $zip->close();
             fail("Impossible d'extraire '{$relative}'.");
         }
-        if ($relative === 'info.json') {
+        if ($relative === 'phpaml.json') {
             $info = json_decode($content, true);
             $info['name'] = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]+/', '-', $projectName));
             $content = json_encode($info, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
@@ -691,7 +707,7 @@ function serve(string $address): never
         fail('Le port doit être compris entre 1 et 65535.');
     }
     $root = projectRoot();
-    if (!is_file($root . '/aml_env/autoload.php')) {
+    if (!is_file($root . '/runtime/autoload.php')) {
         fail("Les dépendances sont absentes. Exécutez d'abord 'aml install'.");
     }
     if (!is_file($root . '/public/index.php')) {
@@ -742,8 +758,8 @@ function buildProject(bool $skipTests = false): never
         $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
         $top = explode('/', $relative, 2)[0];
         if (in_array($top, $excludedRoots, true)
-            || str_starts_with($relative, 'aml_env/storage/debug-')
-            || str_starts_with($relative, 'aml_env/storage/log')
+            || str_starts_with($relative, 'runtime/storage/debug-')
+            || str_starts_with($relative, 'runtime/storage/log')
             || in_array(strtolower($file->getExtension()), $excludedExtensions, true)) continue;
         $zip->addFile($file->getPathname(), $relative);
         $files[] = $relative;
@@ -793,7 +809,7 @@ function installModules(
     }
     if ($version === null) {
         $project = projectInfo($root);
-        $declaredFramework = $project['aml']['framework'] ?? null;
+        $declaredFramework = $project['runtime']['framework'] ?? $project['aml']['framework'] ?? null;
         if (is_string($declaredFramework) && trim($declaredFramework) !== '') {
             $version = ltrim(trim($declaredFramework), 'v');
         }
@@ -809,7 +825,7 @@ function installModules(
         $composer = escapeshellarg($systemComposer);
     }
     $frameworkVersion = installFramework($root, $version, $refresh, $offline);
-    output('Préparation de l’environnement aml_env/…');
+    output('Préparation de l’environnement runtime/…');
     $command = 'cd ' . escapeshellarg($root)
         . ' && ' . $composer
         . ' install --no-interaction --prefer-dist'
@@ -825,7 +841,7 @@ function installModules(
         'lock' => is_file($root . '/composer.lock') ? hash_file('sha256', $root . '/composer.lock') : null,
     ];
     file_put_contents(
-        $root . '/aml_env/aml-installed.json',
+        $root . '/runtime/aml-installed.json',
         json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL
     );
     output('Environnement AML installé avec succès.');
@@ -902,7 +918,7 @@ function acquireFramework(?string $version, bool $refresh, bool $offline): array
 function installFramework(string $projectRoot, ?string $version, bool $refresh, bool $offline): string
 {
     $framework = acquireFramework($version, $refresh, $offline);
-    $destination = $projectRoot . '/aml_env/framework';
+    $destination = $projectRoot . '/runtime/framework';
     $zip = new ZipArchive();
     if ($zip->open($framework['archive']) !== true) {
         fail("Impossible d'ouvrir l'archive du moteur PHPAML.");
@@ -930,7 +946,7 @@ function installFramework(string $projectRoot, ?string $version, bool $refresh, 
         file_put_contents($target, $content);
     }
     $zip->close();
-    foreach ([$projectRoot . '/aml_env/storage', $projectRoot . '/aml_env/storage/cache'] as $runtimeDirectory) {
+    foreach ([$projectRoot . '/runtime/storage', $projectRoot . '/runtime/storage/cache'] as $runtimeDirectory) {
         if (!is_dir($runtimeDirectory)) {
             mkdir($runtimeDirectory, 0755, true);
         }
@@ -1064,7 +1080,7 @@ function migrate(bool $rollback = false, int $steps = 1): void
 
 function clearCache(): void
 {
-    $directory = projectRoot() . '/aml_env/storage/cache';
+    $directory = projectRoot() . '/runtime/storage/cache';
     if (!is_dir($directory)) {
         mkdir($directory, 0755, true);
     }
@@ -1150,7 +1166,7 @@ function doctorDirectoryStatus(string $directory): array
 function doctor(?string $requestedPort, bool $offline, bool $json, bool $production = false): never
 {
     $checks = [];
-    $infoPath = PHPAML_FRAMEWORK_ROOT . '/info.json';
+    $infoPath = PHPAML_FRAMEWORK_ROOT . '/phpaml.json';
     $infoContent = is_file($infoPath) ? file_get_contents($infoPath) : false;
     $info = json_decode($infoContent ?: '', true);
     $version = is_array($info) && is_string($info['version'] ?? null) ? $info['version'] : null;
@@ -1158,7 +1174,7 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
         $checks,
         $version !== null ? 'ok' : 'error',
         'AML',
-        $version !== null ? "version {$version}" : 'info.json absent ou invalide'
+        $version !== null ? "version {$version}" : 'phpaml.json absent ou invalide'
     );
 
     $phpSupported = version_compare(PHP_VERSION, '8.2.0', '>=');
@@ -1191,7 +1207,7 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
     );
 
     $runtimeDirectories = [
-        ((string) (getenv('TMPDIR') ?: PHPAML_FRAMEWORK_ROOT . '/aml_env/tmp')) => 'Dossier temporaire',
+        ((string) (getenv('TMPDIR') ?: PHPAML_FRAMEWORK_ROOT . '/runtime/tmp')) => 'Dossier temporaire',
         amlCacheRoot() => 'Cache AML',
     ];
     foreach ($runtimeDirectories as $directory => $label) {
@@ -1247,11 +1263,11 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
     }
 
     $current = getcwd() ?: '';
-    $isProject = is_file($current . '/info.json') && is_file($current . '/public/index.php');
+    $isProject = is_file($current . '/phpaml.json') && is_file($current . '/public/index.php');
     if (!$isProject) {
         doctorAdd($checks, 'info', 'Projet', 'aucun projet PHPAML dans le dossier courant');
     } else {
-        $projectInfoContent = file_get_contents($current . '/info.json');
+        $projectInfoContent = file_get_contents($current . '/phpaml.json');
         $projectInfo = json_decode($projectInfoContent ?: '', true);
         doctorAdd($checks, is_array($projectInfo) ? 'ok' : 'error', 'Projet', $current);
         doctorAdd(
@@ -1274,25 +1290,25 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
             doctorAdd($checks, str_starts_with($appUrl, 'https://') ? 'ok' : 'error', 'HTTPS', $appUrl !== '' ? $appUrl : 'APP_URL HTTPS est absent');
             $appKey = trim($environment['APP_KEY'] ?? '');
             doctorAdd($checks, strlen($appKey) >= 32 ? 'ok' : 'error', 'Secret applicatif', strlen($appKey) >= 32 ? 'configuré' : 'APP_KEY doit contenir au moins 32 caractères');
-            $productionCache = $current . '/aml_env/storage/cache';
+            $productionCache = $current . '/runtime/storage/cache';
             $cacheReady = is_dir($productionCache) && is_writable($productionCache);
-            doctorAdd($checks, $cacheReady ? 'ok' : 'error', 'Cache de production', $cacheReady ? 'prêt et accessible en écriture' : 'aml_env/storage/cache doit être prêt et accessible en écriture');
+            doctorAdd($checks, $cacheReady ? 'ok' : 'error', 'Cache de production', $cacheReady ? 'prêt et accessible en écriture' : 'runtime/storage/cache doit être prêt et accessible en écriture');
         }
-        $framework = $current . '/aml_env/framework/Autoloader.php';
-        $autoload = $current . '/aml_env/autoload.php';
+        $framework = $current . '/runtime/framework/Autoloader.php';
+        $autoload = $current . '/runtime/autoload.php';
         $installed = is_file($framework) && is_file($autoload);
         doctorAdd(
             $checks,
             $installed ? 'ok' : 'error',
             'Moteur du projet',
-            $installed ? 'installé dans aml_env' : "absent — exécutez 'aml install'"
+            $installed ? 'installé dans runtime' : "absent — exécutez 'aml install'"
         );
-        $storage = $current . '/aml_env/storage';
+        $storage = $current . '/runtime/storage';
         doctorAdd(
             $checks,
             is_dir($storage) && is_writable($storage) ? 'ok' : 'error',
             'Stockage du projet',
-            is_dir($storage) && is_writable($storage) ? 'accessible en écriture' : 'aml_env/storage doit être accessible en écriture'
+            is_dir($storage) && is_writable($storage) ? 'accessible en écriture' : 'runtime/storage doit être accessible en écriture'
         );
     }
 
@@ -1436,7 +1452,7 @@ function configureDatabase(string $driver, array $arguments): void
 {
     $driver = strtolower($driver);
     if ($driver === 'sqlite') {
-        $relativePath = optionValue($arguments, '--path') ?? 'aml_env/storage/database.sqlite';
+        $relativePath = optionValue($arguments, '--path') ?? 'runtime/storage/database.sqlite';
         $absolutePath = str_starts_with($relativePath, DIRECTORY_SEPARATOR)
             ? $relativePath
             : projectRoot() . '/' . ltrim($relativePath, '/\\');
@@ -1742,6 +1758,144 @@ function seoAudit(?string $url, bool $json, ?string $file = null): never
     exit($errors === 0 ? 0 : 1);
 }
 
+function migrateProjectStructure(bool $apply, bool $yes): void
+{
+    $root = projectRoot();
+    $legacyManifest = $root . '/info.json';
+    $manifest = $root . '/phpaml.json';
+    $legacyRuntime = $root . '/aml_env';
+    $runtime = $root . '/runtime';
+
+    $conflicts = [];
+    if (is_file($legacyManifest) && is_file($manifest)) {
+        $conflicts[] = 'info.json + phpaml.json';
+    }
+    if (is_dir($legacyRuntime) && is_dir($runtime)) {
+        $conflicts[] = 'aml_env/ + runtime/';
+    }
+    if ($conflicts !== []) {
+        fail('Migration impossible : conflits détectés (' . implode(', ', $conflicts) . ').');
+    }
+
+    $renameManifest = is_file($legacyManifest);
+    $renameRuntime = is_dir($legacyRuntime);
+    if (!$renameManifest && !$renameRuntime) {
+        output(currentLanguage() === 'fr' ? 'La structure du projet est déjà à jour.' : 'The project structure is already up to date.');
+        return;
+    }
+
+    output(currentLanguage() === 'fr' ? 'Migration de structure PHPAML' : 'PHPAML structure migration');
+    if ($renameManifest) {
+        output('  info.json → phpaml.json');
+    }
+    if ($renameRuntime) {
+        output('  aml_env/ → runtime/');
+    }
+    output(currentLanguage() === 'fr'
+        ? '  Les références connues aml_env/info.json seront actualisées.'
+        : '  Known aml_env/info.json references will be updated.');
+
+    if (!$apply) {
+        output(currentLanguage() === 'fr'
+            ? "Aperçu uniquement. Utilisez 'aml migrate:structure --apply --yes' pour appliquer."
+            : "Preview only. Use 'aml migrate:structure --apply --yes' to apply.");
+        return;
+    }
+    if (!$yes) {
+        fail("Ajoutez '--yes' pour confirmer la migration.");
+    }
+
+    $editable = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveCallbackFilterIterator(
+            new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            static function (SplFileInfo $file): bool {
+                return !$file->isDir() || !in_array($file->getFilename(), ['.git', '.phpaml-backups', 'runtime', 'aml_env', 'vendor'], true);
+            }
+        )
+    );
+    foreach ($iterator as $file) {
+        if (!$file->isFile() || $file->getSize() > 2_000_000) {
+            continue;
+        }
+        $extension = strtolower($file->getExtension());
+        if (in_array($extension, ['php', 'json', 'md', 'txt', 'xml', 'yml', 'yaml', 'lock'], true)
+            || in_array($file->getFilename(), ['.gitignore', '.env', '.env.example'], true)) {
+            $editable[] = $file->getPathname();
+        }
+    }
+
+    $backup = $root . '/.phpaml-backups/structure-' . gmdate('Ymd-His');
+    if (!is_dir($backup) && !mkdir($backup, 0700, true) && !is_dir($backup)) {
+        fail('Impossible de créer la sauvegarde de migration.');
+    }
+    $saved = [];
+    try {
+        foreach ($editable as $path) {
+            $content = file_get_contents($path);
+            if (!is_string($content) || (!str_contains($content, 'aml_env') && !str_contains($content, 'info.json'))) {
+                continue;
+            }
+            $relative = ltrim(substr($path, strlen($root)), '/');
+            $target = $backup . '/' . $relative;
+            if (!is_dir(dirname($target))) {
+                mkdir(dirname($target), 0700, true);
+            }
+            if (!copy($path, $target)) {
+                throw new RuntimeException("Unable to back up {$relative}");
+            }
+            $saved[$path] = $target;
+            $updated = str_replace(['aml_env', 'info.json'], ['runtime', 'phpaml.json'], $content);
+            if (file_put_contents($path, $updated) === false) {
+                throw new RuntimeException("Unable to update {$relative}");
+            }
+        }
+
+        if ($renameManifest) {
+            $raw = file_get_contents($legacyManifest);
+            $data = json_decode($raw ?: '', true, 512, JSON_THROW_ON_ERROR);
+            if (isset($data['aml']) && !isset($data['runtime'])) {
+                $data['runtime'] = $data['aml'];
+                unset($data['aml']);
+            }
+            if (isset($data['runtime']['environment'])) {
+                $data['runtime']['directory'] = $data['runtime']['environment'];
+                unset($data['runtime']['environment']);
+            }
+            if (isset($data['dependencies']) && !isset($data['requirements'])) {
+                $data['requirements'] = $data['dependencies'];
+                unset($data['dependencies']);
+            }
+            $data['runtime']['directory'] = 'runtime';
+            $data['modules'] ??= [];
+            if (file_put_contents($legacyManifest, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL) === false
+                || !rename($legacyManifest, $manifest)) {
+                throw new RuntimeException('Unable to migrate info.json');
+            }
+        }
+        if ($renameRuntime && !rename($legacyRuntime, $runtime)) {
+            throw new RuntimeException('Unable to migrate aml_env');
+        }
+    } catch (Throwable $error) {
+        if (is_dir($runtime) && !is_dir($legacyRuntime) && $renameRuntime) {
+            @rename($runtime, $legacyRuntime);
+        }
+        if (is_file($manifest) && !is_file($legacyManifest) && $renameManifest) {
+            @rename($manifest, $legacyManifest);
+        }
+        foreach ($saved as $path => $copy) {
+            @copy($copy, $path);
+        }
+        fail('Migration annulée : ' . $error->getMessage());
+    }
+
+    output(currentLanguage() === 'fr' ? '✓ Structure migrée avec succès.' : '✓ Structure migrated successfully.');
+    output((currentLanguage() === 'fr' ? 'Sauvegarde : ' : 'Backup: ') . $backup);
+    output(currentLanguage() === 'fr'
+        ? "Vérification conseillée : aml doctor --offline, puis aml test."
+        : 'Recommended verification: aml doctor --offline, then aml test.');
+}
+
 switch ($command) {
     case 'ai:configure':
         aiConfigure($arguments[1] ?? 'deepseek', optionValue($arguments, '--key'), optionValue($arguments, '--model'));
@@ -1839,6 +1993,9 @@ switch ($command) {
             fail("L'option '--steps' nécessite une valeur entière positive.");
         }
         migrate(true, (int) $steps);
+        break;
+    case 'migrate:structure':
+        migrateProjectStructure(in_array('--apply', $arguments, true), in_array('--yes', $arguments, true));
         break;
     case 'db:configure':
         configureDatabase($arguments[1] ?? 'sqlite', $arguments);

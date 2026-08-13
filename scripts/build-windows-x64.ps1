@@ -8,9 +8,9 @@ $Build = Join-Path $Root 'windows-build'
 $Spc = Join-Path $Build 'spc.exe'
 $Package = Join-Path $Root 'dist\aml-windows-x64'
 $Composer = Join-Path $Build 'composer.phar'
-$Version = (Get-Content (Join-Path $Root 'info.json') -Raw | ConvertFrom-Json).version
+$Version = (Get-Content (Join-Path $Root 'phpaml.json') -Raw | ConvertFrom-Json).version
 
-New-Item -ItemType Directory -Force -Path $Build, "$Package\bin", "$Package\runtime\php", "$Package\runtime\composer", "$Package\aml_env\bin" | Out-Null
+New-Item -ItemType Directory -Force -Path $Build, "$Package\bin", "$Package\runtime\php", "$Package\runtime\composer", "$Package\runtime\bin" | Out-Null
 
 if (-not (Test-Path $Spc)) {
     Invoke-WebRequest "https://github.com/crazywhalecc/static-php-cli/releases/download/$SpcVersion/spc-windows-x64.exe" -OutFile $Spc
@@ -47,10 +47,10 @@ try {
 
 Copy-Item "$Build\buildroot\bin\php.exe" "$Package\runtime\php\php.exe" -Force
 Copy-Item $Composer "$Package\runtime\composer\composer.phar" -Force
-Copy-Item "$Root\cli\aml.php" "$Package\aml_env\bin\aml.php" -Force
-Copy-Item "$Root\cli\ai-debug.php" "$Package\aml_env\bin\ai-debug.php" -Force
-Copy-Item "$Root\cli\deploy.php" "$Package\aml_env\bin\deploy.php" -Force
-Copy-Item "$Root\info.json" "$Package\info.json" -Force
+Copy-Item "$Root\cli\aml.php" "$Package\runtime\bin\aml.php" -Force
+Copy-Item "$Root\cli\ai-debug.php" "$Package\runtime\bin\ai-debug.php" -Force
+Copy-Item "$Root\cli\deploy.php" "$Package\runtime\bin\deploy.php" -Force
+Copy-Item "$Root\phpaml.json" "$Package\phpaml.json" -Force
 
 & "$Package\bin\aml.exe" version
 if ($LASTEXITCODE -ne 0) { throw 'Le test du paquet AML Windows a échoué.' }

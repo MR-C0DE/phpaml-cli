@@ -2,7 +2,7 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "$0")/../../../.." && pwd)"
-aml="$project_root/aml_env/bin/aml"
+aml="$project_root/runtime/bin/aml"
 
 english_help="$(AML_LANG=en "$aml" help)"
 grep -q "Usage: aml <command>" <<<"$english_help"

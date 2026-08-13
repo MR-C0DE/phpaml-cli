@@ -13,7 +13,7 @@ if [ "$(uname -s)" != Darwin ] || [ "$(uname -m)" != arm64 ]; then
 fi
 
 mkdir -p "$TOOLS" "$PACKAGE/bin" "$PACKAGE/runtime/php/bin" \
-    "$PACKAGE/runtime/composer" "$PACKAGE/aml_env/bin"
+    "$PACKAGE/runtime/composer" "$PACKAGE/runtime/bin"
 
 if [ ! -x "$TOOLS/spc" ]; then
     curl -fL "https://github.com/crazywhalecc/static-php-cli/releases/download/$SPC_VERSION/spc-macos-aarch64.tar.gz" \
@@ -35,10 +35,10 @@ GOCACHE="${TMPDIR:-/tmp}/phpaml-go-cache" go build -trimpath -ldflags "-s -w" \
     -o "$PACKAGE/bin/aml" ./cmd/aml
 cp "$ROOT/buildroot/bin/php" "$PACKAGE/runtime/php/bin/php"
 cp "$TOOLS/composer.phar" "$PACKAGE/runtime/composer/composer.phar"
-cp "$ROOT/cli/aml.php" "$PACKAGE/aml_env/bin/aml.php"
-cp "$ROOT/cli/ai-debug.php" "$PACKAGE/aml_env/bin/ai-debug.php"
-cp "$ROOT/cli/deploy.php" "$PACKAGE/aml_env/bin/deploy.php"
-cp "$ROOT/info.json" "$PACKAGE/info.json"
+cp "$ROOT/cli/aml.php" "$PACKAGE/runtime/bin/aml.php"
+cp "$ROOT/cli/ai-debug.php" "$PACKAGE/runtime/bin/ai-debug.php"
+cp "$ROOT/cli/deploy.php" "$PACKAGE/runtime/bin/deploy.php"
+cp "$ROOT/phpaml.json" "$PACKAGE/phpaml.json"
 chmod 755 "$PACKAGE/bin/aml" "$PACKAGE/runtime/php/bin/php"
 
 tar -czf "$ROOT/dist/aml-macos-arm64.tar.gz" -C "$ROOT/dist" aml-macos-arm64

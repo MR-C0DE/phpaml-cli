@@ -7,7 +7,7 @@ Le modèle charge `.env` avant `configs/app.php` :
 ```dotenv
 APP_DEBUG=false
 DATABASE_DRIVER=sqlite
-DATABASE_DSN=sqlite:aml_env/storage/database.sqlite
+DATABASE_DSN=sqlite:runtime/storage/database.sqlite
 DATABASE_USER=root
 DATABASE_PASSWORD=root
 ```

@@ -130,7 +130,7 @@ function deployProject(string $name, bool $skipBuild = false): never
 {
     $root = projectRoot();
     if (!$skipBuild || !is_file($root . '/output/phpaml-build.zip')) {
-        $command = [PHP_BINARY, PHPAML_FRAMEWORK_ROOT . '/aml_env/bin/aml.php', 'build'];
+        $command = [PHP_BINARY, PHPAML_FRAMEWORK_ROOT . '/runtime/bin/aml.php', 'build'];
         $process = proc_open($command, [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes, $root);
         if (!is_resource($process) || proc_close($process) !== 0) fail('Le build de production a échoué.');
     }
@@ -151,7 +151,7 @@ function deployProject(string $name, bool $skipBuild = false): never
         $public = (string) $profile['public_path'];
         $activate .= ' && mkdir -p ' . escapeshellarg($public)
             . ' && cp -a ' . escapeshellarg($directory . '/public/.') . ' ' . escapeshellarg($public . '/')
-            . ' && for item in app configs database aml_env composer.json composer.lock info.json; do [ ! -e '
+            . ' && for item in app configs database runtime composer.json composer.lock phpaml.json; do [ ! -e '
             . escapeshellarg($directory) . '/"$item" ] || cp -a ' . escapeshellarg($directory) . '/"$item" ' . escapeshellarg($profile['path'] . '/');
         $activate .= ' done && ' . deployPublicRootCommand($public . '/index.php', (string) $profile['path']);
     } else {
@@ -178,7 +178,7 @@ function deploySftpOnly(string $root, string $name, array $profile): never
         '-mkdir ' . $profile['path'], '-mkdir ' . $profile['public_path'],
         'put -r ' . $staging . '/app ' . $profile['path'] . '/',
         'put -r ' . $staging . '/configs ' . $profile['path'] . '/',
-        'put -r ' . $staging . '/aml_env ' . $profile['path'] . '/',
+        'put -r ' . $staging . '/runtime ' . $profile['path'] . '/',
         'put -r ' . $staging . '/public/* ' . $profile['public_path'] . '/',
         'put ' . $staging . '/public/.htaccess ' . $profile['public_path'] . '/.htaccess', 'quit',
     ];

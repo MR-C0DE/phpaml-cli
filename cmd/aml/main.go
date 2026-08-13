@@ -66,7 +66,7 @@ func main() {
 	if runtime.GOOS == "windows" {
 		php = filepath.Join(home, "runtime", "php", "php.exe")
 	}
-	cli := filepath.Join(home, "aml_env", "bin", "aml.php")
+	cli := filepath.Join(home, "runtime", "bin", "aml.php")
 	state := writableHome()
 	temporary := filepath.Join(state, "tmp")
 	composerHome := filepath.Join(state, "composer")

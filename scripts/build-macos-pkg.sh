@@ -3,7 +3,7 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 export COPYFILE_DISABLE=1
-VERSION=${AML_VERSION:-$(awk -F'"' '/"version"/ {print $4; exit}' "$ROOT/info.json")}
+VERSION=${AML_VERSION:-$(awk -F'"' '/"version"/ {print $4; exit}' "$ROOT/phpaml.json")}
 SOURCE="$ROOT/dist/aml-macos-arm64"
 STAGING="$ROOT/packaging/macos-arm64/root"
 INSTALLATION="$STAGING/usr/local/lib/aml"
@@ -22,14 +22,14 @@ fi
 
 rm -rf "$ROOT/packaging/macos-arm64"
 mkdir -p "$INSTALLATION/bin" "$INSTALLATION/runtime/php/bin" \
-    "$INSTALLATION/runtime/composer" "$INSTALLATION/aml_env/bin" "$COMMANDS"
+    "$INSTALLATION/runtime/composer" "$INSTALLATION/runtime/bin" "$COMMANDS"
 cp "$SOURCE/bin/aml" "$INSTALLATION/bin/aml"
 cp "$SOURCE/runtime/php/bin/php" "$INSTALLATION/runtime/php/bin/php"
 cp "$SOURCE/runtime/composer/composer.phar" "$INSTALLATION/runtime/composer/composer.phar"
-cp "$SOURCE/aml_env/bin/aml.php" "$INSTALLATION/aml_env/bin/aml.php"
-cp "$SOURCE/aml_env/bin/ai-debug.php" "$INSTALLATION/aml_env/bin/ai-debug.php"
-cp "$SOURCE/aml_env/bin/deploy.php" "$INSTALLATION/aml_env/bin/deploy.php"
-cp "$SOURCE/info.json" "$INSTALLATION/info.json"
+cp "$SOURCE/runtime/bin/aml.php" "$INSTALLATION/runtime/bin/aml.php"
+cp "$SOURCE/runtime/bin/ai-debug.php" "$INSTALLATION/runtime/bin/ai-debug.php"
+cp "$SOURCE/runtime/bin/deploy.php" "$INSTALLATION/runtime/bin/deploy.php"
+cp "$SOURCE/phpaml.json" "$INSTALLATION/phpaml.json"
 ln -s ../lib/aml/bin/aml "$COMMANDS/aml"
 xattr -cr "$STAGING"
 

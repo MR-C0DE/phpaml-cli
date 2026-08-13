@@ -2,7 +2,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-AML_VERSION=${AML_VERSION:-$(awk -F'"' '/"version"/ {print $4; exit}' "$ROOT/info.json")}
+AML_VERSION=${AML_VERSION:-$(awk -F'"' '/"version"/ {print $4; exit}' "$ROOT/phpaml.json")}
 SPC_VERSION=2.8.5
 SPC_SHA256=523ba4279c54c7a377156c0dd3a36adf92ee64b01e9a7f5e9e2ec084b8e458e5
 TOOLS="$ROOT/.tools"
@@ -16,8 +16,8 @@ fi
 
 rm -rf "$PACKAGE" "$DEB_ROOT"
 mkdir -p "$TOOLS" "$PACKAGE/bin" "$PACKAGE/runtime/php/bin" \
-    "$PACKAGE/runtime/composer" "$PACKAGE/aml_env/bin" \
-    "$PACKAGE/aml_env/cache/composer" "$PACKAGE/aml_env/tmp"
+    "$PACKAGE/runtime/composer" "$PACKAGE/runtime/bin" \
+    "$PACKAGE/runtime/cache/composer" "$PACKAGE/runtime/tmp"
 
 if [ ! -x "$TOOLS/spc" ]; then
     curl -fL "https://github.com/crazywhalecc/static-php-cli/releases/download/$SPC_VERSION/spc-linux-x86_64.tar.gz" \
@@ -39,10 +39,10 @@ GOCACHE="${TMPDIR:-/tmp}/phpaml-go-cache" go build -trimpath -ldflags "-s -w" \
     -o "$PACKAGE/bin/aml" ./cmd/aml
 cp "$ROOT/buildroot/bin/php" "$PACKAGE/runtime/php/bin/php"
 cp "$TOOLS/composer.phar" "$PACKAGE/runtime/composer/composer.phar"
-cp "$ROOT/cli/aml.php" "$PACKAGE/aml_env/bin/aml.php"
-cp "$ROOT/cli/ai-debug.php" "$PACKAGE/aml_env/bin/ai-debug.php"
-cp "$ROOT/cli/deploy.php" "$PACKAGE/aml_env/bin/deploy.php"
-cp "$ROOT/info.json" "$PACKAGE/info.json"
+cp "$ROOT/cli/aml.php" "$PACKAGE/runtime/bin/aml.php"
+cp "$ROOT/cli/ai-debug.php" "$PACKAGE/runtime/bin/ai-debug.php"
+cp "$ROOT/cli/deploy.php" "$PACKAGE/runtime/bin/deploy.php"
+cp "$ROOT/phpaml.json" "$PACKAGE/phpaml.json"
 chmod 755 "$PACKAGE/bin/aml" "$PACKAGE/runtime/php/bin/php"
 
 env -i PATH=/usr/bin:/bin HOME="${TMPDIR:-/tmp}" "$PACKAGE/bin/aml" version
