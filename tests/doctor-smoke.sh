@@ -5,20 +5,20 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 FIXTURE=$(mktemp -d "${TMPDIR:-/tmp}/phpaml-doctor-test.XXXXXX")
 trap 'rm -rf "$FIXTURE"' EXIT HUP INT TERM
 
-mkdir -p "$FIXTURE/aml_env/bin" "$FIXTURE/aml_env/tmp" \
-    "$FIXTURE/aml_env/cache" "$FIXTURE/runtime/composer"
-cp "$ROOT/cli/aml.php" "$FIXTURE/aml_env/bin/aml.php"
-cp "$ROOT/cli/ai-debug.php" "$FIXTURE/aml_env/bin/ai-debug.php"
-cp "$ROOT/cli/deploy.php" "$FIXTURE/aml_env/bin/deploy.php"
-cp "$ROOT/info.json" "$FIXTURE/info.json"
+mkdir -p "$FIXTURE/runtime/bin" "$FIXTURE/runtime/tmp" \
+    "$FIXTURE/runtime/cache" "$FIXTURE/runtime/composer"
+cp "$ROOT/cli/aml.php" "$FIXTURE/runtime/bin/aml.php"
+cp "$ROOT/cli/ai-debug.php" "$FIXTURE/runtime/bin/ai-debug.php"
+cp "$ROOT/cli/deploy.php" "$FIXTURE/runtime/bin/deploy.php"
+cp "$ROOT/phpaml.json" "$FIXTURE/phpaml.json"
 touch "$FIXTURE/runtime/composer/composer.phar"
 
-HEALTHY=$(cd "${TMPDIR:-/tmp}" && AML_LANG=fr php "$FIXTURE/aml_env/bin/aml.php" doctor --offline --json)
+HEALTHY=$(cd "${TMPDIR:-/tmp}" && AML_LANG=fr php "$FIXTURE/runtime/bin/aml.php" doctor --offline --json)
 printf '%s\n' "$HEALTHY" | grep -q '"healthy": true'
 printf '%s\n' "$HEALTHY" | grep -q '"name": "Extensions PHP"'
 
 rm -f "$FIXTURE/runtime/composer/composer.phar"
-if BROKEN=$(cd "${TMPDIR:-/tmp}" && AML_LANG=fr php "$FIXTURE/aml_env/bin/aml.php" doctor --offline --port 70000 --json); then
+if BROKEN=$(cd "${TMPDIR:-/tmp}" && AML_LANG=fr php "$FIXTURE/runtime/bin/aml.php" doctor --offline --port 70000 --json); then
     echo "aml doctor devait signaler l'installation incomplète." >&2
     exit 1
 fi
@@ -27,7 +27,7 @@ printf '%s\n' "$BROKEN" | grep -q 'Composer privé'
 printf '%s\n' "$BROKEN" | grep -q 'le port doit être compris entre 1 et 65535'
 
 touch "$FIXTURE/runtime/composer/composer.phar"
-ENGLISH=$(cd "${TMPDIR:-/tmp}" && AML_LANG=en php "$FIXTURE/aml_env/bin/aml.php" doctor --offline --json)
+ENGLISH=$(cd "${TMPDIR:-/tmp}" && AML_LANG=en php "$FIXTURE/runtime/bin/aml.php" doctor --offline --json)
 printf '%s\n' "$ENGLISH" | grep -q '"name": "PHP extensions"'
 printf '%s\n' "$ENGLISH" | grep -q '"message": "all present"'
 if printf '%s\n' "$ENGLISH" | grep -q 'Operation not permitted'; then
@@ -41,7 +41,7 @@ fi
 BLOCKED="$FIXTURE/blocked-cache"
 mkdir -p "$BLOCKED"
 chmod 0555 "$BLOCKED"
-if BLOCKED_RESULT=$(cd "${TMPDIR:-/tmp}" && AML_CACHE_HOME="$BLOCKED" AML_LANG=en php "$FIXTURE/aml_env/bin/aml.php" doctor --offline --json); then
+if BLOCKED_RESULT=$(cd "${TMPDIR:-/tmp}" && AML_CACHE_HOME="$BLOCKED" AML_LANG=en php "$FIXTURE/runtime/bin/aml.php" doctor --offline --json); then
     echo "aml doctor should report a genuinely read-only cache." >&2
     exit 1
 fi
@@ -50,17 +50,17 @@ printf '%s\n' "$BLOCKED_RESULT" | grep -q '"status": "error"'
 chmod 0755 "$BLOCKED"
 
 mkdir -p "$FIXTURE/project/public" "$FIXTURE/project/configs" \
-    "$FIXTURE/project/aml_env/framework" "$FIXTURE/project/aml_env/storage/cache"
-cp "$ROOT/info.json" "$FIXTURE/project/info.json"
+    "$FIXTURE/project/runtime/framework" "$FIXTURE/project/runtime/storage/cache"
+cp "$ROOT/phpaml.json" "$FIXTURE/project/phpaml.json"
 touch "$FIXTURE/project/public/index.php" "$FIXTURE/project/configs/app.php" \
-    "$FIXTURE/project/aml_env/framework/Autoloader.php" "$FIXTURE/project/aml_env/autoload.php"
+    "$FIXTURE/project/runtime/framework/Autoloader.php" "$FIXTURE/project/runtime/autoload.php"
 cat > "$FIXTURE/project/.env" <<'ENV'
 APP_ENV=production
 APP_DEBUG=true
 APP_URL=http://example.test
 APP_KEY=short
 ENV
-if PRODUCTION=$(cd "$FIXTURE/project" && AML_LANG=fr php "$FIXTURE/aml_env/bin/aml.php" doctor --offline --production --json); then
+if PRODUCTION=$(cd "$FIXTURE/project" && AML_LANG=fr php "$FIXTURE/runtime/bin/aml.php" doctor --offline --production --json); then
     echo "aml doctor --production devait refuser la configuration non sécurisée." >&2
     exit 1
 fi

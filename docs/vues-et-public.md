@@ -71,5 +71,5 @@ Si le CSS ne s’affiche pas, vérifiez :
 ## Actualisation automatique
 
 Avec `aml serve`, le modèle surveille les extensions `php`, `css`, `js`,
-`html`, `json` et `svg`. Les fichiers de `.git` et `aml_env` sont ignorés.
+`html`, `json` et `svg`. Les fichiers de `.git` et `runtime` sont ignorés.
 Cette fonction est réservée au serveur de développement.

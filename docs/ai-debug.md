@@ -26,12 +26,12 @@ aml debug:rollback <id>   # restaure les fichiers précédents
 
 L’agent reçoit le diagnostic AML et un nombre limité de fichiers de
 configuration. Il ne reçoit jamais `.env`. Les modifications sont limitées au
-projet, et `.env`, `.git` et `aml_env` sont interdits. Les fichiers remplacés
-sont sauvegardés dans `aml_env/storage/debug-backups/`. Seules les commandes de
+projet, et `.env`, `.git` et `runtime` sont interdits. Les fichiers remplacés
+sont sauvegardés dans `runtime/storage/debug-backups/`. Seules les commandes de
 diagnostic explicitement autorisées peuvent être exécutées.
 
 Chaque exécution crée aussi un rapport JSON dans
-`aml_env/storage/debug-reports/`. Le rapport contient le diagnostic, les
+`runtime/storage/debug-reports/`. Le rapport contient le diagnostic, les
 corrections proposées ou appliquées et les résultats des commandes de
 vérification. Il ne contient jamais la clé API. `debug:rollback` ne peut
 restaurer que les sauvegardes appartenant au rapport indiqué.

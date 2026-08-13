@@ -34,16 +34,19 @@ mon-projet/
 ├── configs/app.php
 ├── database/migrations/
 ├── tests/
-├── aml_env/
+├── runtime/
 ├── .env
 ├── composer.json
 ├── index.php
-└── info.json
+└── phpaml.json
 ```
 
 Le développeur travaille principalement dans `app`, `configs`, `database` et
-`tests`. `aml_env` contient le moteur, Composer, l’autoloading, le cache et les
+`tests`. `runtime` contient le moteur, Composer, l’autoloading, le cache et les
 données d’exécution ; il ne doit normalement pas être modifié à la main.
+
+Les projets créés avant cette convention peuvent être inspectés puis convertis
+avec `aml migrate:structure` et `aml migrate:structure --apply --yes`.
 
 ## Cycle d’une requête
 

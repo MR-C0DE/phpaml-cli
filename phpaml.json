@@ -2,7 +2,7 @@
   "name": "phpaml",
   "version": "1.6.0",
   "description": "Environnement autonome du mini-framework PHPAML",
-  "aml": {
-    "environment": "aml_env"
+  "runtime": {
+    "directory": "runtime"
   }
 }

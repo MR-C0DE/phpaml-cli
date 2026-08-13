@@ -155,7 +155,7 @@ function aiCapture(string $command, string $root): string
 function aiProjectContext(string $root): string
 {
     $sections = [aiCapture('aml doctor --json --offline', $root)];
-    foreach (['info.json', 'composer.json', '.env.example', 'configs/app.php', 'public/index.php'] as $relative) {
+    foreach (['phpaml.json', 'composer.json', '.env.example', 'configs/app.php', 'public/index.php'] as $relative) {
         $path = $root . '/' . $relative;
         if (is_file($path) && filesize($path) <= 30000) {
             $sections[] = "FILE: {$relative}\n" . file_get_contents($path);
@@ -180,7 +180,7 @@ function aiSafeCommand(string $command): bool
 
 function aiDebugReportDirectory(string $root): string
 {
-    return $root . '/aml_env/storage/debug-reports';
+    return $root . '/runtime/storage/debug-reports';
 }
 
 function aiDebugReportId(): string
@@ -192,7 +192,7 @@ function aiDebugSafeRelativePath(string $relative): bool
 {
     return $relative !== ''
         && !str_contains($relative, '..')
-        && !preg_match('~^(\.env(?:/|$)|\.git(?:/|$)|aml_env(?:/|$))~', $relative);
+        && !preg_match('~^(\.env(?:/|$)|\.git(?:/|$)|runtime(?:/|$))~', $relative);
 }
 
 function aiDebugTargetPath(string $root, string $relative): string
@@ -319,7 +319,7 @@ function aiDebugRollback(string $id, bool $yes): never
         $target = aiDebugTargetPath($root, $relative);
         if (($change['existed'] ?? false) === true) {
             $backup = (string) ($change['backup'] ?? '');
-            $backupRoot = $root . '/aml_env/storage/debug-backups/' . $id;
+            $backupRoot = $root . '/runtime/storage/debug-backups/' . $id;
             $source = $backupRoot . '/' . $relative;
             if ($backup !== $relative || !is_file($source)) {
                 fail("Sauvegarde introuvable pour {$relative}.");
@@ -347,7 +347,7 @@ function aiDebug(bool $fix, bool $yes, ?string $problem): never
     $system = <<<'PROMPT'
 You are the PHPAML debugging agent. Diagnose a PHPAML project using the supplied evidence and official PHPAML conventions. Never request or reveal secrets. Return ONLY valid JSON with this schema:
 {"diagnosis":"...","commands":["..."],"changes":[{"path":"relative/path","content":"complete replacement content","reason":"..."}],"verification":["aml doctor --offline","aml test"],"summary":"..."}
-Commands are limited to: aml doctor, aml install, aml test, aml routes, php -l FILE, composer validate. Changes must stay inside the project, must not target .env, aml_env, .git, binaries, or secrets. Prefer the smallest correction. PHPAML current layout uses public/index.php, public/css/index.css, public/js/main.js, public/img, app, configs, and framework 0.2.0. Preserve application behavior and legacy URLs.
+Commands are limited to: aml doctor, aml install, aml test, aml routes, php -l FILE, composer validate. Changes must stay inside the project, must not target .env, runtime, .git, binaries, or secrets. Prefer the smallest correction. PHPAML current layout uses public/index.php, public/css/index.css, public/js/main.js, public/img, app, configs, and framework 0.2.0. Preserve application behavior and legacy URLs.
 PROMPT;
     $prompt = "Reported problem: " . ($problem ?: 'Infer the problem from the diagnostics; the user did not provide details.')
         . "\nOfficial documentation: https://phpaml.com/docs and https://phpaml.com/fr/docs\n\nPROJECT EVIDENCE:\n"
@@ -384,7 +384,7 @@ PROMPT;
         output('Report: ' . $reportId);
         exit(0);
     }
-    $backup = $root . '/aml_env/storage/debug-backups/' . $reportId;
+    $backup = $root . '/runtime/storage/debug-backups/' . $reportId;
     foreach ($changes as $change) {
         if (!is_array($change) || !is_string($change['path'] ?? null) || !is_string($change['content'] ?? null)) continue;
         $relative = ltrim($change['path'], '/\\');

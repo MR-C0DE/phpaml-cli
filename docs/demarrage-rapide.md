@@ -24,9 +24,9 @@ officiel, vérifie son SHA-256 et le conserve dans le cache AML.
 aml install
 ```
 
-Cette commande télécharge le moteur officiel dans `aml_env/framework`, installe
-les dépendances Composer dans `aml_env` et écrit
-`aml_env/aml-installed.json`.
+Cette commande télécharge le moteur officiel dans `runtime/framework`, installe
+les dépendances Composer dans `runtime` et écrit
+`runtime/aml-installed.json`.
 
 Contrôlez ensuite le projet :
 

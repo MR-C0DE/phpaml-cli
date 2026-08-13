@@ -121,11 +121,24 @@ aml cache:clear
 aml run start
 ```
 
+### Migrer un ancien projet vers la structure actuelle
+
+```bash
+aml migrate:structure
+aml migrate:structure --apply --yes
+```
+
+La première commande affiche uniquement les opérations prévues. La seconde
+renomme `aml_env/` en `runtime/`, remplace `info.json` par `phpaml.json`, adapte
+le manifeste et les références textuelles connues. AML refuse d’agir si les
+anciens et nouveaux chemins coexistent. Une sauvegarde des fichiers modifiés
+est conservée dans `.phpaml-backups/`.
+
 `aml env:init` copie `.env.example` vers `.env`. Utilisez `--force` seulement
 pour remplacer une configuration existante. `env:list` masque les mots de
 passe, secrets, clés et jetons.
 
-La configuration SQLite par défaut crée `aml_env/storage/database.sqlite` et
+La configuration SQLite par défaut crée `runtime/storage/database.sqlite` et
 enregistre `root`/`root` dans `.env` par convention. SQLite n'utilise toutefois
 pas ces identifiants. MySQL est aussi configurable :
 
@@ -134,7 +147,7 @@ aml db:configure mysql --host 127.0.0.1 --port 3306 \
   --database phpaml --user root --password root
 ```
 
-`aml run <nom>` exécute une entrée de `scripts` déclarée dans `info.json`.
+`aml run <nom>` exécute une entrée de `scripts` déclarée dans `phpaml.json`.
 
 ## SEO
 
