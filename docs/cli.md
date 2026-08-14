@@ -132,7 +132,7 @@ La première commande affiche uniquement les opérations prévues. La seconde
 renomme `aml_env/` en `runtime/`, remplace `info.json` par `phpaml.json`, adapte
 le manifeste et les références textuelles connues. AML refuse d’agir si les
 anciens et nouveaux chemins coexistent. Une sauvegarde des fichiers modifiés
-est conservée dans `.phpaml-backups/`.
+est conservée dans `runtime/storage/migrations/structure-<date>/`.
 
 `aml env:init` copie `.env.example` vers `.env`. Utilisez `--force` seulement
 pour remplacer une configuration existante. `env:list` masque les mots de

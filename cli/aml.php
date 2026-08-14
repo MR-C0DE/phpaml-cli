@@ -1335,9 +1335,15 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
             output(str_pad('[' . $symbols[$check['status']] . ']', 12) . str_pad($check['name'], 24) . $check['message']);
         }
         output(str_repeat('─', 64));
-        output($errors === 0
-            ? "Diagnostic réussi avec {$warnings} avertissement(s)."
-            : "Diagnostic échoué : {$errors} erreur(s), {$warnings} avertissement(s).");
+        if (currentLanguage() === 'fr') {
+            output($errors === 0
+                ? "Diagnostic réussi avec {$warnings} avertissement(s)."
+                : "Diagnostic échoué : {$errors} erreur(s), {$warnings} avertissement(s).");
+        } else {
+            output($errors === 0
+                ? "Diagnostics passed with {$warnings} warning(s)."
+                : "Diagnostics failed: {$errors} error(s), {$warnings} warning(s).");
+        }
     }
     exit($errors === 0 ? 0 : 1);
 }
@@ -1816,7 +1822,7 @@ function migrateProjectStructure(bool $apply, bool $yes): void
         new RecursiveCallbackFilterIterator(
             new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
             static function (SplFileInfo $file): bool {
-                return !$file->isDir() || !in_array($file->getFilename(), ['.git', '.phpaml-backups', 'runtime', 'aml_env', 'vendor'], true);
+                return !$file->isDir() || !in_array($file->getFilename(), ['.git', 'runtime', 'aml_env', 'vendor'], true);
             }
         )
     );
@@ -1831,7 +1837,8 @@ function migrateProjectStructure(bool $apply, bool $yes): void
         }
     }
 
-    $backup = $root . '/.phpaml-backups/structure-' . gmdate('Ymd-His');
+    $backupRuntime = $renameRuntime ? $legacyRuntime : $runtime;
+    $backup = $backupRuntime . '/storage/migrations/structure-' . gmdate('Ymd-His');
     if (!is_dir($backup) && !mkdir($backup, 0700, true) && !is_dir($backup)) {
         fail('Impossible de créer la sauvegarde de migration.');
     }
@@ -1896,7 +1903,8 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     }
 
     output(currentLanguage() === 'fr' ? '✓ Structure migrée avec succès.' : '✓ Structure migrated successfully.');
-    output((currentLanguage() === 'fr' ? 'Sauvegarde : ' : 'Backup: ') . $backup);
+    $finalBackup = $renameRuntime ? str_replace($legacyRuntime, $runtime, $backup) : $backup;
+    output((currentLanguage() === 'fr' ? 'Sauvegarde : ' : 'Backup: ') . $finalBackup);
     output(currentLanguage() === 'fr'
         ? "Vérification conseillée : aml doctor --offline, puis aml test."
         : 'Recommended verification: aml doctor --offline, then aml test.');
