@@ -20,7 +20,8 @@ printf '%s\n' "$PREVIEW" | grep -q 'Preview only'
 test -f "$FIXTURE/project/info.json"
 test -d "$FIXTURE/project/aml_env"
 
-(cd "$FIXTURE/project" && AML_LANG=en php "$FIXTURE/cli/runtime/bin/aml.php" migrate:structure --apply --yes)
+APPLIED=$(cd "$FIXTURE/project" && AML_LANG=en php "$FIXTURE/cli/runtime/bin/aml.php" migrate:structure --apply --yes)
+printf '%s\n' "$APPLIED" | grep -q '/runtime/storage/migrations/structure-'
 test -f "$FIXTURE/project/phpaml.json"
 test ! -e "$FIXTURE/project/info.json"
 test -d "$FIXTURE/project/runtime"
@@ -28,6 +29,7 @@ test ! -e "$FIXTURE/project/aml_env"
 grep -q '"directory": "runtime"' "$FIXTURE/project/phpaml.json"
 grep -q '"requirements"' "$FIXTURE/project/phpaml.json"
 grep -q "../runtime" "$FIXTURE/project/configs/app.php"
+find "$FIXTURE/project/runtime/storage/migrations" -type f | grep -q .
 
 mkdir -p "$FIXTURE/conflict/public" "$FIXTURE/conflict/aml_env" "$FIXTURE/conflict/runtime"
 touch "$FIXTURE/conflict/public/index.php" "$FIXTURE/conflict/info.json"

@@ -30,6 +30,8 @@ touch "$FIXTURE/runtime/composer/composer.phar"
 ENGLISH=$(cd "${TMPDIR:-/tmp}" && AML_LANG=en php "$FIXTURE/runtime/bin/aml.php" doctor --offline --json)
 printf '%s\n' "$ENGLISH" | grep -q '"name": "PHP extensions"'
 printf '%s\n' "$ENGLISH" | grep -q '"message": "all present"'
+ENGLISH_TEXT=$(cd "${TMPDIR:-/tmp}" && AML_LANG=en php "$FIXTURE/runtime/bin/aml.php" doctor --offline)
+printf '%s\n' "$ENGLISH_TEXT" | grep -Eq 'Diagnostics passed with [0-9]+ warning\(s\)\.'
 if printf '%s\n' "$ENGLISH" | grep -q 'Operation not permitted'; then
     printf '%s\n' "$ENGLISH" | grep -q 'opening forbidden by the environment'
     if printf '%s\n' "$ENGLISH" | grep -q '127.0.0.1:8000 in use'; then
