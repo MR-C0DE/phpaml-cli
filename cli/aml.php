@@ -629,6 +629,12 @@ function createProject(
         fail('Le nom du projet est invalide.');
     }
 
+    if ($version === null) {
+        $configuredTemplate = projectInfo(PHPAML_FRAMEWORK_ROOT)['template']['version'] ?? null;
+        $version = is_string($configuredTemplate) && trim($configuredTemplate) !== ''
+            ? trim($configuredTemplate)
+            : null;
+    }
     $template = acquireTemplate($version, $refresh, $offline);
     $zip = new ZipArchive();
     if ($zip->open($template['archive']) !== true) {
