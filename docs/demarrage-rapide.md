@@ -37,13 +37,7 @@ aml doctor
 L’absence de `.env` est un avertissement. Créez-le ainsi :
 
 ```bash
-cp .env.example .env
-```
-
-Sous PowerShell :
-
-```powershell
-Copy-Item .env.example .env
+aml env:init
 ```
 
 ## Lancer le serveur
