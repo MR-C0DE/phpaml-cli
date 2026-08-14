@@ -23,34 +23,38 @@ mon-projet/
 ├── app/
 │   ├── Controllers/
 │   ├── Models/
-│   ├── public/
-│   │   ├── css/index.css
-│   │   ├── js/main.js
-│   │   └── img/favicon.svg
 │   └── views/
 │       ├── partials/header.php
 │       ├── partials/footer.php
 │       └── home.php
+├── public/
+│   ├── index.php
+│   ├── css/index.css
+│   ├── js/main.js
+│   └── img/favicon.svg
 ├── configs/app.php
 ├── database/migrations/
 ├── tests/
 ├── runtime/
 ├── .env
 ├── composer.json
-├── index.php
 └── phpaml.json
 ```
 
-Le développeur travaille principalement dans `app`, `configs`, `database` et
-`tests`. `runtime` contient le moteur, Composer, l’autoloading, le cache et les
-données d’exécution ; il ne doit normalement pas être modifié à la main.
+Le développeur travaille principalement dans `app`, `configs`, `database`,
+`public` et `tests`. `runtime` contient le moteur, Composer, l’autoloading, le
+cache et les données d’exécution ; il ne doit normalement pas être modifié à la
+main. `phpaml.json` est le manifeste du projet : il décrit notamment le nom, la
+version et le runtime attendu.
 
 Les projets créés avant cette convention peuvent être inspectés puis convertis
-avec `aml migrate:structure` et `aml migrate:structure --apply --yes`.
+avec `aml migrate:structure` et `aml migrate:structure --apply --yes`. Une
+sauvegarde est créée dans `runtime/storage/migrations/structure-<date>/` avant
+toute modification.
 
 ## Cycle d’une requête
 
-1. `index.php` charge l’environnement et `configs/app.php`.
+1. `public/index.php` charge l’environnement et `configs/app.php`.
 2. `WebApplication` prépare le conteneur, la session, les vues et la connexion.
 3. Les middlewares globaux reçoivent la requête.
 4. Le routeur trouve la route et extrait ses paramètres.
