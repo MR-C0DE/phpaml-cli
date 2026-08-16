@@ -95,6 +95,11 @@ function localize(string $message): string
         'Utilisez Ctrl+C pour arrêter le serveur.' => 'Use Ctrl+C to stop the server.',
         'Composer privé est absent' => 'Private Composer is missing', 'Préparation de l’environnement' => 'Preparing the environment',
         'Environnement AML installé avec succès.' => 'AML environment installed successfully.',
+        'Le moteur PHPAML est absent : installation automatique…' => 'The PHPAML engine is missing: installing it automatically…',
+        'La commande' => 'The command', 'a été retirée.' => 'has been removed.',
+        'Impossible d’ouvrir le projet créé dans' => 'Unable to open the project created in',
+        'Impossible de migrer app/View vers app/UI.' => 'Unable to migrate app/View to app/UI.',
+        'Migré : app/View → app/UI' => 'Migrated: app/View → app/UI',
         'Aucun moteur PHPAML' => 'No PHPAML engine', 'est incomplète' => 'is incomplete',
         'Script' => 'Script', 'inconnu' => 'unknown', 'Scripts disponibles' => 'Available scripts',
         'Aucune route trouvée.' => 'No routes found.', 'MÉTHODE' => 'METHOD', 'Le nom de classe est invalide.' => 'The class name is invalid.',
@@ -232,9 +237,9 @@ function showHelp(): void
             'AML — PHPAML command-line interface', '',
             'Usage: aml <command> [options]', '', 'Commands:',
             '  create <directory>       Create an application (use . for the current directory)',
+            '  create-view-app <directory> Create an application with AML View',
             '  serve [host:port]        Start the development server',
             '  install [options]        Install the engine and dependencies into runtime',
-            '  install view [options]   Install AML View and its secure web integration',
             '  build [options]          Create a production deployment archive',
             '  deploy <profile>         Build and deploy through SSH/SFTP',
             '  deploy:configure <name>  Configure a deployment profile',
@@ -281,8 +286,8 @@ function showHelp(): void
             '  test                     Run automated tests',
             '  version                  Show the framework version',
             '  help                     Show this help', '', 'Examples:',
-            '  aml create .', '  aml create my-project', '  aml serve 127.0.0.1:8080',
-            '  aml install', '  aml install view', '  aml --update --check', '  aml doctor',
+            '  aml create .', '  aml create my-project', '  aml create-view-app my-view-app',
+            '  aml serve 127.0.0.1:8080', '  aml install', '  aml --update --check', '  aml doctor',
             '  aml env:init', '  aml env:set APP_DEBUG false',
             '  aml db:configure sqlite', '  aml language fr',
         ] as $line) {
@@ -296,9 +301,9 @@ function showHelp(): void
     output();
     output('Commandes :');
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
+    output('  create-view-app <dossier> Crée une application avec AML View');
     output('  serve [hôte:port]         Lance le serveur de développement');
     output('  install [options]         Installe moteur et dépendances dans runtime');
-    output('  install view [options]    Installe AML View et son intégration web sécurisée');
     output('  build [options]           Crée une archive de déploiement production');
     output('  deploy <profil>           Construit et déploie par SSH/SFTP');
     output('  deploy:configure <nom>    Configure un serveur de déploiement');
@@ -349,11 +354,11 @@ function showHelp(): void
     output('Exemples :');
     output('  aml create .');
     output('  aml create mon-projet');
+    output('  aml create-view-app mon-interface');
     output('  aml create mon-projet --version 0.1.0');
     output('  aml create mon-projet --offline');
     output('  aml serve 127.0.0.1:8080');
     output('  aml install');
-    output('  aml install view');
     output('  aml install --version 0.1.0');
     output('  aml --update --check');
     output('  aml doctor');
@@ -630,6 +635,21 @@ function acquireTemplate(?string $version, bool $refresh, bool $offline): array
     return ['version' => $release['version'], 'archive' => $archive];
 }
 
+function creationTarget(string $destination): string
+{
+    $base = getcwd() ?: PHPAML_FRAMEWORK_ROOT;
+    $normalizedDestination = str_replace('\\', '/', trim($destination));
+    $isAbsolute = str_starts_with($normalizedDestination, '/')
+        || preg_match('/^[A-Za-z]:\//', $normalizedDestination) === 1
+        || str_starts_with($destination, '\\\\');
+
+    return $destination === '.'
+        ? $base
+        : ($isAbsolute
+            ? rtrim($destination, '/\\')
+            : $base . DIRECTORY_SEPARATOR . trim($destination, '/\\'));
+}
+
 function createProject(
     string $destination,
     ?string $version = null,
@@ -637,9 +657,8 @@ function createProject(
     bool $offline = false
 ): void
 {
-    $base = getcwd() ?: PHPAML_FRAMEWORK_ROOT;
-    $target = $destination === '.' ? $base : $base . DIRECTORY_SEPARATOR . trim($destination, DIRECTORY_SEPARATOR);
-    $projectName = $destination === '.' ? basename($target) : basename($destination);
+    $target = creationTarget($destination);
+    $projectName = basename(str_replace('\\', '/', $target));
 
     if ($projectName === '' || in_array($projectName, ['.', '..'], true)) {
         fail('Le nom du projet est invalide.');
@@ -717,6 +736,21 @@ function createProject(
             ? 'Lancez : aml install && aml serve'
             : "Lancez : cd {$destination} && aml install && aml serve");
     }
+}
+
+function createViewApplication(
+    string $destination,
+    ?string $templateVersion = null,
+    ?string $viewVersion = null,
+    bool $refresh = false,
+    bool $offline = false
+): never {
+    $target = creationTarget($destination);
+    createProject($destination, $templateVersion, $refresh, $offline);
+    if (!chdir($target)) {
+        fail("Impossible d’ouvrir le projet créé dans {$target}.");
+    }
+    installView($viewVersion);
 }
 
 function serve(string $address): never
@@ -926,6 +960,15 @@ function installView(?string $version = null): never
         fail('La version AML View est invalide.');
     }
 
+    if (!is_file($root . '/runtime/framework/Autoloader.php') || !is_file($root . '/runtime/aml-installed.json')) {
+        output('Le moteur PHPAML est absent : installation automatique…');
+        $installCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' install';
+        passthru('cd ' . escapeshellarg($root) . ' && ' . $installCommand, $installExitCode);
+        if ($installExitCode !== 0) {
+            fail('L’installation automatique du moteur PHPAML a échoué.');
+        }
+    }
+
     output('Installation de phpaml/view…');
     $command = 'cd ' . escapeshellarg($root) . ' && ' . composerCommand()
         . ' require ' . escapeshellarg('phpaml/view:' . $constraint)
@@ -935,18 +978,36 @@ function installView(?string $version = null): never
         fail('L’installation Composer de phpaml/view a échoué.');
     }
 
-    foreach (['app/View/Pages', 'app/View/Components', 'app/View/Layouts'] as $directory) {
+    $legacyViewRoot = $root . '/app/View';
+    $uiRoot = $root . '/app/UI';
+    if (is_dir($legacyViewRoot) && !file_exists($uiRoot)) {
+        if (!rename($legacyViewRoot, $uiRoot)) {
+            fail('Impossible de migrer app/View vers app/UI.');
+        }
+        output('Migré : app/View → app/UI');
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($uiRoot, FilesystemIterator::SKIP_DOTS));
+        foreach ($iterator as $file) {
+            if (!$file->isFile() || strtolower($file->getExtension()) !== 'php') {
+                continue;
+            }
+            $content = (string) file_get_contents($file->getPathname());
+            $content = str_replace(['namespace App\\View', 'use App\\View'], ['namespace App\\UI', 'use App\\UI'], $content);
+            file_put_contents($file->getPathname(), $content, LOCK_EX);
+        }
+    }
+
+    foreach (['app/UI/Pages', 'app/UI/Components', 'app/UI/Layouts'] as $directory) {
         if (!is_dir($root . '/' . $directory) && !mkdir($root . '/' . $directory, 0755, true) && !is_dir($root . '/' . $directory)) {
             fail("Impossible de créer {$directory}.");
         }
     }
 
-    writeNewFile($root, 'app/View/Pages/HomeViewPage.php', <<<'PHP'
+    writeNewFile($root, 'app/UI/Pages/HomeViewPage.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
-namespace App\View\Pages;
+namespace App\UI\Pages;
 
 use AML\View\Page;
 use AML\View\State;
@@ -969,12 +1030,12 @@ final class HomeViewPage extends Page
 }
 PHP
     );
-    writeNewFile($root, 'app/View/Layouts/AppViewLayout.php', <<<'PHP'
+    writeNewFile($root, 'app/UI/Layouts/AppViewLayout.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
-namespace App\View\Layouts;
+namespace App\UI\Layouts;
 
 use AML\View\Layout;
 use AML\View\View;
@@ -992,16 +1053,16 @@ final class AppViewLayout extends Layout
 }
 PHP
     );
-    writeNewFile($root, 'app/View/ViewRegistry.php', <<<'PHP'
+    writeNewFile($root, 'app/UI/ViewRegistry.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
-namespace App\View;
+namespace App\UI;
 
 use AML\View\InteractionKernel;
 use AML\View\View;
-use App\View\Pages\HomeViewPage;
+use App\UI\Pages\HomeViewPage;
 
 final class ViewRegistry
 {
@@ -1013,13 +1074,13 @@ final class ViewRegistry
 }
 PHP
     );
-    writeNewFile($root, 'app/View/page.php', <<<'PHP'
+    writeNewFile($root, 'app/UI/page.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
 use AML\View\BrowserRuntime;
-use App\View\ViewRegistry;
+use App\UI\ViewRegistry;
 
 $secret = (string) \PHPAML\Config\Env::get('AML_VIEW_SECRET', '');
 $result = ViewRegistry::kernel($secret, session_id())->mount('home');
@@ -1033,12 +1094,12 @@ $result = ViewRegistry::kernel($secret, session_id())->mount('home');
 </html>
 PHP
     );
-    writeNewFile($root, 'app/View/interaction.php', <<<'PHP'
+    writeNewFile($root, 'app/UI/interaction.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
-use App\View\ViewRegistry;
+use App\UI\ViewRegistry;
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -1073,11 +1134,11 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 if ($requestPath === '/_aml/view') {
-    require $root . '/app/View/interaction.php';
+    require $root . '/app/UI/interaction.php';
     return;
 }
 if ($requestPath === '/aml-view') {
-    require $root . '/app/View/page.php';
+    require $root . '/app/UI/page.php';
     return;
 }
 
@@ -1087,6 +1148,16 @@ PHP;
             fail('Impossible de brancher AML View dans public/index.php.');
         }
         output('Modifié : public/index.php');
+    } else {
+        $migratedIndex = str_replace(
+            ['/app/View/interaction.php', '/app/View/page.php'],
+            ['/app/UI/interaction.php', '/app/UI/page.php'],
+            $index
+        );
+        if ($migratedIndex !== $index) {
+            file_put_contents($indexPath, $migratedIndex, LOCK_EX);
+            output('Migré : intégration public/index.php vers app/UI');
+        }
     }
 
     $values = readEnvValues($root . '/.env');
@@ -1294,7 +1365,7 @@ function generateViewClass(string $type, string $name): void
     }
     $definition = $definitions[$type];
     $class = className($name, $definition['suffix']);
-    $path = "app/View/{$definition['directory']}/{$class}.php";
+    $path = "app/UI/{$definition['directory']}/{$class}.php";
     $fullPath = $root . '/' . $path;
     if (is_file($fullPath)) {
         fail("Le fichier '{$path}' existe déjà.");
@@ -1310,7 +1381,7 @@ function generateViewClass(string $type, string $name): void
         $body = "        return Text('{$class}');";
         $functions = 'use function AML\\View\\Text;';
     }
-    $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\View\\{$definition['directory']};\n\nuse AML\\View\\{$parent};\nuse AML\\View\\View;\n{$functions}\n\nfinal class {$class} extends {$parent}\n{\n    public function body(): View\n    {\n{$body}\n    }\n}\n";
+    $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\UI\\{$definition['directory']};\n\nuse AML\\View\\{$parent};\nuse AML\\View\\View;\n{$functions}\n\nfinal class {$class} extends {$parent}\n{\n    public function body(): View\n    {\n{$body}\n    }\n}\n";
     writeNewFile($root, $path, $content);
 }
 
@@ -2064,6 +2135,8 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     $manifest = $root . '/phpaml.json';
     $legacyRuntime = $root . '/aml_env';
     $runtime = $root . '/runtime';
+    $legacyView = $root . '/app/View';
+    $ui = $root . '/app/UI';
 
     $conflicts = [];
     if (is_file($legacyManifest) && is_file($manifest)) {
@@ -2072,13 +2145,17 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     if (is_dir($legacyRuntime) && is_dir($runtime)) {
         $conflicts[] = 'aml_env/ + runtime/';
     }
+    if (is_dir($legacyView) && is_dir($ui)) {
+        $conflicts[] = 'app/View/ + app/UI/';
+    }
     if ($conflicts !== []) {
         fail('Migration impossible : conflits détectés (' . implode(', ', $conflicts) . ').');
     }
 
     $renameManifest = is_file($legacyManifest);
     $renameRuntime = is_dir($legacyRuntime);
-    if (!$renameManifest && !$renameRuntime) {
+    $renameView = is_dir($legacyView);
+    if (!$renameManifest && !$renameRuntime && !$renameView) {
         output(currentLanguage() === 'fr' ? 'La structure du projet est déjà à jour.' : 'The project structure is already up to date.');
         return;
     }
@@ -2089,6 +2166,9 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     }
     if ($renameRuntime) {
         output('  aml_env/ → runtime/');
+    }
+    if ($renameView) {
+        output('  app/View/ → app/UI/');
     }
     output(currentLanguage() === 'fr'
         ? '  Les références connues aml_env/info.json seront actualisées.'
@@ -2133,7 +2213,11 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     try {
         foreach ($editable as $path) {
             $content = file_get_contents($path);
-            if (!is_string($content) || (!str_contains($content, 'aml_env') && !str_contains($content, 'info.json'))) {
+            if (!is_string($content)
+                || (!str_contains($content, 'aml_env')
+                    && !str_contains($content, 'info.json')
+                    && !str_contains($content, 'app/View')
+                    && !str_contains($content, 'App\\View'))) {
                 continue;
             }
             $relative = ltrim(substr($path, strlen($root)), '/');
@@ -2145,7 +2229,11 @@ function migrateProjectStructure(bool $apply, bool $yes): void
                 throw new RuntimeException("Unable to back up {$relative}");
             }
             $saved[$path] = $target;
-            $updated = str_replace(['aml_env', 'info.json'], ['runtime', 'phpaml.json'], $content);
+            $updated = str_replace(
+                ['aml_env', 'info.json', 'app/View', 'App\\View'],
+                ['runtime', 'phpaml.json', 'app/UI', 'App\\UI'],
+                $content
+            );
             if (file_put_contents($path, $updated) === false) {
                 throw new RuntimeException("Unable to update {$relative}");
             }
@@ -2176,7 +2264,13 @@ function migrateProjectStructure(bool $apply, bool $yes): void
         if ($renameRuntime && !rename($legacyRuntime, $runtime)) {
             throw new RuntimeException('Unable to migrate aml_env');
         }
+        if ($renameView && !rename($legacyView, $ui)) {
+            throw new RuntimeException('Unable to migrate app/View');
+        }
     } catch (Throwable $error) {
+        if (is_dir($ui) && !is_dir($legacyView) && $renameView) {
+            @rename($ui, $legacyView);
+        }
         if (is_dir($runtime) && !is_dir($legacyRuntime) && $renameRuntime) {
             @rename($runtime, $legacyRuntime);
         }
@@ -2232,6 +2326,16 @@ switch ($command) {
             in_array('--offline', $arguments, true)
         );
         break;
+    case 'create-view-app':
+        $destination = isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : '.';
+        createViewApplication(
+            $destination,
+            optionValue($arguments, '--template-version') ?? optionValue($arguments, '--version'),
+            optionValue($arguments, '--view-version'),
+            in_array('--refresh', $arguments, true),
+            in_array('--offline', $arguments, true)
+        );
+        break;
     case 'serve':
         serve($arguments[1] ?? 'localhost:8000');
     case 'build':
@@ -2251,7 +2355,7 @@ switch ($command) {
         isset($arguments[1]) ? deployShell($arguments[1], true) : fail('Indiquez le nom du profil.');
     case 'install':
         if (($arguments[1] ?? null) === 'view') {
-            installView(optionValue($arguments, '--version'));
+            fail("La commande 'aml install view' a été retirée. Utilisez 'aml create-view-app .' pour créer une application AML View.");
         }
         installModules(
             in_array('--production', $arguments, true),
