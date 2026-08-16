@@ -108,16 +108,19 @@ AML refuse de remplacer une classe existante.
 
 ## AML View
 
-Installez la bibliothèque d’interfaces web déclaratives et son intégration
-sécurisée dans le projet courant :
+Créez directement une application avec la bibliothèque d’interfaces web
+déclaratives et son intégration sécurisée :
 
 ```bash
-aml install view
+aml create-view-app .
+aml create-view-app mon-interface
 ```
 
-La commande installe `phpaml/view` depuis Packagist, génère
+La commande crée le projet, installe son moteur et `phpaml/view` depuis
+Packagist, génère
 `AML_VIEW_SECRET`, enregistre le module dans `phpaml.json` et prépare
-`app/View/` avec ses pages, composants, layouts et son registre sécurisé.
+`app/UI/` avec ses pages, composants, layouts et son registre sécurisé. Ce nom
+évite toute confusion avec `app/views/`, réservé aux vues PHP classiques.
 
 La page de départ est accessible sur `/aml-view` et les interactions signées
 utilisent `/_aml/view`. Les commandes de génération sont :
@@ -128,8 +131,11 @@ aml make:view-component Navigation
 aml make:view-layout Dashboard
 ```
 
-Une version précise peut être demandée avec
-`aml install view --version 0.1.0-beta.1`.
+Une version précise d’AML View peut être demandée avec
+`aml create-view-app mon-interface --view-version 0.1.0-beta.1`.
+
+`aml create` reste réservé aux projets PHPAML classiques et n’ajoute pas AML
+View.
 
 ## Base, cache et scripts
 
