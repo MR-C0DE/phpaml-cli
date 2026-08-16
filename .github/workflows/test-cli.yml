@@ -15,7 +15,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-14, windows-2022]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -39,6 +39,10 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: ./tests/build-deploy-smoke.sh
+      - name: Test AML View installation and generators on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: PHP_BINARY=php ./tests/view-smoke.sh
       - name: Test bilingual CLI on Windows
         if: runner.os == 'Windows'
         shell: bash

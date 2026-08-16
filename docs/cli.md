@@ -106,6 +106,31 @@ aml make:migration create_users_table
 
 AML refuse de remplacer une classe existante.
 
+## AML View
+
+Installez la bibliothèque d’interfaces web déclaratives et son intégration
+sécurisée dans le projet courant :
+
+```bash
+aml install view
+```
+
+La commande installe `phpaml/view` depuis Packagist, génère
+`AML_VIEW_SECRET`, enregistre le module dans `phpaml.json` et prépare
+`app/View/` avec ses pages, composants, layouts et son registre sécurisé.
+
+La page de départ est accessible sur `/aml-view` et les interactions signées
+utilisent `/_aml/view`. Les commandes de génération sont :
+
+```bash
+aml make:view-page Home
+aml make:view-component Navigation
+aml make:view-layout Dashboard
+```
+
+Une version précise peut être demandée avec
+`aml install view --version 0.1.0-beta.1`.
+
 ## Base, cache et scripts
 
 ```bash
