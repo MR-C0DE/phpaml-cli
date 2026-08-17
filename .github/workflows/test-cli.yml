@@ -39,6 +39,10 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: ./tests/build-deploy-smoke.sh
+      - name: Test Data installation and command routing on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: PHP_BINARY=php ./tests/data-smoke.sh
       - name: Test AML View installation and generators on Unix
         if: runner.os != 'Windows'
         shell: bash

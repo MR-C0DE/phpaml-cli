@@ -106,6 +106,41 @@ aml make:migration create_users_table
 
 AML refuse de remplacer une classe existante.
 
+## Données
+
+SQLite est le pilote par défaut :
+
+```bash
+aml install data
+```
+
+Le moteur peut être choisi explicitement sans allonger les commandes suivantes :
+
+```bash
+aml install data --driver mysql
+aml install data --driver mariadb
+aml install data --driver pgsql
+aml install data --driver mongodb
+```
+
+AML installe `phpaml/data` pour les moteurs SQL et `phpaml/data-mongodb` pour
+MongoDB, puis crée `configs/data.php`, `src/models/`, `database/migrations/` et
+`database/seeders/`. Le pilote choisi est enregistré dans `phpaml.json`.
+
+```bash
+aml make:model User
+aml make:migration create_users_table
+aml make:seeder UserSeeder
+aml data:migrate
+aml data:rollback --steps 1
+aml data:seed
+aml data:status
+aml data:doctor
+```
+
+Les commandes acceptent `--connection <nom>` lorsque l’application configure
+plusieurs connexions.
+
 ## AML View
 
 Créez directement une application avec la bibliothèque d’interfaces web
@@ -117,25 +152,185 @@ aml create-view-app mon-interface
 ```
 
 La commande crée le projet, installe son moteur et `phpaml/view` depuis
-Packagist, génère
-`AML_VIEW_SECRET`, enregistre le module dans `phpaml.json` et prépare
-`app/UI/` avec ses pages, composants, layouts et son registre sécurisé. Ce nom
-évite toute confusion avec `app/views/`, réservé aux vues PHP classiques.
+Packagist, génère `AML_VIEW_SECRET`, enregistre le module dans `phpaml.json`
+et prépare une organisation fondée sur `src/` :
 
-La page de départ est accessible sur `/aml-view` et les interactions signées
-utilisent `/_aml/view`. Les commandes de génération sont :
+```text
+src/
+├── views/
+│   ├── pages/
+│   │   ├── home/page.php
+│   │   ├── about/page.php
+│   │   └── users/[id]/page.php
+│   ├── components/Navigation.php
+│   ├── layouts/AppLayout.php
+│   ├── states/
+│   │   ├── Loading.php
+│   │   ├── Error.php
+│   │   └── NotFound.php
+│   ├── stylesheets/
+│       ├── base.css
+│       ├── pages/home.css
+│       ├── components/navigation.css
+│       ├── layouts/app.css
+│       └── states/route-states.css
+│   └── themes/
+│       ├── light/tokens.css
+│       └── dark/tokens.css
+├── controllers/
+├── models/
+├── middleware/ (optionnel)
+└── services/ (optionnel)
+public/
+├── index.php
+├── favicon.svg
+├── phpaml-logo-violet-lime.png
+└── assets/
+```
+
+Les dossiers placés sous `src/views/pages/` deviennent automatiquement les URL
+du site. Les layouts et états sont associés depuis leurs dossiers dédiés.
+Aucun registre manuel n’est nécessaire.
+
+Les styles suivent la même organisation que les vues. Le moteur regroupe
+automatiquement tous les fichiers de `src/views/stylesheets/` et les expose à
+`/_aml/styles.css`. `public/index.php` charge uniquement cette feuille générée :
+aucun CSS applicatif n’est dispersé dans `public/`.
+Le dossier `public/assets/` reçoit les images et ressources ajoutées par
+l’application. Les documents qui doivent conserver une URL directe restent à
+la racine de `public/` : logo, favicon, `robots.txt`, `sitemap.xml`, etc.
+
+Les classes s’appliquent directement depuis les éléments déclaratifs :
+
+```php
+Section(...)->class('home-hero', 'featured');
+```
+
+Les règles globales restent dans `stylesheets/base.css`. Les feuilles des
+pages, composants, layouts et états utilisent des sélecteurs par classe.
+
+Les applications générées incluent `ThemeProvider()` dans le layout et
+`ThemeSwitcher()` dans la navigation. Les modes clair, sombre et système sont
+gérés automatiquement, avec persistance du choix dans le navigateur.
+
+Chaque page peut également redéfinir `metadata()` avec `PageMetadata` pour
+déclarer son titre, sa description, son URL canonique, l’indexation et ses
+aperçus Open Graph/Twitter. `public/index.php` injecte automatiquement ces
+métadonnées dans le document; aucune balise SEO n’est écrite dans la page.
+
+Les nouvelles applications chargent également `phpaml/engine`. Les actions
+locales comme `ClientAction::increment('count')` s’exécutent entièrement dans
+le navigateur. Le serveur fournit le premier HTML et l’état initial, mais un
+clic frontend ordinaire ne contacte pas `/_aml/view`.
+
+Le générateur ne crée plus cet endpoint et ne charge plus `BrowserRuntime`.
+Après le rendu HTML initial, les interactions ordinaires appartiennent
+exclusivement à PHPAML Engine. Toute communication avec PHP doit être déclarée
+par une action `Api::*()`.
+
+Les liens internes sont pris en charge par le routeur de PHPAML Engine : la
+racine AML est actualisée sans recharger le document, l’URL et les boutons
+précédent/suivant restent synchronisés, et le lien actif reçoit
+`aria-current="page"`.
+
+Le backend n’est contacté que par une action explicite comme
+`Api::get('/api/health')` ou `Api::post('/api/profile', $data)`. Le résultat,
+le chargement et l’erreur peuvent être liés à des propriétés `#[State]` avec
+`storeIn()`, `loadingIn()` et `errorIn()`.
+
+Les contrôles liés avec `bindClient()` acceptent les règles frontend
+`required()`, `email()` et `minLength()`. PHPAML Engine affiche les erreurs de
+manière accessible et bloque la soumission invalide sans contacter le serveur.
+Le backend doit toujours valider à nouveau les données reçues par une API.
+Une vérification distante peut être déclarée avec
+`validateWith(Api::get(...), debounce: 300)`. L’API répond avec `valid` et un
+éventuel `message`; le moteur annule automatiquement les requêtes devenues
+obsolètes et refait la vérification avant la soumission.
+
+Le moteur gère également le cycle de vie `mount`, `update` et `unmount`. Les
+frontières nommées avec `->component('nom')` reçoivent ces événements. Lors du
+démontage, les écouteurs enregistrés sont nettoyés et les requêtes API encore
+actives sont annulées automatiquement.
+
+`Actions::sequence()` enchaîne plusieurs instructions locales ou API dans leur
+ordre de déclaration. `Actions::when()` choisit une branche selon une valeur de
+l’état frontend, sans exécuter de closure PHP dans le navigateur.
+
+Les modificateurs `showWhen()`, `classWhen()` et `disabledWhen()` contrôlent la
+présentation depuis l’état client. Leur valeur initiale est rendue par PHP, puis
+PHPAML Engine les actualise localement.
+
+`Each()` affiche une collection réactive (`foreach` étant réservé par PHP).
+Les actions `append`, `prepend`, `removeAt` et `clear` modifient la collection
+dans le navigateur. Le premier rendu de la liste reste produit par PHP.
+
+Les routes dynamiques utilisent les crochets :
+`src/views/pages/users/[id]/page.php` répond à `/users/42`. Les contrôleurs,
+modèles, middlewares et services restent directement dans `src/`. Les vues PHP classiques ne
+sont pas ajoutées aux applications AML View.
+
+`src/views`, `src/models` et `src/controllers` constituent la structure
+obligatoire d’une application AML View. `aml doctor` signale leur absence.
+Les dossiers `src/middleware` et `src/services` sont optionnels.
+
+La page de départ est accessible sur `/`. Les commandes de génération sont :
 
 ```bash
 aml make:view-page Home
 aml make:view-component Navigation
 aml make:view-layout Dashboard
+aml make:view-loading dashboard
+aml make:view-error dashboard
+aml make:view-not-found dashboard
 ```
 
+Elles créent respectivement `src/views/pages/home/page.php`,
+`src/views/components/Navigation.php` et `src/views/layouts/DashboardLayout.php`.
+
 Une version précise d’AML View peut être demandée avec
-`aml create-view-app mon-interface --view-version 0.1.0-beta.1`.
+`aml create-view-app mon-interface --view-version 0.1.0-beta.3`.
 
 `aml create` reste réservé aux projets PHPAML classiques et n’ajoute pas AML
 View.
+
+## Internationalisation
+
+Installez le module JSON indépendant dans une application PHPAML classique ou
+AML View :
+
+```bash
+aml install i18n
+```
+
+La commande installe `phpaml/i18n`, configure `APP_LOCALE` et
+`APP_FALLBACK_LOCALE`, puis crée :
+
+```text
+src/locales/
+├── en/common.json
+└── fr/common.json
+```
+
+L’organisation sous chaque langue reste libre. Le chemin produit la clé :
+`src/locales/fr/pages/home.json` et la valeur `title` donnent
+`pages.home.title`.
+
+```php
+use function AML\I18n\t;
+
+Heading(t('pages.home.title'));
+Text(t('common.welcome', ['name' => $user->name]));
+```
+
+Commandes disponibles :
+
+```bash
+aml i18n:add es
+aml i18n:list
+aml i18n:check
+aml i18n:missing fr
+aml i18n:set-default en
+```
 
 ## Base, cache et scripts
 

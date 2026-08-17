@@ -1,6 +1,6 @@
 {
   "name": "phpaml",
-  "version": "1.7.0-beta.4",
+  "version": "1.7.0-beta.5",
   "description": "Environnement autonome du mini-framework PHPAML",
   "runtime": {
     "directory": "runtime"
