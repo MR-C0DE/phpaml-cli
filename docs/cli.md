@@ -26,7 +26,7 @@ choix de langue et le transmet au CLI.
 | `aml serve` | démarre sur `localhost:8000` |
 | `aml serve hôte:port` | démarre sur une adresse choisie |
 | `aml routes` | affiche les routes enregistrées |
-| `aml test` | exécute `tests/run.php` |
+| `aml test` | exécute `tests/run.php`, ou la suite déclarative `tests/aml-view.php` dans une application AML View |
 | `aml build` | produit l’archive de déploiement dans `output/` |
 
 Options de `create` :

@@ -814,7 +814,7 @@ function buildProject(bool $skipTests = false): never
 {
     $root = projectRoot();
     if (!$skipTests) {
-        passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($root . '/tests/run.php'), $testCode);
+        $testCode = executeProjectTests($root);
         if ($testCode !== 0) fail('Le build est annulé car les tests ont échoué.', $testCode);
     }
     if (!is_file($root . '/public/.htaccess')) {
@@ -977,7 +977,7 @@ function installView(?string $version = null, bool $offline = false): never
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
-    $constraint = $version === null ? '^0.1@beta' : ltrim(trim($version), 'v');
+    $constraint = $version === null ? '^0.1.0-beta.3' : ltrim(trim($version), 'v');
     if (preg_match('/^[0-9A-Za-z.*^~<>=|@+_.-]+$/', $constraint) !== 1) {
         fail('La version AML View est invalide.');
     }
@@ -1128,6 +1128,7 @@ function installView(?string $version = null, bool $offline = false): never
     output('Installation de phpaml/view…');
     $command = 'cd ' . escapeshellarg($root) . ' && ' . composerCommand()
         . ' require ' . escapeshellarg('phpaml/view:' . $constraint)
+        . ' ' . escapeshellarg('phpaml/engine:^0.1@beta')
         . ' --no-interaction --prefer-dist --no-progress';
     passthru($command, $exitCode);
     if ($exitCode !== 0) {
@@ -1600,6 +1601,65 @@ CSS
     writeNewFile($root, 'src/views/themes/dark/tokens.css', <<<'CSS'
 [data-aml-theme="dark"] { color-scheme:dark; --bg:#09070d; --panel:#15111f; --ink:#f8f7ff; --muted:#aaa6ba; --line:rgba(255,255,255,.11); --violet:#9b72ff; --lime:#c7ff3d; }
 CSS
+    );
+    writeNewFile($root, 'tests/aml-view.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+$root = dirname(__DIR__);
+require_once $root . '/runtime/autoload.php';
+
+$tests = [
+    'home page renders' => static function () use ($root): void {
+        $application = new \AML\View\FileApplication($root . '/src/views');
+        $result = $application->mount('/');
+        if (!$result instanceof \AML\View\PageResult) {
+            throw new RuntimeException('The home route did not return a page.');
+        }
+        if (!str_contains($result->rootHtml(), 'Build reactive web interfaces')) {
+            throw new RuntimeException('The home page content is missing.');
+        }
+    },
+    'about route renders' => static function () use ($root): void {
+        $result = (new \AML\View\FileApplication($root . '/src/views'))->mount('/about');
+        if (!$result instanceof \AML\View\PageResult) {
+            throw new RuntimeException('The about route did not return a page.');
+        }
+    },
+    'stylesheets are collected' => static function () use ($root): void {
+        $styles = (new \AML\View\FileApplication($root . '/src/views'))->styles();
+        if (!str_contains($styles, '.view-hero') || !str_contains($styles, '.view-nav')) {
+            throw new RuntimeException('AML View stylesheets were not collected.');
+        }
+    },
+    'unknown routes use the declarative 404 page' => static function () use ($root): void {
+        $application = new \AML\View\FileApplication($root . '/src/views');
+        try {
+            $application->mount('/missing-page');
+            throw new RuntimeException('An unknown route should not resolve.');
+        } catch (OutOfBoundsException) {
+            $html = $application->notFound('/missing-page');
+            if (!str_contains($html, 'This page does not exist')) {
+                throw new RuntimeException('The declarative 404 page is missing.');
+            }
+        }
+    },
+];
+
+$failed = 0;
+foreach ($tests as $name => $test) {
+    try {
+        $test();
+        fwrite(STDOUT, "✓ AML View: {$name}" . PHP_EOL);
+    } catch (Throwable $error) {
+        fwrite(STDERR, "✗ AML View: {$name}: {$error->getMessage()}" . PHP_EOL);
+        $failed++;
+    }
+}
+
+exit($failed === 0 ? 0 : 1);
+PHP
     );
     $indexPath = $root . '/public/index.php';
     $index = is_file($indexPath) ? (string) file_get_contents($indexPath) : '';
@@ -2231,10 +2291,35 @@ function clearCache(): void
     output('Cache vidé.');
 }
 
+function executeProjectTests(string $root): int
+{
+    $manifest = projectInfo($root);
+    $viewMode = $manifest['modules']['view']['mode'] ?? null;
+    if ($viewMode === 'frontend') {
+        // Dependency test suites are repository-internal and may rely on their
+        // own development layout. A generated application validates its public
+        // integration through the project-level AML View suite instead.
+        $suites = [$root . '/tests/aml-view.php'];
+    } else {
+        $suites = [$root . '/tests/run.php'];
+    }
+
+    foreach ($suites as $suite) {
+        if (!is_file($suite)) {
+            output("Suite de tests absente : {$suite}");
+            return 1;
+        }
+        passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($suite), $exitCode);
+        if ($exitCode !== 0) {
+            return $exitCode;
+        }
+    }
+    return 0;
+}
+
 function runTests(): never
 {
-    passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(projectRoot() . '/tests/run.php'), $exitCode);
-    exit($exitCode);
+    exit(executeProjectTests(projectRoot()));
 }
 
 /** @param list<array{status: string, name: string, message: string}> $checks */
