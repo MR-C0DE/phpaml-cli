@@ -129,6 +129,8 @@ function localize(string $message): string
         'Environnement' => 'Environment', 'créez .env à partir de .env.example' => 'create .env from .env.example',
         'Moteur du projet' => 'Project engine', 'installé dans runtime' => 'installed in runtime',
         'Stockage du projet' => 'Project storage', 'ou supérieur requis' => 'or later required',
+        'Structure AML View' => 'AML View structure', 'dossier obligatoire présent' => 'required directory present',
+        'dossier obligatoire absent' => 'required directory missing',
         'Mode debug' => 'Debug mode', 'désactivé' => 'disabled', 'est obligatoire en production' => 'is required in production',
         'HTTPS' => 'HTTPS', 'est absent' => 'is missing', 'Secret applicatif' => 'Application secret',
         'doit contenir au moins' => 'must contain at least', 'caractères' => 'characters',
@@ -239,7 +241,7 @@ function showHelp(): void
             '  create <directory>       Create an application (use . for the current directory)',
             '  create-view-app <directory> Create an application with AML View',
             '  serve [host:port]        Start the development server',
-            '  install [options]        Install the engine and dependencies into runtime',
+            '  install [module]         Install the engine or an optional module',
             '  build [options]          Create a production deployment archive',
             '  deploy <profile>         Build and deploy through SSH/SFTP',
             '  deploy:configure <name>  Configure a deployment profile',
@@ -260,10 +262,24 @@ function showHelp(): void
             '  make:model <name>        Generate a model',
             '  make:middleware <name>   Generate middleware',
             '  make:migration <name>    Generate a migration',
+            '  make:seeder <name>       Generate a data seeder',
             '  make:view-page <name>    Generate an AML View page',
             '  make:view-component <name> Generate an AML View component',
             '  make:view-layout <name>  Generate an AML View layout',
+            '  make:view-loading [route] Generate an AML View loading state',
+            '  make:view-error [route]  Generate an AML View error state',
+            '  make:view-not-found [route] Generate an AML View 404 state',
+            '  i18n:add <locale>        Add a translation locale',
+            '  i18n:list                List translation locales',
+            '  i18n:check               Validate JSON and missing translations',
+            '  i18n:missing <locale>    List missing translations for a locale',
+            '  i18n:set-default <locale> Set the default application locale',
             '  migrate                  Run pending migrations',
+            '  data:migrate             Run phpaml/data migrations',
+            '  data:rollback            Roll back phpaml/data migrations',
+            '  data:seed                Run configured data seeders',
+            '  data:status              Show migration status',
+            '  data:doctor              Diagnose the selected connection',
             '  migrate:rollback         Roll back the latest migration (--steps N)',
             '  migrate:structure        Preview or apply the legacy structure migration',
             '  db:configure [driver]    Configure the database (sqlite or mysql)',
@@ -289,7 +305,7 @@ function showHelp(): void
             '  aml create .', '  aml create my-project', '  aml create-view-app my-view-app',
             '  aml serve 127.0.0.1:8080', '  aml install', '  aml --update --check', '  aml doctor',
             '  aml env:init', '  aml env:set APP_DEBUG false',
-            '  aml db:configure sqlite', '  aml language fr',
+            '  aml db:configure sqlite', '  aml install i18n', '  aml language fr',
         ] as $line) {
             output($line);
         }
@@ -303,7 +319,7 @@ function showHelp(): void
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
     output('  create-view-app <dossier> Crée une application avec AML View');
     output('  serve [hôte:port]         Lance le serveur de développement');
-    output('  install [options]         Installe moteur et dépendances dans runtime');
+    output('  install [module]          Installe le moteur ou un module optionnel');
     output('  build [options]           Crée une archive de déploiement production');
     output('  deploy <profil>           Construit et déploie par SSH/SFTP');
     output('  deploy:configure <nom>    Configure un serveur de déploiement');
@@ -324,10 +340,24 @@ function showHelp(): void
     output('  make:model <nom>          Génère un modèle');
     output('  make:middleware <nom>     Génère un middleware');
     output('  make:migration <nom>      Génère une migration');
+    output('  make:seeder <nom>         Génère un seeder de données');
     output('  make:view-page <nom>      Génère une page AML View');
     output('  make:view-component <nom> Génère un composant AML View');
     output('  make:view-layout <nom>    Génère un layout AML View');
+    output('  make:view-loading [route] Génère un état de chargement AML View');
+    output('  make:view-error [route]   Génère un état d’erreur AML View');
+    output('  make:view-not-found [route] Génère un état 404 AML View');
+    output('  i18n:add <langue>         Ajoute une langue de traduction');
+    output('  i18n:list                 Affiche les langues disponibles');
+    output('  i18n:check                Valide les JSON et traductions manquantes');
+    output('  i18n:missing <langue>     Affiche les traductions manquantes');
+    output('  i18n:set-default <langue> Définit la langue principale');
     output('  migrate                   Exécute les migrations en attente');
+    output('  data:migrate              Exécute les migrations phpaml/data');
+    output('  data:rollback             Annule les migrations phpaml/data');
+    output('  data:seed                 Exécute les seeders configurés');
+    output('  data:status               Affiche l’état des migrations');
+    output('  data:doctor               Diagnostique la connexion active');
     output('  migrate:rollback          Annule la dernière migration (--steps N)');
     output('  migrate:structure         Prévisualise ou applique la migration de structure');
     output('  db:configure [pilote]     Configure la base (sqlite ou mysql)');
@@ -359,6 +389,7 @@ function showHelp(): void
     output('  aml create mon-projet --offline');
     output('  aml serve 127.0.0.1:8080');
     output('  aml install');
+    output('  aml install i18n');
     output('  aml install --version 0.1.0');
     output('  aml --update --check');
     output('  aml doctor');
@@ -750,7 +781,7 @@ function createViewApplication(
     if (!chdir($target)) {
         fail("Impossible d’ouvrir le projet créé dans {$target}.");
     }
-    installView($viewVersion);
+    installView($viewVersion, $offline);
 }
 
 function serve(string $address): never
@@ -870,16 +901,7 @@ function installModules(
             $version = ltrim(trim($declaredFramework), 'v');
         }
     }
-    $bundledComposer = PHPAML_FRAMEWORK_ROOT . '/runtime/composer/composer.phar';
-    if (is_file($bundledComposer)) {
-        $composer = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($bundledComposer);
-    } else {
-        $systemComposer = trim((string) shell_exec('command -v composer 2>/dev/null'));
-        if ($systemComposer === '') {
-            fail("Composer privé est absent de l'installation AML.");
-        }
-        $composer = escapeshellarg($systemComposer);
-    }
+    $composer = composerCommand();
     $frameworkVersion = installFramework($root, $version, $refresh, $offline);
     output('Préparation de l’environnement runtime/…');
     $command = 'cd ' . escapeshellarg($root)
@@ -949,7 +971,7 @@ function writeNewFile(string $root, string $relative, string $content): bool
     return true;
 }
 
-function installView(?string $version = null): never
+function installView(?string $version = null, bool $offline = false): never
 {
     $root = projectRoot();
     if (!is_file($root . '/composer.json')) {
@@ -962,11 +984,145 @@ function installView(?string $version = null): never
 
     if (!is_file($root . '/runtime/framework/Autoloader.php') || !is_file($root . '/runtime/aml-installed.json')) {
         output('Le moteur PHPAML est absent : installation automatique…');
-        $installCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' install';
+        $installCommand = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' install'
+            . ($offline ? ' --offline' : '');
         passthru('cd ' . escapeshellarg($root) . ' && ' . $installCommand, $installExitCode);
         if ($installExitCode !== 0) {
             fail('L’installation automatique du moteur PHPAML a échoué.');
         }
+    }
+
+    // AML View applications follow a source-first layout, similar to modern
+    // file-based web frameworks. The classic PHPAML application remains in
+    // app/, while create-view-app migrates all application code into src/.
+    if (is_dir($root . '/app') && !file_exists($root . '/src')) {
+        if (!rename($root . '/app', $root . '/src')) {
+            fail('Impossible de migrer app vers src.');
+        }
+        output('Migré : app/ → src/');
+    }
+
+    $publicImages = $root . '/public/img';
+    $publicAssets = $root . '/public/assets';
+    if (!is_dir($publicAssets) && !mkdir($publicAssets, 0755, true) && !is_dir($publicAssets)) {
+        fail('Impossible de créer public/assets.');
+    }
+    if (is_dir($publicImages)) {
+        foreach (['favicon.svg', 'phpaml-logo-violet-lime.png'] as $publicDocument) {
+            $source = $publicImages . '/' . $publicDocument;
+            $destination = $root . '/public/' . $publicDocument;
+            if (is_file($source) && !file_exists($destination) && !rename($source, $destination)) {
+                fail("Impossible de déplacer {$publicDocument} à la racine de public/.");
+            }
+        }
+        if (count(scandir($publicImages) ?: []) === 2) {
+            rmdir($publicImages);
+        }
+    }
+    foreach (['public/css/index.css', 'public/js/main.js'] as $legacyAsset) {
+        $legacyPath = $root . '/' . $legacyAsset;
+        if (is_file($legacyPath)) {
+            unlink($legacyPath);
+            $legacyDirectory = dirname($legacyPath);
+            if (is_dir($legacyDirectory) && count(scandir($legacyDirectory) ?: []) === 2) {
+                rmdir($legacyDirectory);
+            }
+        }
+    }
+
+    $legacyServerRoot = $root . '/src/server';
+    foreach (['Controllers' => 'controllers', 'Models' => 'models', 'Middleware' => 'middleware'] as $serverDirectory => $targetDirectory) {
+        $from = $legacyServerRoot . '/' . $serverDirectory;
+        $to = $root . '/src/' . $targetDirectory;
+        if (is_dir($from) && !file_exists($to) && !rename($from, $to)) {
+            fail("Impossible de migrer src/server/{$serverDirectory} vers src/{$targetDirectory}.");
+        }
+    }
+    if (is_dir($legacyServerRoot) && count(scandir($legacyServerRoot) ?: []) === 2) {
+        rmdir($legacyServerRoot);
+    }
+    $classicViews = $root . '/src/views';
+    if (is_dir($classicViews) && !is_file($classicViews . '/page.php') && !is_dir($classicViews . '/templates')) {
+        $viewFiles = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($classicViews, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($viewFiles as $viewFile) {
+            $viewFile->isDir() ? rmdir($viewFile->getPathname()) : unlink($viewFile->getPathname());
+        }
+        if (!rmdir($classicViews)) {
+            fail('Impossible de retirer les vues PHP classiques du projet AML View.');
+        }
+    }
+    foreach (['Controllers' => 'controllers', 'Models' => 'models', 'Middleware' => 'middleware', 'Services' => 'services'] as $legacyDirectory => $sourceDirectory) {
+        $legacyPath = $root . '/src/' . $legacyDirectory;
+        $sourcePath = $root . '/src/' . $sourceDirectory;
+        if (is_dir($legacyPath) && !file_exists($sourcePath) && !rename($legacyPath, $sourcePath)) {
+            fail("Impossible de migrer src/{$legacyDirectory} vers src/{$sourceDirectory}.");
+        }
+        if (!is_dir($sourcePath)) {
+            continue;
+        }
+        $sourceIterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($sourcePath, FilesystemIterator::SKIP_DOTS),
+        );
+        foreach ($sourceIterator as $sourceFile) {
+            if (!$sourceFile->isFile() || strtolower($sourceFile->getExtension()) !== 'php') {
+                continue;
+            }
+            $content = (string) file_get_contents($sourceFile->getPathname());
+            $content = str_replace('App\\Server\\', 'App\\', $content);
+            $content = str_replace(
+                "return \$this->view('home.php', ['model' => new HomeModel()]);",
+                "return \$this->json(['name' => (new HomeModel())->getName(), 'status' => 'ok']);",
+                $content,
+            );
+            file_put_contents($sourceFile->getPathname(), $content, LOCK_EX);
+        }
+    }
+    foreach (['controllers', 'models'] as $sourceDirectory) {
+        $sourcePath = $root . '/src/' . $sourceDirectory;
+        if (!is_dir($sourcePath) && !mkdir($sourcePath, 0755, true) && !is_dir($sourcePath)) {
+            fail("Impossible de créer src/{$sourceDirectory}.");
+        }
+    }
+    $configPath = $root . '/configs/app.php';
+    if (is_file($configPath)) {
+        $configContent = (string) file_get_contents($configPath);
+        $configContent = str_replace('use App\\Server\\', 'use App\\', $configContent);
+        $configContent = preg_replace("/^\s*'views_path'\s*=>.*\R/m", '', $configContent) ?? $configContent;
+        $configContent = str_replace(["'GET /'", "'name' => 'home'"], ["'GET /api/health'", "'name' => 'api.health'"], $configContent);
+        file_put_contents($configPath, $configContent, LOCK_EX);
+    }
+
+    $composerPath = $root . '/composer.json';
+    $composer = json_decode((string) file_get_contents($composerPath), true, 512, JSON_THROW_ON_ERROR);
+    $composer['autoload'] = is_array($composer['autoload'] ?? null) ? $composer['autoload'] : [];
+    $composer['autoload']['psr-4'] = is_array($composer['autoload']['psr-4'] ?? null)
+        ? $composer['autoload']['psr-4']
+        : [];
+    $composer['autoload']['psr-4']['App\\'] = 'src/';
+    $composer['autoload']['psr-4']['App\\Views\\'] = 'src/views/';
+    $composer['autoload']['psr-4']['App\\Views\\Pages\\'] = 'src/views/pages/';
+    $composer['autoload']['psr-4']['App\\Views\\Components\\'] = 'src/views/components/';
+    $composer['autoload']['psr-4']['App\\Views\\Layouts\\'] = 'src/views/layouts/';
+    $composer['autoload']['psr-4']['App\\Views\\States\\'] = 'src/views/states/';
+    $composer['autoload']['psr-4']['App\\Controllers\\'] = 'src/controllers/';
+    $composer['autoload']['psr-4']['App\\Models\\'] = 'src/models/';
+    $composer['autoload']['psr-4']['App\\Middleware\\'] = 'src/middleware/';
+    $composer['autoload']['psr-4']['App\\Services\\'] = 'src/services/';
+    unset($composer['autoload']['psr-4']['App\\Server\\']);
+    file_put_contents(
+        $composerPath,
+        json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL,
+        LOCK_EX,
+    );
+
+    $publicIndexPath = $root . '/public/index.php';
+    if (is_file($publicIndexPath)) {
+        $publicIndex = (string) file_get_contents($publicIndexPath);
+        $publicIndex = str_replace("'App\\\\' => \$root . '/app'", "'App\\\\' => \$root . '/src'", $publicIndex);
+        file_put_contents($publicIndexPath, $publicIndex, LOCK_EX);
     }
 
     output('Installation de phpaml/view…');
@@ -978,148 +1134,473 @@ function installView(?string $version = null): never
         fail('L’installation Composer de phpaml/view a échoué.');
     }
 
-    $legacyViewRoot = $root . '/app/View';
-    $uiRoot = $root . '/app/UI';
+    $legacyViewRoot = $root . '/src/View';
+    $uiRoot = $root . '/src/views';
     if (is_dir($legacyViewRoot) && !file_exists($uiRoot)) {
         if (!rename($legacyViewRoot, $uiRoot)) {
             fail('Impossible de migrer app/View vers app/UI.');
         }
-        output('Migré : app/View → app/UI');
+        output('Migré : src/View → src/views');
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($uiRoot, FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
             if (!$file->isFile() || strtolower($file->getExtension()) !== 'php') {
                 continue;
             }
             $content = (string) file_get_contents($file->getPathname());
-            $content = str_replace(['namespace App\\View', 'use App\\View'], ['namespace App\\UI', 'use App\\UI'], $content);
+            $content = str_replace(['namespace App\\View', 'use App\\View'], ['namespace App\\Views', 'use App\\Views'], $content);
             file_put_contents($file->getPathname(), $content, LOCK_EX);
         }
     }
 
-    foreach (['app/UI/Pages', 'app/UI/Components', 'app/UI/Layouts'] as $directory) {
+    foreach (['src/views/pages/home', 'src/views/components', 'src/views/layouts', 'src/views/states', 'src/views/themes/light', 'src/views/themes/dark'] as $directory) {
         if (!is_dir($root . '/' . $directory) && !mkdir($root . '/' . $directory, 0755, true) && !is_dir($root . '/' . $directory)) {
             fail("Impossible de créer {$directory}.");
         }
     }
 
-    writeNewFile($root, 'app/UI/Pages/HomeViewPage.php', <<<'PHP'
+    writeNewFile($root, 'src/views/pages/home/page.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
-namespace App\UI\Pages;
+namespace App\Views\Pages\Home;
 
+use AML\Engine\ClientAction;
+use AML\Engine\Api;
+use AML\Engine\Actions;
+use AML\Engine\StateRef;
 use AML\View\Page;
+use AML\View\PageMetadata;
+use AML\View\Persisted;
+use AML\View\Shared;
 use AML\View\State;
 use AML\View\View;
-use function AML\View\{Button, Heading, Text, VStack};
+use function AML\View\{Button, Each, Element, Grid, Group, Heading, Image, Input, Link, MainContent, Section, Text, VStack};
 
-final class HomeViewPage extends Page
+final class HomePage extends Page
 {
-    #[State]
+    #[State, Shared('demo.count'), Persisted('local', 'phpaml.demo.count')]
     public int $count = 0;
+
+    #[State]
+    public string $counterMessage = 'Ready';
+
+    #[State]
+    public bool $detailsOpen = false;
+
+    #[State]
+    public string $name = 'Builder';
+
+    #[State]
+    public string $apiStatus = 'Not checked';
+
+    #[State]
+    public string $apiError = '';
+
+    #[State]
+    public bool $apiLoading = false;
+
+    #[State]
+    public array $tasks = ['Learn AML View', 'Build an interface'];
+
+    #[State]
+    public string $newTask = '';
+
+    public function metadata(): PageMetadata
+    {
+        return (new PageMetadata())
+            ->title('PHPAML View — Reactive interfaces in PHP')
+            ->description('A declarative PHP interface with browser-managed state and reusable components.')
+            ->openGraph(image: '/phpaml-logo-violet-lime.png')
+            ->twitter(image: '/phpaml-logo-violet-lime.png');
+    }
+
+    public function body(): View
+    {
+        return MainContent(Group(
+                Section(
+                    VStack(
+                        Text('PHPAML · AML VIEW')->class('eyebrow'),
+                        Heading('Build reactive web interfaces. In PHP.')->bold(),
+                        Text('A declarative interface layer with local reactive state, reusable components and no JavaScript framework required.')
+                            ->class('hero-copy'),
+                        Element('div',
+                            Link('Read the source', 'https://github.com/MR-C0DE/phpaml-view')->class('button', 'button-secondary'),
+                            Link('Start building', '#demo')->class('button', 'button-primary'),
+                        )->class('hero-actions'),
+                    )->gap(20)->class('hero-content'),
+                    Image('/phpaml-logo-violet-lime.png', 'PHPAML mammoth logo')->class('hero-logo'),
+                )->class('view-hero', 'shell'),
+                Section(
+                    Text('LIVE FRONTEND STATE')->class('eyebrow'),
+                    Heading('One click. One state cycle.', 2)->bold(),
+                    Text('The counter is rendered by AML View and updated through a signed interaction.')
+                        ->class('demo-copy'),
+                    Element('div',
+                        Text(StateRef::to('count', $this->count))->class('counter-value'),
+                        Button('Add one')
+                            ->onClick(Actions::sequence(
+                                ClientAction::increment('count'),
+                                ClientAction::set('counterMessage', 'Updated locally'),
+                            ))
+                            ->loadingLabel('Updating…')
+                            ->class('button', 'button-primary', 'counter-button'),
+                        Button('Smart reset')
+                            ->onClick(Actions::when(
+                                'count',
+                                'gt',
+                                0,
+                                Actions::sequence(
+                                    ClientAction::set('count', 0),
+                                    ClientAction::set('counterMessage', 'Reset complete'),
+                                ),
+                                ClientAction::set('counterMessage', 'Already at zero'),
+                            ))
+                            ->disabledWhen(StateRef::to('count', $this->count), 0)
+                            ->class('button', 'button-secondary'),
+                        Text(StateRef::to('counterMessage', $this->counterMessage))->class('counter-message'),
+                    )->component('counter')->class('counter-card'),
+                    Button('Toggle details')
+                        ->onClick(ClientAction::toggle('detailsOpen'))
+                        ->classWhen(StateRef::to('detailsOpen', $this->detailsOpen), 'is-active')
+                        ->class('button', 'button-secondary', 'details-toggle'),
+                    Element('div',
+                        Heading('Reactive presentation', 3),
+                        Text('Visibility and CSS classes are controlled by client state.'),
+                    )
+                        ->showWhen(StateRef::to('detailsOpen', $this->detailsOpen))
+                        ->class('details-panel'),
+                    Element('div',
+                        Input('name', value: $this->name)
+                            ->bindClient('name')
+                            ->required('Please enter your name.')
+                            ->minLength(2)
+                            ->attribute('aria-label', 'Your name')
+                            ->class('local-input'),
+                        Text(StateRef::to('name', $this->name))->class('local-preview'),
+                    )->component('profile-form')->class('local-form-card'),
+                    Element('div',
+                        Button('Check API')
+                            ->onClick(
+                                Api::get('/api/health')
+                                    ->storeIn('apiStatus', 'status')
+                                    ->errorIn('apiError')
+                                    ->loadingIn('apiLoading')
+                            )
+                            ->class('button', 'button-secondary'),
+                        Text(StateRef::to('apiStatus', $this->apiStatus))->class('api-status'),
+                        Text(StateRef::to('apiError', $this->apiError))->class('api-error'),
+                    )->class('api-card'),
+                    Element('div',
+                        Heading('Reactive collection', 3),
+                        Input('newTask')
+                            ->bindClient('newTask')
+                            ->attribute('placeholder', 'New task')
+                            ->attribute('aria-label', 'New task')
+                            ->class('local-input'),
+                        Button('Add task')
+                            ->onClick(Actions::sequence(
+                                ClientAction::append('tasks', StateRef::to('newTask')),
+                                ClientAction::set('newTask', ''),
+                            ))
+                            ->disabledWhen(StateRef::to('newTask', $this->newTask), '')
+                            ->class('button', 'button-primary'),
+                        Button('Remove first')
+                            ->onClick(ClientAction::removeAt('tasks', 0))
+                            ->class('button', 'button-secondary'),
+                        Button('Clear tasks')
+                            ->onClick(ClientAction::clear('tasks'))
+                            ->class('button', 'button-secondary'),
+                        Each(StateRef::to('tasks', $this->tasks), label: '', key: ''),
+                    )->component('task-list')->class('task-card'),
+                )->attribute('id', 'demo')->class('view-demo', 'shell'),
+                Grid(3,
+                    self::feature('01', 'Declarative PHP', 'Compose pages with readable PHP objects instead of mixing templates and scripts.'),
+                    self::feature('02', 'Local interactions', 'State updates run instantly in PHPAML Engine without contacting the server.'),
+                    self::feature('03', 'Progressive adoption', 'Use AML View where it helps and keep classic PHPAML views everywhere else.'),
+                )->class('view-features', 'shell'),
+            ))->class('view-content');
+    }
+
+    private static function feature(string $number, string $title, string $description): View
+    {
+        return VStack(
+            Text($number)->class('feature-number'),
+            Heading($title, 3)->bold(),
+            Text($description),
+        )->gap(14)->class('view-feature');
+    }
+}
+
+PHP
+    );
+    writeNewFile($root, 'src/views/pages/about/page.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Views\Pages\About;
+
+use AML\View\Page;
+use AML\View\PageMetadata;
+use AML\View\Shared;
+use AML\View\State;
+use AML\View\View;
+use AML\Engine\StateRef;
+use function AML\View\{Heading, Link, Text, VStack};
+
+final class AboutPage extends Page
+{
+    #[State, Shared('demo.count')]
+    public int $count = 0;
+
+    public function metadata(): PageMetadata
+    {
+        return (new PageMetadata())->title('About — PHPAML View')->description('Frontend navigation powered by PHPAML Engine.');
+    }
 
     public function body(): View
     {
         return VStack(
-            Heading('AML View')->size(48)->bold(),
-            Text("Current value: {$this->count}"),
-            Button('Add one')->onClick(fn () => $this->count++)->loadingLabel('Updating…'),
-        )->gap(18)->padding(40);
+            Text('CLIENT ROUTER')->class('eyebrow'),
+            Heading('Navigation without a page reload')->size(48)->bold(),
+            Text('PHPAML Engine loads this route, updates the document history and keeps the frontend runtime mounted.'),
+            Text(StateRef::to('count', $this->count))->class('shared-counter'),
+            Link('Return home', '/')->class('button', 'button-primary'),
+        )->gap(20)->padding(40)->class('shell');
     }
 }
 PHP
     );
-    writeNewFile($root, 'app/UI/Layouts/AppViewLayout.php', <<<'PHP'
+    writeNewFile($root, 'src/views/components/Navigation.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
-namespace App\UI\Layouts;
+namespace App\Views\Components;
+
+use AML\View\Component;
+use AML\View\View;
+use function AML\View\{Element, Image, Link, Text, ThemeSwitcher};
+
+final class Navigation extends Component
+{
+    public function body(): View
+    {
+        return Element('header',
+            Element('nav',
+                Element('a',
+                    Image('/phpaml-logo-violet-lime.png', '')->class('view-brand-logo'),
+                    Element('strong', Text('PHPAML')),
+                )->attribute('href', '/')->class('view-brand')->attribute('aria-label', 'PHPAML home'),
+                Element('div',
+                    Link('About', '/about'),
+                    Link('Docs', 'https://phpaml.com/docs'),
+                    Link('GitHub', 'https://github.com/MR-C0DE/phpaml-view')->class('nav-github'),
+                    ThemeSwitcher('light', 'dark', 'system')->class('theme-switcher'),
+                )->class('view-nav-links'),
+            )->class('view-nav', 'shell'),
+        )->class('view-header');
+    }
+}
+
+function Navigation(): Navigation
+{
+    return new Navigation();
+}
+PHP
+    );
+    writeNewFile($root, 'src/views/layouts/AppLayout.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Views\Layouts;
 
 use AML\View\Layout;
 use AML\View\View;
-use function AML\View\{MainContent, Slot, Text, VStack};
+use function App\Views\Components\Navigation;
+use function AML\View\{Element, Link, Slot, Text, ThemeProvider, VStack};
 
-final class AppViewLayout extends Layout
+final class AppLayout extends Layout
+{
+    public function body(): View
+    {
+        return ThemeProvider(
+            default: 'system',
+            content: VStack(
+                Navigation(),
+                Slot(),
+                Element('footer',
+                    Text('PHPAML View · Built with PHPAML')->class('footer-copy'),
+                    Link('Documentation', 'https://phpaml.com/docs'),
+                )->class('view-footer', 'shell'),
+            )->class('view-app'),
+            themes: ['light', 'dark'],
+        );
+    }
+}
+PHP
+    );
+    writeNewFile($root, 'src/views/states/NotFound.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Views\States;
+
+use AML\View\Page;
+use AML\View\View;
+use function AML\View\{Heading, Link, Text, VStack};
+
+final class NotFoundPage extends Page
 {
     public function body(): View
     {
         return VStack(
-            Text('PHPAML'),
-            MainContent(Slot()),
-        )->gap(24);
+            Text('404')->class('eyebrow'),
+            Heading('This page does not exist.')->size(48)->bold(),
+            Text('No AML View page matches ' . $this->param('path', '/')),
+            Link('Return home', '/')->class('button', 'button-primary'),
+        )->gap(20)->padding(40)->class('shell', 'route-state');
     }
 }
 PHP
     );
-    writeNewFile($root, 'app/UI/ViewRegistry.php', <<<'PHP'
+    writeNewFile($root, 'src/views/states/Loading.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
-namespace App\UI;
+namespace App\Views\States;
 
-use AML\View\InteractionKernel;
+use AML\View\Page;
 use AML\View\View;
-use App\UI\Pages\HomeViewPage;
+use function AML\View\{Text, VStack};
 
-final class ViewRegistry
+final class LoadingPage extends Page
 {
-    public static function kernel(string $secret, string $audience): InteractionKernel
+    public function body(): View
     {
-        return (new InteractionKernel($secret, null, $audience))
-            ->register('home', static fn (): View => new HomeViewPage());
+        return VStack(
+            Text('Loading…')->class('loading-title'),
+            Text('AML View is preparing the next interface.'),
+        )->gap(12)->padding(40)->class('shell', 'route-state');
     }
 }
 PHP
     );
-    writeNewFile($root, 'app/UI/page.php', <<<'PHP'
+    writeNewFile($root, 'src/views/states/Error.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
-use AML\View\BrowserRuntime;
-use App\UI\ViewRegistry;
+namespace App\Views\States;
 
-$secret = (string) \PHPAML\Config\Env::get('AML_VIEW_SECRET', '');
-$result = ViewRegistry::kernel($secret, session_id())->mount('home');
-?><!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AML View</title></head>
-<body>
-<?= $result->rootHtml() ?>
-<?= BrowserRuntime::script('/_aml/view') ?>
-</body>
-</html>
-PHP
-    );
-    writeNewFile($root, 'app/UI/interaction.php', <<<'PHP'
-<?php
+use AML\View\Page;
+use AML\View\View;
+use function AML\View\{Heading, Link, Text, VStack};
 
-declare(strict_types=1);
-
-use App\UI\ViewRegistry;
-
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store');
-try {
-    $request = json_decode((string) file_get_contents('php://input'), true, 512, JSON_THROW_ON_ERROR);
-    $data = is_array($request['data'] ?? null) ? $request['data'] : [];
-    $secret = (string) \PHPAML\Config\Env::get('AML_VIEW_SECRET', '');
-    $result = ViewRegistry::kernel($secret, session_id())->dispatch(
-        (string) ($request['token'] ?? ''),
-        (string) ($request['event'] ?? ''),
-        $data,
-    );
-    echo json_encode($result->json(), JSON_THROW_ON_ERROR);
-} catch (Throwable) {
-    http_response_code(422);
-    echo json_encode(['error' => 'Interaction rejected.'], JSON_THROW_ON_ERROR);
+final class ErrorPage extends Page
+{
+    public function body(): View
+    {
+        return VStack(
+            Text('APPLICATION ERROR')->class('eyebrow'),
+            Heading('Something went wrong.')->size(48)->bold(),
+            Text('The incident was contained. You can safely try again.'),
+            Link('Return home', '/')->class('button', 'button-primary'),
+        )->gap(20)->padding(40)->class('shell', 'route-state');
+    }
 }
 PHP
     );
-
+    writeNewFile($root, 'src/views/stylesheets/base.css', <<<'CSS'
+:root { color-scheme: dark; --bg:#09070d; --panel:#15111f; --ink:#f8f7ff; --muted:#aaa6ba; --line:rgba(255,255,255,.11); --violet:#9b72ff; --lime:#c7ff3d; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { margin:0; overflow-x:hidden; color:var(--ink); background:radial-gradient(circle at 78% 12%,rgba(139,92,246,.2),transparent 30rem),radial-gradient(circle at 12% 60%,rgba(199,255,61,.06),transparent 26rem),var(--bg); }
+a { color:inherit; }
+.shell { width:min(74rem,calc(100% - 3rem)); margin-inline:auto; }
+.button { min-height:3.1rem; padding:0 1.2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); border-radius:.55rem; font:inherit; font-size:.9rem; font-weight:850; text-decoration:none; cursor:pointer; transition:transform .18s ease,filter .18s ease; }
+.button:hover { transform:translateY(-2px); }
+.button-primary { border-color:var(--lime); color:#17110d; background:var(--lime); }
+.button-secondary { background:rgba(255,255,255,.035); }
+@media (max-width:38rem) { .shell { width:min(100% - 1.4rem,74rem); } }
+CSS
+    );
+    writeNewFile($root, 'src/views/stylesheets/components/navigation.css', <<<'CSS'
+.view-header { position:relative; z-index:10; border-bottom:1px solid var(--line); background:rgba(9,7,13,.78); backdrop-filter:blur(18px); }
+.view-nav { min-height:4.8rem; display:flex; align-items:center; gap:.7rem; }
+.view-brand { display:inline-flex; align-items:center; gap:.7rem; font-weight:900; letter-spacing:.055em; text-decoration:none; }
+.view-brand-logo { width:2.35rem; height:2.35rem; object-fit:contain; }
+.view-nav-links { margin-left:auto; display:flex; align-items:center; gap:1.25rem; }
+.view-nav-links a { color:var(--muted); font-size:.9rem; font-weight:750; text-decoration:none; }
+.view-nav-links .nav-github { padding:.65rem .9rem; border:1px solid var(--line); border-radius:.55rem; color:var(--ink); background:rgba(255,255,255,.035); }
+.theme-switcher { display:flex; gap:.25rem; padding:.2rem; border:1px solid var(--line); border-radius:.55rem; }
+.theme-switcher button { padding:.4rem .55rem; border:0; border-radius:.35rem; color:var(--muted); background:transparent; cursor:pointer; }
+.theme-switcher button[aria-pressed="true"] { color:var(--ink); background:var(--panel); }
+@media (max-width:38rem) { .view-nav { min-height:4.25rem; } .view-nav-links > a:first-child { display:none; } }
+CSS
+    );
+    writeNewFile($root, 'src/views/stylesheets/layouts/app.css', <<<'CSS'
+.view-app { min-height:100vh; }
+.view-footer { padding-block:2.25rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.8rem; }
+.view-footer a { color:var(--ink); text-decoration:none; }
+@media (max-width:38rem) { .view-footer { align-items:flex-start; flex-direction:column; } }
+CSS
+    );
+    writeNewFile($root, 'src/views/stylesheets/pages/home.css', <<<'CSS'
+.view-hero { min-height:39rem; padding-block:5rem; display:grid; grid-template-columns:1.15fr .85fr; align-items:center; gap:4rem; }
+.hero-content { min-width:0; }
+.eyebrow { color:var(--lime); font:.76rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:850; letter-spacing:.15em; }
+.view-hero h1 { max-width:48rem; margin:0; font-size:clamp(3.2rem,6.8vw,6rem); line-height:.94; letter-spacing:-.065em; }
+.hero-copy,.demo-copy { max-width:42rem; color:var(--muted); font-size:clamp(1rem,2vw,1.15rem); }
+.hero-actions { display:flex; flex-wrap:wrap; gap:.8rem; }
+.hero-logo { width:min(100%,25rem); height:auto; justify-self:center; filter:drop-shadow(0 2rem 4rem rgba(0,0,0,.45)); }
+.view-demo { padding-block:5.5rem; border-top:1px solid var(--line); }
+.view-demo h2 { margin:.75rem 0 1rem; font-size:clamp(2.2rem,5vw,4rem); letter-spacing:-.055em; }
+.counter-card { margin-top:2.3rem; padding:1.4rem; display:flex; align-items:center; gap:1rem; border:1px solid rgba(155,114,255,.45); border-radius:.85rem; background:linear-gradient(135deg,rgba(155,114,255,.16),rgba(255,255,255,.025)); }
+.counter-value { min-width:5rem; font:700 clamp(2.4rem,8vw,5rem)/1 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--violet); }
+.counter-button { margin-left:auto; }
+.counter-button:disabled { opacity:.65; cursor:wait; }
+.counter-message { color:var(--muted); font-size:.85rem; }
+.details-toggle { margin-top:1rem; }
+.details-toggle.is-active { color:var(--bg); border-color:var(--lime); background:var(--lime); }
+.details-panel { margin-top:1rem; padding:1.25rem; border-left:3px solid var(--lime); background:rgba(199,255,61,.06); }
+.local-form-card { margin-top:1rem; padding:1.4rem; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:1rem; border:1px solid var(--line); border-radius:.85rem; background:rgba(255,255,255,.025); }
+.local-input { width:100%; padding:.85rem 1rem; border:1px solid var(--line); border-radius:.55rem; color:var(--ink); background:var(--panel); font:inherit; }
+.local-preview { color:var(--lime); font-weight:800; }
+.local-form-card [role="alert"] { grid-column:1/-1; color:#ff8585; font-size:.82rem; }
+.api-card { margin-top:1rem; display:flex; align-items:center; flex-wrap:wrap; gap:1rem; }
+.api-status { color:var(--lime); font-weight:800; }
+.api-error { color:#ff8585; }
+.task-card { margin-top:1rem; padding:1.4rem; display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; border:1px solid var(--line); border-radius:.85rem; }
+.task-card h3 { width:100%; margin:0; }
+.task-card ul { width:100%; margin:.5rem 0 0; padding-left:1.25rem; color:var(--muted); }
+.task-card li { padding:.25rem 0; }
+.view-features { padding-block:1rem 6rem; gap:1rem !important; }
+.view-feature { min-height:14rem; padding:1.5rem; border:1px solid var(--line); border-radius:.75rem; background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012)); }
+.view-feature h3 { margin:2rem 0 0; font-size:1.25rem; }
+.view-feature > span:last-child { color:var(--muted); font-size:.92rem; }
+.feature-number { color:var(--violet); font:800 .75rem/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
+@media (max-width:58rem) { .view-hero { min-height:auto; grid-template-columns:1fr; gap:1rem; } .hero-logo { width:min(60vw,20rem); } .view-features { grid-template-columns:1fr !important; } }
+@media (max-width:38rem) { .view-hero { padding-block:3.5rem; } .view-hero h1 { font-size:clamp(2.75rem,14vw,4rem); overflow-wrap:anywhere; } .hero-actions { flex-direction:column; } .hero-actions .button { width:100%; } .counter-card { align-items:stretch; flex-direction:column; } .counter-button { width:100%; margin-left:0; } .local-form-card { grid-template-columns:1fr; } }
+CSS
+    );
+    writeNewFile($root, 'src/views/stylesheets/states/route-states.css', <<<'CSS'
+.route-state { min-height:calc(100vh - 10rem); justify-content:center; }
+.loading-title { color:var(--lime); font-size:1.15rem; font-weight:850; }
+CSS
+    );
+    writeNewFile($root, 'src/views/themes/light/tokens.css', <<<'CSS'
+[data-aml-theme="light"] { color-scheme:light; --bg:#f7f5fb; --panel:#ffffff; --ink:#17121f; --muted:#625d6d; --line:rgba(23,18,31,.14); --violet:#6d3de8; --lime:#7da800; }
+CSS
+    );
+    writeNewFile($root, 'src/views/themes/dark/tokens.css', <<<'CSS'
+[data-aml-theme="dark"] { color-scheme:dark; --bg:#09070d; --panel:#15111f; --ink:#f8f7ff; --muted:#aaa6ba; --line:rgba(255,255,255,.11); --violet:#9b72ff; --lime:#c7ff3d; }
+CSS
+    );
     $indexPath = $root . '/public/index.php';
     $index = is_file($indexPath) ? (string) file_get_contents($indexPath) : '';
     $marker = "// AML View integration\n";
@@ -1130,15 +1611,41 @@ PHP
         }
         $integration = <<<'PHP'
 // AML View integration
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
-if ($requestPath === '/_aml/view') {
-    require $root . '/app/UI/interaction.php';
+$viewApp = new \AML\View\FileApplication($root . '/src/views');
+if ($requestPath === '/_aml/styles.css') {
+    header('Content-Type: text/css; charset=utf-8');
+    header('Cache-Control: no-cache');
+    echo $viewApp->styles();
     return;
 }
-if ($requestPath === '/aml-view') {
-    require $root . '/app/UI/page.php';
+try {
+    $result = $viewApp->mount($requestPath);
+} catch (OutOfBoundsException) {
+    if (preg_match('#^/api(?:/|$)#', $requestPath)) {
+        $result = null;
+    } else {
+        http_response_code(404);
+        $result = $viewApp->notFound($requestPath);
+    }
+} catch (Throwable $error) {
+    http_response_code(500);
+    $result = $viewApp->error($requestPath, $error);
+}
+if ($result !== null) {
+    ?><!doctype html>
+    <html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <?= $result instanceof \AML\View\PageResult ? $viewApp->head($requestPath) : '' ?>
+        <link rel="icon" href="/favicon.svg">
+        <link rel="stylesheet" href="/_aml/styles.css">
+    </head>
+    <body>
+    <?= $result instanceof \AML\View\PageResult ? $result->rootHtml() : $result ?>
+    <?= \AML\Engine\EngineRuntime::script() ?>
+    </body>
+    </html><?php
     return;
 }
 
@@ -1151,7 +1658,7 @@ PHP;
     } else {
         $migratedIndex = str_replace(
             ['/app/View/interaction.php', '/app/View/page.php'],
-            ['/app/UI/interaction.php', '/app/UI/page.php'],
+            ['/src/app/interaction.php', '/src/app/page.php'],
             $index
         );
         if ($migratedIndex !== $index) {
@@ -1160,23 +1667,169 @@ PHP;
         }
     }
 
-    $values = readEnvValues($root . '/.env');
-    if (strlen((string) ($values['AML_VIEW_SECRET'] ?? '')) < 32) {
-        envSet('AML_VIEW_SECRET', bin2hex(random_bytes(32)));
-    }
-    $examplePath = $root . '/.env.example';
-    $example = is_file($examplePath) ? (string) file_get_contents($examplePath) : '';
-    if (!preg_match('/^AML_VIEW_SECRET=/m', $example)) {
-        file_put_contents($examplePath, rtrim($example) . PHP_EOL . 'AML_VIEW_SECRET=' . PHP_EOL, LOCK_EX);
-        output('Modifié : .env.example');
-    }
-
     $manifest = projectInfo($root);
     $manifest['modules'] = is_array($manifest['modules'] ?? null) ? $manifest['modules'] : [];
-    $manifest['modules']['view'] = ['package' => 'phpaml/view', 'constraint' => $constraint, 'endpoint' => '/_aml/view'];
+    $manifest['modules']['view'] = ['package' => 'phpaml/view', 'constraint' => $constraint, 'mode' => 'frontend'];
+    $manifest['modules']['engine'] = ['package' => 'phpaml/engine', 'mode' => 'client'];
     writeProjectManifest($root, $manifest);
-    output('✓ AML View installé. Ouvrez /aml-view pour tester la page interactive.');
+    output('✓ AML View installé. Ouvrez / pour tester la page interactive.');
     exit(0);
+}
+
+function installI18n(?string $version = null): never
+{
+    $root = projectRoot();
+    $constraint = $version === null ? '^0.1@beta' : ltrim(trim($version), 'v');
+    if (preg_match('/^[0-9A-Za-z.*^~<>=|@+_.-]+$/', $constraint) !== 1) {
+        fail('La version PHPAML i18n est invalide.');
+    }
+    output('Installation de phpaml/i18n…');
+    $command = 'cd ' . escapeshellarg($root) . ' && ' . composerCommand()
+        . ' require ' . escapeshellarg('phpaml/i18n:' . $constraint)
+        . ' --no-interaction --prefer-dist --no-progress';
+    passthru($command, $exitCode);
+    if ($exitCode !== 0) {
+        fail('L’installation Composer de phpaml/i18n a échoué.');
+    }
+    foreach (['en', 'fr'] as $locale) {
+        writeNewFile($root, "src/locales/{$locale}/common.json", (string) json_encode([
+            'welcome' => $locale === 'fr' ? 'Bienvenue' : 'Welcome',
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL);
+    }
+    envSet('APP_LOCALE', 'en');
+    envSet('APP_FALLBACK_LOCALE', 'fr');
+    $indexPath = $root . '/public/index.php';
+    $index = is_file($indexPath) ? (string) file_get_contents($indexPath) : '';
+    $marker = "// PHPAML i18n integration\n";
+    if ($index !== '' && !str_contains($index, $marker)) {
+        $anchor = "\\PHPAML\\Config\\Env::load(\$root . '/.env');";
+        $integration = <<<'PHP'
+// PHPAML i18n integration
+if (class_exists(\AML\I18n\I18n::class)) {
+    \AML\I18n\I18n::configure(
+        $root . '/src/locales',
+        (string) \PHPAML\Config\Env::get('APP_LOCALE', 'en'),
+        (string) \PHPAML\Config\Env::get('APP_FALLBACK_LOCALE', 'fr'),
+    );
+}
+PHP;
+        if (!str_contains($index, $anchor)) {
+            fail("public/index.php ne contient pas le point d’intégration i18n attendu.");
+        }
+        $index = str_replace($anchor, $anchor . PHP_EOL . $integration, $index);
+        if (file_put_contents($indexPath, $index, LOCK_EX) === false) {
+            fail('Impossible de brancher PHPAML i18n dans public/index.php.');
+        }
+        output('Modifié : public/index.php');
+    }
+    $manifest = projectInfo($root);
+    $manifest['modules'] = is_array($manifest['modules'] ?? null) ? $manifest['modules'] : [];
+    $manifest['modules']['i18n'] = ['package' => 'phpaml/i18n', 'version' => $constraint];
+    writeProjectManifest($root, $manifest);
+    output('PHPAML i18n installé avec succès.');
+    exit(0);
+}
+
+function i18nLocale(string $locale): string
+{
+    if (preg_match('/^[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})?$/', $locale) !== 1) {
+        fail("Langue invalide : {$locale}");
+    }
+    return $locale;
+}
+
+/** @return array<string, true> */
+function i18nKeys(string $directory): array
+{
+    $keys = [];
+    if (!is_dir($directory)) {
+        return $keys;
+    }
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+    foreach ($iterator as $file) {
+        if (!$file->isFile() || strtolower($file->getExtension()) !== 'json') {
+            continue;
+        }
+        $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($directory) + 1));
+        $prefix = str_replace('/', '.', substr($relative, 0, -5));
+        try {
+            $decoded = json_decode((string) file_get_contents($file->getPathname()), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $error) {
+            fail("JSON invalide dans {$relative} : {$error->getMessage()}");
+        }
+        $flatten = static function (array $values, string $path) use (&$flatten, &$keys): void {
+            foreach ($values as $key => $value) {
+                $current = $path . '.' . $key;
+                is_array($value) ? $flatten($value, $current) : $keys[$current] = true;
+            }
+        };
+        $flatten(is_array($decoded) ? $decoded : [], $prefix);
+    }
+    ksort($keys);
+    return $keys;
+}
+
+function i18nAdd(string $locale): never
+{
+    $locale = i18nLocale($locale);
+    $root = projectRoot();
+    writeNewFile($root, "src/locales/{$locale}/common.json", "{}\n");
+    output("Langue ajoutée : {$locale}");
+    exit(0);
+}
+
+function i18nList(): never
+{
+    $directory = projectRoot() . '/src/locales';
+    $locales = [];
+    if (is_dir($directory)) {
+        foreach (new DirectoryIterator($directory) as $entry) {
+            if ($entry->isDir() && !$entry->isDot()) {
+                $locales[] = $entry->getFilename();
+            }
+        }
+    }
+    sort($locales);
+    output($locales === [] ? 'Aucune langue configurée.' : implode(PHP_EOL, $locales));
+    exit(0);
+}
+
+function i18nCheck(?string $onlyLocale = null): never
+{
+    $root = projectRoot() . '/src/locales';
+    $directories = glob($root . '/*', GLOB_ONLYDIR) ?: [];
+    $catalogues = [];
+    foreach ($directories as $directory) {
+        $locale = basename($directory);
+        $catalogues[$locale] = i18nKeys($directory);
+    }
+    if ($catalogues === []) {
+        fail("Aucune traduction trouvée dans src/locales.");
+    }
+    if ($onlyLocale !== null && !isset($catalogues[i18nLocale($onlyLocale)])) {
+        fail("La langue '{$onlyLocale}' est absente de src/locales.");
+    }
+    $all = [];
+    foreach ($catalogues as $keys) {
+        $all += $keys;
+    }
+    $errors = 0;
+    foreach ($catalogues as $locale => $keys) {
+        if ($onlyLocale !== null && $locale !== i18nLocale($onlyLocale)) {
+            continue;
+        }
+        $missing = array_keys(array_diff_key($all, $keys));
+        if ($missing === []) {
+            output("✓ {$locale} — " . (currentLanguage() === 'fr' ? 'complet' : 'complete'));
+            continue;
+        }
+        $errors += count($missing);
+        output("✗ {$locale} — " . count($missing) . (currentLanguage() === 'fr' ? ' traduction(s) manquante(s)' : ' missing translation(s)'));
+        foreach ($missing as $key) {
+            output("  - {$key}");
+        }
+    }
+    exit($errors === 0 ? 0 : 1);
 }
 
 /** @return array{version: string, archive: string} */
@@ -1297,6 +1950,61 @@ function runScript(string $name): never
     exit($exitCode);
 }
 
+/** @param list<string> $arguments */
+function installData(array $arguments): never
+{
+    $root = projectRoot();
+    if (!is_file($root . '/composer.json')) {
+        fail('Le fichier composer.json est introuvable.');
+    }
+
+    $driver = strtolower(optionValue($arguments, '--driver') ?? 'sqlite');
+    $driver = match ($driver) {
+        'mongo' => 'mongodb',
+        'postgres', 'postgresql' => 'pgsql',
+        default => $driver,
+    };
+    if (!in_array($driver, ['sqlite', 'mysql', 'mariadb', 'pgsql', 'mongodb'], true)) {
+        fail("Pilote de données inconnu : {$driver}. Utilisez sqlite, mysql, mariadb, pgsql ou mongodb.");
+    }
+
+    $packages = $driver === 'mongodb'
+        ? ['phpaml/data:^0.1@alpha', 'phpaml/data-mongodb:^0.1@alpha']
+        : ['phpaml/data:^0.1@alpha'];
+    $packageList = implode(' ', $packages);
+    output("Installation de {$packageList}…");
+    $command = 'cd ' . escapeshellarg($root) . ' && ' . composerCommand()
+        . ' require ' . implode(' ', array_map('escapeshellarg', $packages))
+        . ' --no-interaction --prefer-dist';
+    passthru($command, $exitCode);
+    if ($exitCode !== 0) {
+        fail("L’installation Composer de {$packageList} a échoué.", $exitCode);
+    }
+
+    runDataCommand('data:install', ['--driver', $driver]);
+}
+
+/** @param list<string> $arguments */
+function runDataCommand(string $command, array $arguments): never
+{
+    $root = projectRoot();
+    $candidates = [
+        projectRuntimePath($root) . '/bin/aml-data',
+        projectRuntimePath($root) . '/phpaml/data/bin/aml-data',
+        $root . '/vendor/phpaml/data/bin/aml-data',
+        PHPAML_FRAMEWORK_ROOT . '/runtime/build/phpaml-data/bin/aml-data',
+    ];
+    foreach ($candidates as $binary) {
+        if (!is_file($binary)) {
+            continue;
+        }
+        $parts = array_map('escapeshellarg', array_merge([$command], $arguments));
+        passthru('cd ' . escapeshellarg($root) . ' && ' . escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($binary) . ' ' . implode(' ', $parts), $exitCode);
+        exit($exitCode);
+    }
+    fail("Le module phpaml/data est absent. Exécutez 'aml install data'.");
+}
+
 function showRoutes(): void
 {
     $config = loadProjectConfig();
@@ -1328,18 +2036,21 @@ function className(string $name, string $suffix = ''): string
 function generateClass(string $type, string $name): void
 {
     $root = projectRoot();
+    $isViewApplication = isset(projectInfo($root)['modules']['view']);
+    $sourceRoot = $isViewApplication ? 'src' : 'app';
+    $namespaceRoot = 'App';
     if ($type === 'controller') {
         $class = className($name, 'Controller');
-        $path = "app/Controllers/{$class}.php";
-        $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Controllers;\n\nuse PHPAML\\Http\\Request;\nuse PHPAML\\Http\\Response;\nuse PHPAML\\Mvc\\Controller;\n\nfinal class {$class} extends Controller\n{\n    public function index(Request \$request): Response\n    {\n        return \$this->json(['controller' => '{$class}']);\n    }\n}\n";
+        $path = $isViewApplication ? "{$sourceRoot}/controllers/{$class}.php" : "{$sourceRoot}/Controllers/{$class}.php";
+        $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespaceRoot}\\Controllers;\n\nuse PHPAML\\Http\\Request;\nuse PHPAML\\Http\\Response;\nuse PHPAML\\Mvc\\Controller;\n\nfinal class {$class} extends Controller\n{\n    public function index(Request \$request): Response\n    {\n        return \$this->json(['controller' => '{$class}']);\n    }\n}\n";
     } elseif ($type === 'model') {
         $class = className($name);
-        $path = "app/Models/{$class}.php";
-        $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Models;\n\nfinal class {$class}\n{\n}\n";
+        $path = $isViewApplication ? "{$sourceRoot}/models/{$class}.php" : "{$sourceRoot}/Models/{$class}.php";
+        $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespaceRoot}\\Models;\n\nfinal class {$class}\n{\n}\n";
     } else {
         $class = className($name, 'Middleware');
-        $path = "app/Middleware/{$class}.php";
-        $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Middleware;\n\nuse Closure;\nuse PHPAML\\Http\\Request;\nuse PHPAML\\Http\\Response;\nuse PHPAML\\Middleware\\MiddlewareInterface;\n\nfinal class {$class} implements MiddlewareInterface\n{\n    public function process(Request \$request, Closure \$next): Response\n    {\n        return \$next(\$request);\n    }\n}\n";
+        $path = $isViewApplication ? "{$sourceRoot}/middleware/{$class}.php" : "{$sourceRoot}/Middleware/{$class}.php";
+        $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespaceRoot}\\Middleware;\n\nuse Closure;\nuse PHPAML\\Http\\Request;\nuse PHPAML\\Http\\Response;\nuse PHPAML\\Middleware\\MiddlewareInterface;\n\nfinal class {$class} implements MiddlewareInterface\n{\n    public function process(Request \$request, Closure \$next): Response\n    {\n        return \$next(\$request);\n    }\n}\n";
     }
     $fullPath = $root . '/' . $path;
     if (file_exists($fullPath)) {
@@ -1356,16 +2067,48 @@ function generateViewClass(string $type, string $name): void
 {
     $root = projectRoot();
     $definitions = [
-        'page' => ['suffix' => 'Page', 'directory' => 'Pages', 'parent' => 'Page'],
-        'component' => ['suffix' => 'Component', 'directory' => 'Components', 'parent' => 'Component'],
-        'layout' => ['suffix' => 'Layout', 'directory' => 'Layouts', 'parent' => 'Layout'],
+        'page' => ['suffix' => 'Page', 'parent' => 'Page'],
+        'component' => ['suffix' => '', 'parent' => 'Component'],
+        'layout' => ['suffix' => 'Layout', 'parent' => 'Layout'],
     ];
     if (!isset($definitions[$type])) {
         fail('Type AML View inconnu.');
     }
     $definition = $definitions[$type];
-    $class = className($name, $definition['suffix']);
-    $path = "app/UI/{$definition['directory']}/{$class}.php";
+    $segments = array_values(array_filter(explode('/', str_replace('\\', '/', trim($name, '/\\')))));
+    if ($segments === []) {
+        fail('Le nom de route AML View est invalide.');
+    }
+    $routeSegments = [];
+    $namespaceSegments = [];
+    foreach ($segments as $segmentValue) {
+        $dynamic = preg_match('/^\[(\.\.\.)?([a-zA-Z_][a-zA-Z0-9_]*)\]$/', $segmentValue, $match) === 1;
+        $sourceName = $dynamic ? $match[2] : $segmentValue;
+        $namespaceSegments[] = className($sourceName);
+        $routeSegments[] = $dynamic
+            ? '[' . (($match[1] ?? '') === '...' ? '...' : '') . $match[2] . ']'
+            : strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', className($sourceName)));
+    }
+    $baseClass = end($namespaceSegments);
+    $class = className($baseClass, $definition['suffix']);
+    if ($type === 'component') {
+        if (count($segments) !== 1) {
+            fail('Un composant AML View doit utiliser un nom simple.');
+        }
+        $path = "src/views/components/{$class}.php";
+        $namespace = 'App\\Views\\Components';
+    } elseif ($type === 'page') {
+        $path = 'src/views/pages/' . implode('/', $routeSegments) . '/page.php';
+        $namespace = 'App\\Views\\Pages\\' . implode('\\', $namespaceSegments);
+    } else {
+        $parentRoutes = array_slice($routeSegments, 0, -1);
+        $parentNamespaces = array_slice($namespaceSegments, 0, -1);
+        $path = 'src/views/layouts/'
+            . ($parentRoutes === [] ? '' : implode('/', $parentRoutes) . '/')
+            . $class . '.php';
+        $namespace = 'App\\Views\\Layouts'
+            . ($parentNamespaces === [] ? '' : '\\' . implode('\\', $parentNamespaces));
+    }
     $fullPath = $root . '/' . $path;
     if (is_file($fullPath)) {
         fail("Le fichier '{$path}' existe déjà.");
@@ -1381,8 +2124,40 @@ function generateViewClass(string $type, string $name): void
         $body = "        return Text('{$class}');";
         $functions = 'use function AML\\View\\Text;';
     }
-    $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\UI\\{$definition['directory']};\n\nuse AML\\View\\{$parent};\nuse AML\\View\\View;\n{$functions}\n\nfinal class {$class} extends {$parent}\n{\n    public function body(): View\n    {\n{$body}\n    }\n}\n";
+    $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespace};\n\nuse AML\\View\\{$parent};\nuse AML\\View\\View;\n{$functions}\n\nfinal class {$class} extends {$parent}\n{\n    public function body(): View\n    {\n{$body}\n    }\n}\n";
+    if ($type === 'component') {
+        $content .= "\nfunction {$class}(mixed ...\$arguments): {$class}\n{\n    return new {$class}(...\$arguments);\n}\n";
+    }
     writeNewFile($root, $path, $content);
+}
+
+function generateViewState(string $type, string $route = '.'): void
+{
+    $states = [
+        'loading' => ['file' => 'Loading.php', 'class' => 'LoadingPage', 'title' => 'Loading…', 'message' => 'AML View is preparing this interface.'],
+        'error' => ['file' => 'Error.php', 'class' => 'ErrorPage', 'title' => 'Something went wrong.', 'message' => 'The incident was contained. You can safely try again.'],
+        'not-found' => ['file' => 'NotFound.php', 'class' => 'NotFoundPage', 'title' => 'This page does not exist.', 'message' => 'No AML View page matches this address.'],
+    ];
+    if (!isset($states[$type])) {
+        fail('Type d’état AML View inconnu.');
+    }
+    $segments = $route === '.' ? [] : array_values(array_filter(explode('/', str_replace('\\', '/', trim($route, '/\\')))));
+    $namespaceSegments = [];
+    $routeSegments = [];
+    foreach ($segments as $segment) {
+        if (preg_match('/^\[(\.\.\.)?([a-zA-Z_][a-zA-Z0-9_]*)\]$/', $segment, $match)) {
+            $namespaceSegments[] = className($match[2]);
+            $routeSegments[] = '[' . (($match[1] ?? '') === '...' ? '...' : '') . $match[2] . ']';
+            continue;
+        }
+        $namespaceSegments[] = className($segment);
+        $routeSegments[] = strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', className($segment)));
+    }
+    $namespace = 'App\\Views\\States' . ($namespaceSegments === [] ? '' : '\\' . implode('\\', $namespaceSegments));
+    $directory = 'src/views/states' . ($routeSegments === [] ? '' : '/' . implode('/', $routeSegments));
+    $state = $states[$type];
+    $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespace};\n\nuse AML\\View\\Page;\nuse AML\\View\\View;\nuse function AML\\View\\{Heading, Text, VStack};\n\nfinal class {$state['class']} extends Page\n{\n    public function body(): View\n    {\n        return VStack(\n            Heading('{$state['title']}')->size(48)->bold(),\n            Text('{$state['message']}'),\n        )->gap(20)->padding(40);\n    }\n}\n";
+    writeNewFile(projectRoot(), $directory . '/' . $state['file'], $content);
 }
 
 function generateMigration(string $name): void
@@ -1634,6 +2409,17 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
         $projectInfoContent = file_get_contents($current . '/phpaml.json');
         $projectInfo = json_decode($projectInfoContent ?: '', true);
         doctorAdd($checks, is_array($projectInfo) ? 'ok' : 'error', 'Projet', $current);
+        if (is_array($projectInfo) && isset($projectInfo['modules']['view'])) {
+            foreach (['views', 'models', 'controllers'] as $requiredDirectory) {
+                $present = is_dir($current . '/src/' . $requiredDirectory);
+                doctorAdd(
+                    $checks,
+                    $present ? 'ok' : 'error',
+                    'Structure AML View',
+                    "src/{$requiredDirectory} — " . ($present ? 'dossier obligatoire présent' : 'dossier obligatoire absent')
+                );
+            }
+        }
         doctorAdd(
             $checks,
             is_file($current . '/configs/app.php') ? 'ok' : 'error',
@@ -2354,8 +3140,14 @@ switch ($command) {
     case 'sftp':
         isset($arguments[1]) ? deployShell($arguments[1], true) : fail('Indiquez le nom du profil.');
     case 'install':
+        if (($arguments[1] ?? null) === 'data') {
+            installData(array_slice($arguments, 2));
+        }
         if (($arguments[1] ?? null) === 'view') {
             fail("La commande 'aml install view' a été retirée. Utilisez 'aml create-view-app .' pour créer une application AML View.");
+        }
+        if (($arguments[1] ?? null) === 'i18n') {
+            installI18n(optionValue($arguments, '--version'));
         }
         installModules(
             in_array('--production', $arguments, true),
@@ -2383,21 +3175,39 @@ switch ($command) {
         showRoutes();
         break;
     case 'make:controller':
-    case 'make:model':
     case 'make:middleware':
         isset($arguments[1])
             ? generateClass(substr($command, 5), $arguments[1])
             : fail('Indiquez le nom de la classe à générer.');
         break;
+    case 'make:model':
+        isset($arguments[1]) ? runDataCommand('data:make-model', [$arguments[1]]) : fail('Indiquez le nom de la classe à générer.');
     case 'make:migration':
-        isset($arguments[1]) ? generateMigration($arguments[1]) : fail('Indiquez le nom de la migration.');
-        break;
+        isset($arguments[1]) ? runDataCommand('data:make-migration', [$arguments[1]]) : fail('Indiquez le nom de la migration.');
+    case 'make:seeder':
+        isset($arguments[1]) ? runDataCommand('data:make-seeder', [$arguments[1]]) : fail('Indiquez le nom du seeder.');
     case 'make:view-page':
     case 'make:view-component':
     case 'make:view-layout':
         isset($arguments[1])
             ? generateViewClass(substr($command, strlen('make:view-')), $arguments[1])
             : fail('Indiquez le nom de la classe à générer.');
+        break;
+    case 'make:view-loading':
+    case 'make:view-error':
+    case 'make:view-not-found':
+        generateViewState(substr($command, strlen('make:view-')), $arguments[1] ?? '.');
+        break;
+    case 'i18n:add':
+        isset($arguments[1]) ? i18nAdd($arguments[1]) : fail('Indiquez la langue à ajouter.');
+    case 'i18n:list':
+        i18nList();
+    case 'i18n:check':
+        i18nCheck();
+    case 'i18n:missing':
+        isset($arguments[1]) ? i18nCheck($arguments[1]) : fail('Indiquez la langue à vérifier.');
+    case 'i18n:set-default':
+        isset($arguments[1]) ? envSet('APP_LOCALE', i18nLocale($arguments[1])) : fail('Indiquez la langue principale.');
         break;
     case 'migrate':
         migrate();
@@ -2409,6 +3219,12 @@ switch ($command) {
         }
         migrate(true, (int) $steps);
         break;
+    case 'data:migrate':
+    case 'data:rollback':
+    case 'data:seed':
+    case 'data:status':
+    case 'data:doctor':
+        runDataCommand($command, array_slice($arguments, 1));
     case 'migrate:structure':
         migrateProjectStructure(in_array('--apply', $arguments, true), in_array('--yes', $arguments, true));
         break;
