@@ -80,7 +80,7 @@ test ! -d "$fixture/absolute-project/app/UI"
 
 cd generated
 
-grep -q "require phpaml/view:\^0.1@beta" composer-invocations.log
+grep -q "require phpaml/view:\^0.1.0-beta.3 phpaml/engine:\^0.1@beta" composer-invocations.log
 grep -q "AML View installed" ../create.log
 test ! -d src/views/templates
 test -f src/controllers/HomeController.php
@@ -109,6 +109,7 @@ test -f src/views/stylesheets/layouts/app.css
 test -f src/views/stylesheets/states/route-states.css
 test -f src/views/themes/light/tokens.css
 test -f src/views/themes/dark/tokens.css
+test -f tests/aml-view.php
 test ! -f public/css/aml-view.css
 test -d public/assets
 test -f public/favicon.svg
