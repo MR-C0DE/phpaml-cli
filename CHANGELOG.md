@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.0-beta.8 — 2026-08-18
+
+- Template officiel aligné sur `0.4.0-beta.4` et Framework
+  `0.2.1-beta.1` ;
+- correction des avertissements `views_path` dans les nouveaux projets AML
+  View ;
+- rendu AML View envoyé dans le pipeline HTTP principal au lieu d’être remplacé
+  par une fausse réponse 404 du routeur MVC ;
+- validation de `CspNonce`, `FileApplication` et `EngineRuntime` avant de
+  déclarer la création terminée ou de démarrer `aml serve`.
+
 ## 1.7.0-beta.7 — 2026-08-17
 
 - `aml serve` démarre sur `127.0.0.1:8910` et sélectionne automatiquement le

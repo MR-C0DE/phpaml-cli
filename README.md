@@ -37,7 +37,7 @@ Les installateurs officiels couvrent Windows x64, macOS ARM64 et Linux x64
 - [`phpaml-template`](https://github.com/MR-C0DE/phpaml-template) : modèle de projet.
 
 PHPAML CLI 1.6.0 est la première version stable de l’environnement autonome.
-La préversion 1.7.0-beta.7 inclut `runtime/`, `phpaml.json`, la commande
+La préversion 1.7.0-beta.8 inclut `runtime/`, `phpaml.json`, la commande
 sécurisée `aml migrate:structure` pour les projets existants.
 Elle intègre aussi AML View : `aml create-view-app mon-interface`
 crée une application dédiée, installe `phpaml/view`, prépare une page interactive sécurisée et active les
