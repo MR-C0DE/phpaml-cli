@@ -806,7 +806,7 @@ function serve(string $address): never
     }
     $manifest = projectInfo($root);
     if (isset($manifest['modules']['view'])
-        && !projectRuntimeLoads($root, [\AML\View\FileApplication::class, \AML\Engine\EngineRuntime::class])) {
+        && !projectRuntimeLoads($root, [\AML\View\FileApplication::class, \AML\Engine\EngineRuntime::class, \PHPAML\Security\CspNonce::class])) {
         fail("Le runtime AML View est incomplet. Exécutez 'aml install', puis recréez le projet avec 'aml create-view-app' si le problème persiste.");
     }
 
@@ -1247,14 +1247,15 @@ function installView(?string $version = null, bool $offline = false): never
     $requiredRuntimeFiles = [
         'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.3 ou plus récent',
         'runtime/phpaml/engine/src/EngineRuntime.php' => 'phpaml/engine',
+        'runtime/framework/Security/CspNonce.php' => 'phpaml/framework v0.2.1-beta.1 ou plus récent',
     ];
     foreach ($requiredRuntimeFiles as $relative => $requirement) {
         if (!is_file($root . '/' . $relative)) {
             fail("Installation AML View incomplète : {$requirement} est absent. Relancez Composer avec une mise à jour des dépendances.");
         }
     }
-    if (!projectRuntimeLoads($root, [\AML\View\FileApplication::class, \AML\Engine\EngineRuntime::class])) {
-        fail("Installation AML View incomplète : l’autoload du projet ne charge pas FileApplication et EngineRuntime. Relancez 'aml create-view-app' dans un nouveau dossier.");
+    if (!projectRuntimeLoads($root, [\AML\View\FileApplication::class, \AML\Engine\EngineRuntime::class, \PHPAML\Security\CspNonce::class])) {
+        fail("Installation AML View incomplète : l’autoload du projet ne charge pas FileApplication, EngineRuntime et CspNonce. Relancez 'aml create-view-app' dans un nouveau dossier.");
     }
 
     $legacyViewRoot = $root . '/src/View';

@@ -26,7 +26,11 @@ cat > "$template/composer.json" <<'JSON'
 {"name":"phpaml/view-test","require":{"php":"^8.2"},"autoload":{"psr-4":{"App\\":"app/"}},"config":{"vendor-dir":"runtime"}}
 JSON
 printf 'APP_ENV=local\n' > "$template/.env.example"
+mkdir -p "$template/runtime/framework/Security"
 touch "$template/runtime/framework/Autoloader.php" "$template/runtime/aml-installed.json"
+cat > "$template/runtime/framework/Security/CspNonce.php" <<'PHP'
+<?php namespace PHPAML\Security; final class CspNonce {}
+PHP
 cat > "$template/configs/app.php" <<'PHP'
 <?php
 use App\Controllers\HomeController;
@@ -83,6 +87,7 @@ cat > runtime/autoload.php <<'PHP'
 <?php
 require_once __DIR__ . '/phpaml/view/src/FileApplication.php';
 require_once __DIR__ . '/phpaml/engine/src/EngineRuntime.php';
+require_once __DIR__ . '/framework/Security/CspNonce.php';
 PHP
 SH
 chmod +x "$fixture/composer"
@@ -102,7 +107,7 @@ cd generated
 
 grep -q "require phpaml/view:\^0.1.0-beta.3 phpaml/engine:\^0.1@beta" composer-invocations.log
 grep -q "AML View installed" ../create.log
-"$php_bin" -r 'require "runtime/autoload.php"; exit(class_exists("AML\\View\\FileApplication") && class_exists("AML\\Engine\\EngineRuntime") ? 0 : 1);'
+"$php_bin" -r 'require "runtime/autoload.php"; exit(class_exists("AML\\View\\FileApplication") && class_exists("AML\\Engine\\EngineRuntime") && class_exists("PHPAML\\Security\\CspNonce") ? 0 : 1);'
 test ! -d src/views/templates
 test -f src/controllers/HomeController.php
 test -f src/models/HomeModel.php
