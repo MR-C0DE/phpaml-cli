@@ -24,6 +24,17 @@ else
   permissions="$(stat -c '%a' "$fixture/home/.phpaml/ai.json")"
 fi
 test "$permissions" = 600
+redacted="$(php -r 'require $argv[1]; echo aiRedact("api_key=sk-example012345678901234567 password=private-value");' "$root/cli/ai-debug.php")"
+grep -q '\[REDACTED\]' <<<"$redacted"
+if grep -qE 'sk-example|private-value' <<<"$redacted"; then
+  echo 'AI context redaction failed.' >&2
+  exit 1
+fi
+extended="$(php -r 'require $argv[1]; echo aiRedact("DATABASE_URL=postgres://user:private-password@server/database\nPRIVATE_VALUE=hidden\nSTRIPE_CREDENTIAL=hidden-two\nCUSTOM_AUTH=hidden-three");' "$root/cli/ai-debug.php")"
+if grep -qE 'private-password|hidden' <<<"$extended"; then
+  echo 'Extended AI context redaction failed.' >&2
+  exit 1
+fi
 
 mkdir -p "$fixture/runtime/public" \
   "$fixture/runtime/runtime/storage/debug-reports" \

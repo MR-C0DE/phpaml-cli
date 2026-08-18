@@ -23,7 +23,7 @@ choix de langue et le transmet au CLI.
 | `aml create .` | crée le projet dans le dossier courant |
 | `aml create nom` | crée le projet dans `nom/` |
 | `aml install` | installe moteur et dépendances |
-| `aml serve` | démarre sur `localhost:8000` |
+| `aml serve` | démarre sur `127.0.0.1:8910` et choisit automatiquement le port suivant s’il est occupé |
 | `aml serve hôte:port` | démarre sur une adresse choisie |
 | `aml routes` | affiche les routes enregistrées |
 | `aml test` | exécute `tests/run.php`, ou la suite déclarative `tests/aml-view.php` dans une application AML View |
@@ -53,9 +53,11 @@ aml build
 aml build --skip-tests
 ```
 
-Le build vérifie les règles d’URL propres, exécute les tests, exclut `.env`,
+Le build vérifie les règles d’URL propres, exécute les tests et exclut `.env`,
 les journaux, bases SQLite, tests, fichiers temporaires, `output/` et
-`deliverables/`, puis produit
+`deliverables/`. Il bloque aussi les variantes `.env.*`, clés privées,
+certificats et signatures de secrets connues, même lorsqu’ils se trouvent dans
+un sous-dossier. Il produit ensuite
 `output/phpaml-build.zip`, son checksum SHA-256 et `output/manifest.json`.
 Le serveur de production doit utiliser `public/` comme racine du domaine. Les
 routes publiques sont ainsi `/`, `/about` et `/contact`, jamais `/index.php`.
@@ -70,6 +72,7 @@ aml ssh production
 aml sftp production
 aml deploy production
 aml deploy:rollback production
+aml deploy:prune production --keep 5
 ```
 
 Stratégies disponibles :

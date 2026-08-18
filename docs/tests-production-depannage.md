@@ -78,7 +78,7 @@ aml install
 Utilisez `/css/index.css` et `/js/main.js`, puis vérifiez
 que la commande `aml serve` a été lancée dans le dossier contenant `index.php`.
 
-### Le port 8000 est occupé
+### Le port 8910 est occupé
 
 ```bash
 aml doctor --port 8080

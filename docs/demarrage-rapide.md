@@ -46,7 +46,7 @@ aml env:init
 aml serve
 ```
 
-Ouvrez <http://localhost:8000>. Pour choisir l’adresse :
+Ouvrez <http://127.0.0.1:8910>. Si ce port est occupé, PHPAML utilise automatiquement 8911, puis 8912, etc. Pour choisir l’adresse :
 
 ```bash
 aml serve 127.0.0.1:8080

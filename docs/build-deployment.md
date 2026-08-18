@@ -51,6 +51,17 @@ Available strategies:
   application internals stay outside the document root;
 - `sftp-only`: hosts that provide SFTP but no remote shell.
 
+All strategies use `build-manifest.json`; there is no hard-coded `app/` or
+`src/` directory list. For `public-html` and `sftp-only`, the previous remote
+manifest is used to remove only obsolete files previously owned by PHPAML.
+Local SFTP staging data is removed after both successful and failed transfers.
+The build checksum is verified before every transfer, including `--skip-build`.
+Remote deployment remains a beta feature until SSH/SFTP end-to-end CI is added.
+
+```bash
+aml deploy:prune production --keep 5
+```
+
 Shared-hosting example:
 
 ```bash
@@ -133,6 +144,18 @@ Stratégies disponibles :
 - `public-html` : hébergement mutualisé avec les fichiers publics dans
   `public_html` et le code interne hors de la racine web ;
 - `sftp-only` : hébergeur offrant SFTP sans terminal SSH.
+
+Toutes les stratégies utilisent `build-manifest.json`, sans liste codée en dur
+pour `app/` ou `src/`. Avec `public-html` et `sftp-only`, l’ancien manifeste
+distant permet de supprimer uniquement les fichiers PHPAML devenus obsolètes.
+Le dossier temporaire SFTP local est supprimé après un succès comme un échec.
+Le checksum du build est vérifié avant chaque transfert, même avec
+`--skip-build`. Le déploiement distant reste en bêta tant qu’une CI SSH/SFTP de
+bout en bout n’est pas disponible.
+
+```bash
+aml deploy:prune production --keep 5
+```
 
 Exemple pour un hébergement mutualisé comme Hostinger :
 
