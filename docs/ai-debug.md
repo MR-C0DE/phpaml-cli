@@ -15,7 +15,8 @@ permissions privées. Les variables `DEEPSEEK_API_KEY`, `OPENAI_API_KEY` et
 `ANTHROPIC_API_KEY` ont priorité sur la clé enregistrée.
 
 ```bash
-aml debug                 # analyse et simulation
+aml debug --yes                 # contexte minimal, strict par défaut
+aml debug --include-code --yes  # autorise explicitement le code applicatif
 aml debug "le CSS manque" # ajoute une observation facultative
 aml debug --fix           # demande avant chaque modification
 aml debug --fix --yes     # applique les modifications sûres sans question
@@ -23,6 +24,13 @@ aml debug:history         # liste les diagnostics enregistrés
 aml debug:show <id>       # affiche le rapport complet
 aml debug:rollback <id>   # restaure les fichiers précédents
 ```
+
+Avant tout appel externe, AML affiche les fichiers concernés. Les clés, mots de
+passe et tokens sont masqués automatiquement. Sans `--yes`, une confirmation
+interactive est obligatoire. Par défaut, AML exclut le code applicatif et se
+limite au diagnostic, à `phpaml.json`, `composer.json` et `.env.example`.
+L’option `--include-code` autorise explicitement `configs/app.php`,
+`public/index.php` et l’inventaire du code.
 
 L’agent reçoit le diagnostic AML et un nombre limité de fichiers de
 configuration. Il ne reçoit jamais `.env`. Les modifications sont limitées au

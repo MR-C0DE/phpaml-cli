@@ -41,6 +41,15 @@ cat > "$template/public/index.php" <<'PHP'
 <?php
 $root = dirname(__DIR__);
 $requestPath = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
+if (PHP_SAPI === 'cli-server' && $requestPath === '/_aml/live-reload') {
+    $fingerprint = [];
+    foreach ([$root . '/app', $root . '/configs', $root . '/database', __DIR__] as $watchedRoot) {
+        if (!is_dir($watchedRoot)) continue;
+        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($watchedRoot, FilesystemIterator::SKIP_DOTS));
+        foreach ($files as $file) if ($file->isFile()) $fingerprint[] = $file->getPathname() . ':' . $file->getMTime();
+    }
+    echo json_encode(['version' => sha1(implode('|', $fingerprint))]); return;
+}
 require_once $root . '/runtime/autoload.php';
 \PHPAML\Config\Env::load($root . '/.env');
 $config = require $root . '/configs/app.php';
@@ -63,7 +72,18 @@ cat > "$fixture/composer" <<'SH'
 set -euo pipefail
 printf '%s\n' "$*" >> composer-invocations.log
 mkdir -p runtime
-touch runtime/autoload.php
+mkdir -p runtime/phpaml/view/src runtime/phpaml/engine/src
+cat > runtime/phpaml/view/src/FileApplication.php <<'PHP'
+<?php namespace AML\View; final class FileApplication {}
+PHP
+cat > runtime/phpaml/engine/src/EngineRuntime.php <<'PHP'
+<?php namespace AML\Engine; final class EngineRuntime {}
+PHP
+cat > runtime/autoload.php <<'PHP'
+<?php
+require_once __DIR__ . '/phpaml/view/src/FileApplication.php';
+require_once __DIR__ . '/phpaml/engine/src/EngineRuntime.php';
+PHP
 SH
 chmod +x "$fixture/composer"
 
@@ -82,6 +102,7 @@ cd generated
 
 grep -q "require phpaml/view:\^0.1.0-beta.3 phpaml/engine:\^0.1@beta" composer-invocations.log
 grep -q "AML View installed" ../create.log
+"$php_bin" -r 'require "runtime/autoload.php"; exit(class_exists("AML\\View\\FileApplication") && class_exists("AML\\Engine\\EngineRuntime") ? 0 : 1);'
 test ! -d src/views/templates
 test -f src/controllers/HomeController.php
 test -f src/models/HomeModel.php
@@ -119,8 +140,15 @@ test ! -d public/js
 test "$(find public src -name '*.php' -exec grep -l '<!doctype html>' {} + | wc -l | tr -d ' ')" = "1"
 grep -q '\\AML\\View\\FileApplication' public/index.php
 grep -q '\$viewApp->mount(\$requestPath)' public/index.php
+grep -q '\$application->handle(\$request' public/index.php
+grep -q '\$session->csrfMeta()' public/index.php
+grep -q '\\PHPAML\\Http\\Response::html' public/index.php
 grep -q '/_aml/styles.css' public/index.php
 grep -q 'AML\\Engine\\EngineRuntime::script' public/index.php
+grep -q 'EngineRuntime::script($cspNonce)' public/index.php
+grep -q 'PHPAML\\Security\\CspNonce::from($viewRequest)' public/index.php
+grep -q "\$root . '/src', \$root . '/configs'" public/index.php
+grep -q 'meta name="aml-live-reload"' public/index.php
 ! grep -q '/_aml/view' public/index.php
 ! grep -q 'BrowserRuntime::script' public/index.php
 grep -q 'ClientAction::increment' src/views/pages/home/page.php

@@ -34,7 +34,7 @@ ENGLISH_TEXT=$(cd "${TMPDIR:-/tmp}" && AML_LANG=en php "$FIXTURE/runtime/bin/aml
 printf '%s\n' "$ENGLISH_TEXT" | grep -Eq 'Diagnostics passed with [0-9]+ warning\(s\)\.'
 if printf '%s\n' "$ENGLISH" | grep -q 'Operation not permitted'; then
     printf '%s\n' "$ENGLISH" | grep -q 'opening forbidden by the environment'
-    if printf '%s\n' "$ENGLISH" | grep -q '127.0.0.1:8000 in use'; then
+    if printf '%s\n' "$ENGLISH" | grep -q '127.0.0.1:8910 in use'; then
         echo "A sandbox restriction must not be reported as an occupied port." >&2
         exit 1
     fi

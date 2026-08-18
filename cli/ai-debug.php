@@ -152,16 +152,37 @@ function aiCapture(string $command, string $root): string
     return "COMMAND: {$command}\nEXIT: {$code}\n" . substr($content, 0, 12000);
 }
 
-function aiProjectContext(string $root): string
+function aiRedact(string $content): string
 {
-    $sections = [aiCapture('aml doctor --json --offline', $root)];
-    foreach (['phpaml.json', 'composer.json', '.env.example', 'configs/app.php', 'public/index.php'] as $relative) {
+    $content = preg_replace('/\b(sk-[A-Za-z0-9_-]{12,}|ghp_[A-Za-z0-9_]{12,}|github_pat_[A-Za-z0-9_]{12,}|AKIA[0-9A-Z]{16})\b/', '[REDACTED]', $content) ?? $content;
+    $content = preg_replace('/([a-z][a-z0-9+.-]*:\/\/[^\s:\/@]+:)[^\s@\/]+(@)/i', '$1[REDACTED]$2', $content) ?? $content;
+    return preg_replace(
+        '/(["\']?[A-Za-z0-9_.-]*(?:api[_-]?key|secret|password|token|authorization|credential|private|auth|database[_-]?url)[A-Za-z0-9_.-]*["\']?\s*(?:=>|=|:)\s*)["\']?[^\s,"\']+["\']?/i',
+        '$1[REDACTED]',
+        $content,
+    ) ?? $content;
+}
+
+/** @return list<string> */
+function aiProjectFiles(bool $includeCode): array
+{
+    return $includeCode
+        ? ['phpaml.json', 'composer.json', '.env.example', 'configs/app.php', 'public/index.php']
+        : ['phpaml.json', 'composer.json', '.env.example'];
+}
+
+function aiProjectContext(string $root, bool $includeCode = false): string
+{
+    $sections = [aiRedact(aiCapture('aml doctor --json --offline', $root))];
+    foreach (aiProjectFiles($includeCode) as $relative) {
         $path = $root . '/' . $relative;
         if (is_file($path) && filesize($path) <= 30000) {
-            $sections[] = "FILE: {$relative}\n" . file_get_contents($path);
+            $sections[] = "FILE: {$relative}\n" . aiRedact((string) file_get_contents($path));
         }
     }
-    $sections[] = aiCapture('find app configs public tests -maxdepth 3 -type f 2>/dev/null | sort | head -200', $root);
+    if ($includeCode) {
+        $sections[] = aiRedact(aiCapture('find src app configs public tests -maxdepth 3 -type f 2>/dev/null | sort | head -200', $root));
+    }
     return implode("\n\n---\n\n", $sections);
 }
 
@@ -338,11 +359,21 @@ function aiDebugRollback(string $id, bool $yes): never
     exit(0);
 }
 
-function aiDebug(bool $fix, bool $yes, ?string $problem): never
+function aiDebug(bool $fix, bool $yes, bool $includeCode, ?string $problem): never
 {
     $root = projectRoot();
     $config = aiResolvedConfig();
     output("AML AI Debugger — {$config['provider']} ({$config['model']})");
+    $files = aiProjectFiles($includeCode);
+    output(($includeCode ? 'Code applicatif inclus sur demande. ' : 'Mode strict par défaut. ') . 'Fichiers transmis après masquage : ' . implode(', ', $files));
+    if (!$yes) {
+        $interactive = function_exists('stream_isatty') && stream_isatty(STDIN);
+        if (!$interactive) fail("La transmission au fournisseur IA nécessite '--yes'.");
+        fwrite(STDOUT, 'Transmettre ces diagnostics au fournisseur IA ? [y/N] ');
+        if (!in_array(strtolower(trim((string) fgets(STDIN))), ['y', 'yes', 'o', 'oui'], true)) {
+            fail('Diagnostic IA annulé.');
+        }
+    }
     output('Analyse du projet…');
     $system = <<<'PROMPT'
 You are the PHPAML debugging agent. Diagnose a PHPAML project using the supplied evidence and official PHPAML conventions. Never request or reveal secrets. Return ONLY valid JSON with this schema:
@@ -351,7 +382,7 @@ Commands are limited to: aml doctor, aml install, aml test, aml routes, php -l F
 PROMPT;
     $prompt = "Reported problem: " . ($problem ?: 'Infer the problem from the diagnostics; the user did not provide details.')
         . "\nOfficial documentation: https://phpaml.com/docs and https://phpaml.com/fr/docs\n\nPROJECT EVIDENCE:\n"
-        . aiProjectContext($root);
+        . aiProjectContext($root, $includeCode);
     $raw = aiRequest($config, $system, $prompt);
     $plan = json_decode($raw, true);
     if (!is_array($plan)) {

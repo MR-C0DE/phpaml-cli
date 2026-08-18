@@ -247,11 +247,12 @@ function showHelp(): void
             '  deploy:configure <name>  Configure a deployment profile',
             '  deploy:check <name>      Test an SSH connection',
             '  deploy:rollback <name>   Activate the previous release',
+            '  deploy:prune <name>      Remove old releases (--keep 5)',
             '  ssh <profile>            Open a remote SSH shell',
             '  sftp <profile>           Open an SFTP session',
             '  --update [options]       Update AML itself (also: aml update)',
             '  doctor [options]         Check the installation and current project (--production for deployment)',
-            '  debug [problem]          Diagnose with AI (--fix to apply, --yes to confirm safe changes)',
+            '  debug [problem]          Diagnose with AI (strict by default; --include-code opts in)',
             '  debug:history            List saved AI diagnostics',
             '  debug:show <id>          Show a diagnostic report',
             '  debug:rollback <id>      Roll back changes from a diagnostic',
@@ -325,11 +326,12 @@ function showHelp(): void
     output('  deploy:configure <nom>    Configure un serveur de déploiement');
     output('  deploy:check <nom>        Teste la connexion SSH');
     output('  deploy:rollback <nom>     Réactive la release précédente');
+    output('  deploy:prune <nom>        Supprime les anciennes releases (--keep 5)');
     output('  ssh <profil>              Ouvre une session SSH');
     output('  sftp <profil>             Ouvre une session SFTP');
     output('  --update [options]        Met à jour AML (alias : aml update)');
     output('  doctor [options]          Vérifie l’installation et le projet courant');
-    output('  debug [problème]          Diagnostique avec l’IA (--fix applique, --yes confirme)');
+    output('  debug [problème]          Diagnostique avec l’IA (strict par défaut; --include-code autorise le code)');
     output('  debug:history             Affiche les diagnostics enregistrés');
     output('  debug:show <id>           Affiche un rapport de diagnostic');
     output('  debug:rollback <id>       Annule les corrections d’un diagnostic');
@@ -789,7 +791,9 @@ function serve(string $address): never
     if (!preg_match('/^[a-zA-Z0-9.\-]+:\d{1,5}$/', $address)) {
         fail("Adresse invalide : {$address}");
     }
-    $port = (int) substr($address, (int) strrpos($address, ':') + 1);
+    $separator = (int) strrpos($address, ':');
+    $host = substr($address, 0, $separator);
+    $port = (int) substr($address, $separator + 1);
     if ($port < 1 || $port > 65535) {
         fail('Le port doit être compris entre 1 et 65535.');
     }
@@ -799,6 +803,34 @@ function serve(string $address): never
     }
     if (!is_file($root . '/public/index.php')) {
         fail("La racine publique public/index.php est absente.");
+    }
+    $manifest = projectInfo($root);
+    if (isset($manifest['modules']['view'])
+        && !projectRuntimeLoads($root, [\AML\View\FileApplication::class, \AML\Engine\EngineRuntime::class])) {
+        fail("Le runtime AML View est incomplet. Exécutez 'aml install', puis recréez le projet avec 'aml create-view-app' si le problème persiste.");
+    }
+
+    $requestedPort = $port;
+    while ($port <= 65535) {
+        $errno = 0;
+        $error = '';
+        $probe = @stream_socket_server("tcp://{$host}:{$port}", $errno, $error);
+        if (is_resource($probe)) {
+            fclose($probe);
+            break;
+        }
+        $port++;
+    }
+
+    if ($port > 65535) {
+        fail("Aucun port disponible à partir de {$requestedPort}.");
+    }
+
+    $address = "{$host}:{$port}";
+    if ($port !== $requestedPort) {
+        output(currentLanguage() === 'en'
+            ? "Port {$requestedPort} is in use; using {$port}."
+            : "Le port {$requestedPort} est occupé ; utilisation du port {$port}.");
     }
     output("PHPAML écoute sur http://{$address}");
     output('Utilisez Ctrl+C pour arrêter le serveur.');
@@ -823,6 +855,11 @@ function buildProject(bool $skipTests = false): never
     $rules = (string) file_get_contents($root . '/public/.htaccess');
     if (!str_contains($rules, 'RewriteRule ^ index.php')) {
         fail('public/.htaccess ne redirige pas les routes vers index.php.');
+    }
+
+    $secretFindings = productionSecretFindings($root);
+    if ($secretFindings !== []) {
+        fail("Le build contient des fichiers ou secrets sensibles :\n- " . implode("\n- ", $secretFindings));
     }
 
     $outputRoot = $root . '/output';
@@ -881,6 +918,46 @@ function buildProject(bool $skipTests = false): never
     output('✓ Checksum : output/phpaml-build.zip.sha256');
     output('Document root: public/ — URL propres activées (/about, sans index.php).');
     exit(0);
+}
+
+/** @return list<string> */
+function productionSecretFindings(string $root): array
+{
+    $findings = [];
+    $sensitiveNames = ['id_rsa', 'id_dsa', 'id_ecdsa', 'id_ed25519', 'credentials', 'credentials.json'];
+    $sensitiveExtensions = ['pem', 'key', 'p12', 'pfx', 'jks', 'keystore', 'crt', 'cer'];
+    $contentExtensions = ['php', 'json', 'yaml', 'yml', 'ini', 'conf', 'config', 'txt'];
+    $patterns = [
+        '/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/',
+        '/\bAKIA[0-9A-Z]{16}\b/',
+        '/\b(?:ghp|github_pat)_[A-Za-z0-9_]{20,}\b/',
+        '/\bsk-[A-Za-z0-9_-]{20,}\b/',
+        '/\b(?:xox[baprs]-)[A-Za-z0-9-]{20,}\b/',
+    ];
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
+    foreach ($iterator as $file) {
+        if (!$file->isFile()) continue;
+        $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
+        if (str_starts_with($relative, '.git/') || str_starts_with($relative, 'output/')) continue;
+        $name = strtolower($file->getBasename());
+        $extension = strtolower($file->getExtension());
+        if (((str_starts_with($name, '.env.') && $name !== '.env.example'))
+            || in_array($name, $sensitiveNames, true)
+            || in_array($extension, $sensitiveExtensions, true)) {
+            $findings[] = "{$relative} (fichier sensible)";
+            continue;
+        }
+        if ($file->getSize() > 1048576 || !in_array($extension, $contentExtensions, true)) continue;
+        $content = (string) file_get_contents($file->getPathname());
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $content) === 1) {
+                $findings[] = "{$relative} (secret détecté)";
+                break;
+            }
+        }
+    }
+    sort($findings);
+    return array_values(array_unique($findings));
 }
 
 function installModules(
@@ -969,6 +1046,34 @@ function writeNewFile(string $root, string $relative, string $content): bool
     }
     output("Créé : {$relative}");
     return true;
+}
+
+/** @param list<class-string> $classes */
+function projectRuntimeLoads(string $root, array $classes): bool
+{
+    $autoload = $root . '/runtime/autoload.php';
+    if (!is_file($autoload)) {
+        return false;
+    }
+
+    $probe = <<<'PHP'
+$autoload = $argv[1] ?? '';
+require $autoload;
+foreach (array_slice($argv, 2) as $class) {
+    if (!class_exists($class)) {
+        fwrite(STDERR, $class . PHP_EOL);
+        exit(1);
+    }
+}
+PHP;
+    $command = escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($probe)
+        . ' ' . escapeshellarg($autoload);
+    foreach ($classes as $class) {
+        $command .= ' ' . escapeshellarg($class);
+    }
+    exec($command, $output, $exitCode);
+
+    return $exitCode === 0;
 }
 
 function installView(?string $version = null, bool $offline = false): never
@@ -1122,6 +1227,11 @@ function installView(?string $version = null, bool $offline = false): never
     if (is_file($publicIndexPath)) {
         $publicIndex = (string) file_get_contents($publicIndexPath);
         $publicIndex = str_replace("'App\\\\' => \$root . '/app'", "'App\\\\' => \$root . '/src'", $publicIndex);
+        $publicIndex = str_replace(
+            "[\$root . '/app', \$root . '/configs', \$root . '/database', __DIR__]",
+            "[\$root . '/src', \$root . '/configs', \$root . '/database', __DIR__]",
+            $publicIndex,
+        );
         file_put_contents($publicIndexPath, $publicIndex, LOCK_EX);
     }
 
@@ -1133,6 +1243,18 @@ function installView(?string $version = null, bool $offline = false): never
     passthru($command, $exitCode);
     if ($exitCode !== 0) {
         fail('L’installation Composer de phpaml/view a échoué.');
+    }
+    $requiredRuntimeFiles = [
+        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.3 ou plus récent',
+        'runtime/phpaml/engine/src/EngineRuntime.php' => 'phpaml/engine',
+    ];
+    foreach ($requiredRuntimeFiles as $relative => $requirement) {
+        if (!is_file($root . '/' . $relative)) {
+            fail("Installation AML View incomplète : {$requirement} est absent. Relancez Composer avec une mise à jour des dépendances.");
+        }
+    }
+    if (!projectRuntimeLoads($root, [\AML\View\FileApplication::class, \AML\Engine\EngineRuntime::class])) {
+        fail("Installation AML View incomplète : l’autoload du projet ne charge pas FileApplication et EngineRuntime. Relancez 'aml create-view-app' dans un nouveau dossier.");
     }
 
     $legacyViewRoot = $root . '/src/View';
@@ -1672,40 +1794,40 @@ PHP
         $integration = <<<'PHP'
 // AML View integration
 $viewApp = new \AML\View\FileApplication($root . '/src/views');
-if ($requestPath === '/_aml/styles.css') {
-    header('Content-Type: text/css; charset=utf-8');
-    header('Cache-Control: no-cache');
-    echo $viewApp->styles();
-    return;
-}
-try {
-    $result = $viewApp->mount($requestPath);
-} catch (OutOfBoundsException) {
-    if (preg_match('#^/api(?:/|$)#', $requestPath)) {
-        $result = null;
-    } else {
-        http_response_code(404);
-        $result = $viewApp->notFound($requestPath);
-    }
-} catch (Throwable $error) {
-    http_response_code(500);
-    $result = $viewApp->error($requestPath, $error);
-}
-if ($result !== null) {
-    ?><!doctype html>
-    <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <?= $result instanceof \AML\View\PageResult ? $viewApp->head($requestPath) : '' ?>
-        <link rel="icon" href="/favicon.svg">
-        <link rel="stylesheet" href="/_aml/styles.css">
-    </head>
-    <body>
-    <?= $result instanceof \AML\View\PageResult ? $result->rootHtml() : $result ?>
-    <?= \AML\Engine\EngineRuntime::script() ?>
-    </body>
-    </html><?php
+$config = require $root . '/configs/app.php';
+$application = new \PHPAML\WebApplication($config);
+if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
+    $request = \PHPAML\Http\Request::capture();
+    $response = $application->handle($request, static function (\PHPAML\Http\Request $viewRequest) use ($viewApp, $requestPath): \PHPAML\Http\Response {
+        if ($requestPath === '/_aml/styles.css') {
+            return new \PHPAML\Http\Response($viewApp->styles(), 200, [
+                'Content-Type' => 'text/css; charset=utf-8',
+                'Cache-Control' => 'no-cache',
+            ]);
+        }
+        $status = 200;
+        try {
+            $result = $viewApp->mount($requestPath);
+        } catch (OutOfBoundsException) {
+            $status = 404;
+            $result = $viewApp->notFound($requestPath);
+        } catch (Throwable $error) {
+            $status = 500;
+            $result = $viewApp->error($requestPath, $error);
+        }
+        $session = $application->container()->get(\PHPAML\Session\Session::class);
+        $head = $result instanceof \AML\View\PageResult ? $viewApp->head($requestPath) : '';
+        $body = $result instanceof \AML\View\PageResult ? $result->rootHtml() : (string) $result;
+        $cspNonce = \PHPAML\Security\CspNonce::from($viewRequest);
+        $liveReloadMeta = PHP_SAPI === 'cli-server' ? '<meta name="aml-live-reload" content="/_aml/live-reload">' : '';
+        $html = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width, initial-scale=1">'
+            . $session->csrfMeta() . $liveReloadMeta . $head
+            . '<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/_aml/styles.css">'
+            . '</head><body>' . $body . \AML\Engine\EngineRuntime::script($cspNonce) . '</body></html>';
+        return \PHPAML\Http\Response::html($html, $status);
+    });
+    $response->send();
     return;
 }
 
@@ -2455,7 +2577,7 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
         );
     }
 
-    $port = $requestedPort === null ? 8000 : filter_var($requestedPort, FILTER_VALIDATE_INT);
+    $port = $requestedPort === null ? 8910 : filter_var($requestedPort, FILTER_VALIDATE_INT);
     if ($port === false || $port < 1 || $port > 65535) {
         doctorAdd($checks, 'error', 'Port de développement', 'le port doit être compris entre 1 et 65535');
     } else {
@@ -2780,7 +2902,7 @@ function seoInit(bool $force = false): void
         'site_name' => $name,
         'title' => $name,
         'description' => '',
-        'base_url' => rtrim((string) ($environment['APP_URL'] ?? 'http://localhost:8000'), '/'),
+        'base_url' => rtrim((string) ($environment['APP_URL'] ?? 'http://127.0.0.1:8910'), '/'),
         'locale' => currentLanguage() === 'fr' ? 'fr_CA' : 'en_CA',
         'robots' => 'index,follow',
         'image' => '',
@@ -2962,7 +3084,7 @@ function seoAuditChecks(string $url, string $html): array
 function seoAudit(?string $url, bool $json, ?string $file = null): never
 {
     $seo = is_file(seoConfigPath()) ? seoConfig() : [];
-    $url ??= (string) ($seo['base_url'] ?? 'http://localhost:8000');
+    $url ??= (string) ($seo['base_url'] ?? 'http://127.0.0.1:8910');
     if (filter_var($url, FILTER_VALIDATE_URL) === false) {
         fail('L’URL à auditer est invalide.');
     }
@@ -3171,7 +3293,7 @@ switch ($command) {
         break;
     case 'debug':
         $debugProblem = isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : null;
-        aiDebug(in_array('--fix', $arguments, true), in_array('--yes', $arguments, true), $debugProblem);
+        aiDebug(in_array('--fix', $arguments, true), in_array('--yes', $arguments, true), in_array('--include-code', $arguments, true), $debugProblem);
     case 'debug:history':
         aiDebugHistory(in_array('--json', $arguments, true));
         break;
@@ -3208,7 +3330,7 @@ switch ($command) {
         );
         break;
     case 'serve':
-        serve($arguments[1] ?? 'localhost:8000');
+        serve($arguments[1] ?? '127.0.0.1:8910');
     case 'build':
         buildProject(in_array('--skip-tests', $arguments, true));
     case 'deploy:configure':
@@ -3220,6 +3342,8 @@ switch ($command) {
         isset($arguments[1]) ? deployProject($arguments[1], in_array('--skip-build', $arguments, true)) : fail('Indiquez le nom du profil.');
     case 'deploy:rollback':
         isset($arguments[1]) ? deployRollback($arguments[1]) : fail('Indiquez le nom du profil.');
+    case 'deploy:prune':
+        isset($arguments[1]) ? deployPrune($arguments[1], (int) (optionValue($arguments, '--keep') ?? 5)) : fail('Indiquez le nom du profil.');
     case 'ssh':
         isset($arguments[1]) ? deployShell($arguments[1]) : fail('Indiquez le nom du profil.');
     case 'sftp':
