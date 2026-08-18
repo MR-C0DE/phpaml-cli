@@ -146,6 +146,7 @@ test "$(find public src -name '*.php' -exec grep -l '<!doctype html>' {} + | wc 
 grep -q '\\AML\\View\\FileApplication' public/index.php
 grep -q '\$viewApp->mount(\$requestPath)' public/index.php
 grep -q '\$application->handle(\$request' public/index.php
+grep -q 'use (\$application, \$viewApp, \$requestPath)' public/index.php
 grep -q '\$session->csrfMeta()' public/index.php
 grep -q '\\PHPAML\\Http\\Response::html' public/index.php
 grep -q '/_aml/styles.css' public/index.php

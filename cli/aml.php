@@ -1799,7 +1799,7 @@ $config = require $root . '/configs/app.php';
 $application = new \PHPAML\WebApplication($config);
 if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
     $request = \PHPAML\Http\Request::capture();
-    $response = $application->handle($request, static function (\PHPAML\Http\Request $viewRequest) use ($viewApp, $requestPath): \PHPAML\Http\Response {
+    $response = $application->handle($request, static function (\PHPAML\Http\Request $viewRequest) use ($application, $viewApp, $requestPath): \PHPAML\Http\Response {
         if ($requestPath === '/_aml/styles.css') {
             return new \PHPAML\Http\Response($viewApp->styles(), 200, [
                 'Content-Type' => 'text/css; charset=utf-8',
