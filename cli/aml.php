@@ -886,7 +886,15 @@ function buildProject(bool $skipTests = false): never
             || str_starts_with($relative, 'runtime/storage/debug-')
             || str_starts_with($relative, 'runtime/storage/log')
             || in_array(strtolower($file->getExtension()), $excludedExtensions, true)) continue;
-        $zip->addFile($file->getPathname(), $relative);
+        if (in_array($relative, [
+            'runtime/composer/autoload_files.php',
+            'runtime/composer/autoload_static.php',
+        ], true)) {
+            $contents = productionComposerAutoload((string) file_get_contents($file->getPathname()));
+            $zip->addFromString($relative, $contents);
+        } else {
+            $zip->addFile($file->getPathname(), $relative);
+        }
         $files[] = $relative;
     }
     sort($files);
@@ -949,6 +957,20 @@ function productionBuildDevelopmentFile(string $relative): bool
         'package-lock.json',
         'playwright.config.mjs',
     ], true);
+}
+
+function productionComposerAutoload(string $contents): string
+{
+    $lines = preg_split('/\R/', $contents);
+    if (!is_array($lines)) throw new RuntimeException('Impossible de préparer l’autoload Composer de production.');
+    $lines = array_values(array_filter(
+        $lines,
+        static fn (string $line): bool => !str_contains(
+            str_replace('\\', '/', $line),
+            '/phpstan/phpstan/bootstrap.php',
+        ),
+    ));
+    return implode(PHP_EOL, $lines) . (str_ends_with($contents, "\n") ? PHP_EOL : '');
 }
 
 /** @return list<string> */
