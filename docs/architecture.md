@@ -33,7 +33,7 @@ mon-projet/
 │   ├── js/main.js
 │   └── img/favicon.svg
 ├── configs/app.php
-├── database/migrations/
+├── runtime/database/migrations/
 ├── tests/
 ├── runtime/
 ├── .env

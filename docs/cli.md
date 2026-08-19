@@ -127,8 +127,8 @@ aml install data --driver mongodb
 ```
 
 AML installe `phpaml/data` pour les moteurs SQL et `phpaml/data-mongodb` pour
-MongoDB, puis crée `configs/data.php`, `src/models/`, `database/migrations/` et
-`database/seeders/`. Le pilote choisi est enregistré dans `phpaml.json`.
+MongoDB, puis crée `configs/data.php`, `src/models/`, `runtime/database/migrations/` et
+`runtime/database/seeders/`. Le pilote choisi est enregistré dans `phpaml.json`.
 
 ```bash
 aml make:model User
