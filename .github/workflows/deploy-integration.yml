@@ -43,6 +43,7 @@ jobs:
             cp cli/*.php "$project/runtime/bin/"
             cp phpaml.json "$project/phpaml.json"
             printf '%s\n' '<?php $root = dirname(__DIR__); echo "PHPAML-'"$kind"'";' > "$project/public/index.php"
+            printf '%s\n' 'RewriteEngine On' 'RewriteCond %{REQUEST_FILENAME} !-f' 'RewriteCond %{REQUEST_FILENAME} !-d' 'RewriteRule ^ index.php [QSA,L]' > "$project/public/.htaccess"
             printf '%s\n' '<?php exit(0);' > "$project/tests/run.php"
             printf '%s\n' '{}' > "$project/composer.json"
             if [ "$kind" = mvc ]; then
