@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.0-beta.9 — 2026-08-18
+
+- builds de production allégés : exclusion de PHPStan, des tests, exemples,
+  documentations et métadonnées de développement embarqués dans les modules ;
+- conservation explicite du code exécutable `runtime/phpaml/*/src` dans
+  l’archive ;
+- couverture de non-régression du contenu des archives MVC et AML View.
+
 ## 1.7.0-beta.8 — 2026-08-18
 
 - Template officiel aligné sur `0.4.0-beta.4` et Framework
