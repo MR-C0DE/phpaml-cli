@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.0-beta.10 — 2026-08-19
+
+- Corrige les archives de production minimales afin que les fichiers générés
+  par Composer ne chargent plus le bootstrap PHPStan retiré du build.
+- Conserve les fonctions et les classes AML View/Engine nécessaires à
+  l'exécution tout en excluant les outils de développement.
+- Ajoute une régression de build qui valide directement les deux tables
+  d'autoload Composer avant tout déploiement.
+
 ## 1.7.0-beta.9 — 2026-08-18
 
 - builds de production allégés : exclusion de PHPStan, des tests, exemples,
