@@ -6,6 +6,7 @@ fixture="$(mktemp -d "${TMPDIR:-/tmp}/phpaml-build-deploy.XXXXXX")"
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 mkdir -p "$fixture/project/public" "$fixture/project/app" "$fixture/project/configs" \
   "$fixture/project/runtime/bin" "$fixture/project/runtime/phpstan/phpstan" \
+  "$fixture/project/runtime/composer" \
   "$fixture/project/runtime/phpaml/view/src" "$fixture/project/runtime/phpaml/view/tests" \
   "$fixture/project/runtime/phpaml/engine/examples" "$fixture/project/tests" \
   "$fixture/project/deliverables" "$fixture/project/.github/workflows" "$fixture/home"
@@ -22,6 +23,22 @@ printf '%s\n' '<?php' > "$fixture/project/runtime/phpaml/view/tests/run.php"
 printf '%s\n' 'example' > "$fixture/project/runtime/phpaml/engine/examples/demo.php"
 printf '%s\n' 'docs' > "$fixture/project/runtime/phpaml/view/README.md"
 printf '%s\n' 'workflow' > "$fixture/project/.github/workflows/test.yml"
+cat > "$fixture/project/runtime/composer/autoload_files.php" <<'PHP'
+<?php
+return [
+    'view' => $vendorDir . '/phpaml/view/src/functions.php',
+    'phpstan' => $vendorDir . '/phpstan/phpstan/bootstrap.php',
+];
+PHP
+cat > "$fixture/project/runtime/composer/autoload_static.php" <<'PHP'
+<?php
+final class ComposerStaticFixture {
+    public static $files = [
+        'view' => __DIR__ . '/../phpaml/view/src/functions.php',
+        'phpstan' => __DIR__ . '/../phpstan/phpstan/bootstrap.php',
+    ];
+}
+PHP
 
 (cd "$fixture/project" && HOME="$fixture/home" AML_LANG=en php runtime/bin/aml.php build)
 listing="$(unzip -l "$fixture/project/output/phpaml-build.zip")"
@@ -31,6 +48,14 @@ if grep -qE '(^|/)(\.env|\.github/|tests/|docs/|examples/|deliverables/|runtime/
   echo 'The production build contains forbidden files.' >&2
   exit 1
 fi
+for composer_map in runtime/composer/autoload_files.php runtime/composer/autoload_static.php; do
+  contents="$(unzip -p "$fixture/project/output/phpaml-build.zip" "$composer_map")"
+  grep -q 'phpaml/view/src/functions.php' <<<"$contents"
+  if grep -q 'phpstan/phpstan/bootstrap.php' <<<"$contents"; then
+    echo "The production Composer map still references PHPStan: $composer_map" >&2
+    exit 1
+  fi
+done
 (cd "$fixture/project/output" && shasum -a 256 -c phpaml-build.zip.sha256)
 printf '%s\n' 'API_TOKEN=production-secret' > "$fixture/project/.env.production"
 if (cd "$fixture/project" && HOME="$fixture/home" AML_LANG=en php runtime/bin/aml.php build >/dev/null 2>&1); then
