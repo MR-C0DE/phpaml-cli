@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.0-beta.11 — 2026-08-19
+
+- améliore le starter AML View : header adaptatif, rythme vertical, cartes,
+  responsive et thèmes clair/sombre réellement appliqués ;
+- déplace migrations et seeders sous `runtime/database/` afin d’alléger la
+  racine des projets ;
+- étend `aml migrate:structure` pour déplacer automatiquement l’ancien dossier
+  `database/` et actualiser ses références ;
+- aligne le template officiel sur `0.4.0-beta.5`.
+
 ## 1.7.0-beta.10 — 2026-08-19
 
 - Corrige les archives de production minimales afin que les fichiers générés

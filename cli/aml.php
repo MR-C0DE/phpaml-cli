@@ -1693,75 +1693,79 @@ final class ErrorPage extends Page
 PHP
     );
     writeNewFile($root, 'src/views/stylesheets/base.css', <<<'CSS'
-:root { color-scheme: dark; --bg:#09070d; --panel:#15111f; --ink:#f8f7ff; --muted:#aaa6ba; --line:rgba(255,255,255,.11); --violet:#9b72ff; --lime:#c7ff3d; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+:root { color-scheme:dark; --bg:#09070d; --panel:#15111f; --panel-soft:#100d17; --ink:#f8f7ff; --muted:#aaa6ba; --line:rgba(255,255,255,.11); --violet:#9b72ff; --lime:#c7ff3d; --header-bg:rgba(9,7,13,.82); --soft-fill:rgba(255,255,255,.04); --shadow:0 24px 70px rgba(0,0,0,.28); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
-body { margin:0; overflow-x:hidden; color:var(--ink); background:radial-gradient(circle at 78% 12%,rgba(139,92,246,.2),transparent 30rem),radial-gradient(circle at 12% 60%,rgba(199,255,61,.06),transparent 26rem),var(--bg); }
+body { margin:0; min-width:20rem; overflow-x:hidden; color:var(--ink); background:radial-gradient(circle at 78% 8%,rgba(139,92,246,.18),transparent 32rem),radial-gradient(circle at 10% 48%,rgba(199,255,61,.055),transparent 28rem),var(--bg); line-height:1.65; transition:color .2s ease,background-color .2s ease; }
 a { color:inherit; }
 .shell { width:min(74rem,calc(100% - 3rem)); margin-inline:auto; }
-.button { min-height:3.1rem; padding:0 1.2rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); border-radius:.55rem; font:inherit; font-size:.9rem; font-weight:850; text-decoration:none; cursor:pointer; transition:transform .18s ease,filter .18s ease; }
+.button { min-height:3.1rem; padding:0 1.25rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); border-radius:.65rem; font:inherit; font-size:.9rem; font-weight:800; text-decoration:none; cursor:pointer; transition:transform .18s ease,filter .18s ease,border-color .18s ease,background .18s ease; }
 .button:hover { transform:translateY(-2px); }
 .button-primary { border-color:var(--lime); color:#17110d; background:var(--lime); }
-.button-secondary { background:rgba(255,255,255,.035); }
+.button-secondary { background:var(--soft-fill); }
 @media (max-width:38rem) { .shell { width:min(100% - 1.4rem,74rem); } }
 CSS
     );
     writeNewFile($root, 'src/views/stylesheets/components/navigation.css', <<<'CSS'
-.view-header { position:relative; z-index:10; border-bottom:1px solid var(--line); background:rgba(9,7,13,.78); backdrop-filter:blur(18px); }
-.view-nav { min-height:4.8rem; display:flex; align-items:center; gap:.7rem; }
+.view-header { position:sticky; top:0; z-index:50; border-bottom:1px solid var(--line); background:var(--header-bg); backdrop-filter:blur(20px) saturate(150%); }
+.view-nav { min-height:4.75rem; display:flex; align-items:center; gap:1.5rem; }
 .view-brand { display:inline-flex; align-items:center; gap:.7rem; font-weight:900; letter-spacing:.055em; text-decoration:none; }
 .view-brand-logo { width:2.35rem; height:2.35rem; object-fit:contain; }
-.view-nav-links { margin-left:auto; display:flex; align-items:center; gap:1.25rem; }
+.view-nav-links { min-width:0; margin-left:auto; display:flex; align-items:center; justify-content:flex-end; gap:1.15rem; }
 .view-nav-links a { color:var(--muted); font-size:.9rem; font-weight:750; text-decoration:none; }
-.view-nav-links .nav-github { padding:.65rem .9rem; border:1px solid var(--line); border-radius:.55rem; color:var(--ink); background:rgba(255,255,255,.035); }
-.theme-switcher { display:flex; gap:.25rem; padding:.2rem; border:1px solid var(--line); border-radius:.55rem; }
+.view-nav-links .nav-github { padding:.6rem .85rem; border:1px solid var(--line); border-radius:.6rem; color:var(--ink); background:var(--soft-fill); }
+.theme-switcher { display:flex; gap:.2rem; padding:.2rem; border:1px solid var(--line); border-radius:.65rem; background:color-mix(in srgb,var(--panel) 72%,transparent); }
 .theme-switcher button { padding:.4rem .55rem; border:0; border-radius:.35rem; color:var(--muted); background:transparent; cursor:pointer; }
 .theme-switcher button[aria-pressed="true"] { color:var(--ink); background:var(--panel); }
-@media (max-width:38rem) { .view-nav { min-height:4.25rem; } .view-nav-links > a:first-child { display:none; } }
+@media (max-width:48rem) { .view-nav { gap:.75rem; } .view-nav-links { gap:.65rem; } .view-nav-links > a:not(.nav-github) { display:none; } }
+@media (max-width:32rem) { .view-brand strong,.view-nav-links .nav-github { display:none; } .view-nav { min-height:4.25rem; } }
 CSS
     );
     writeNewFile($root, 'src/views/stylesheets/layouts/app.css', <<<'CSS'
-.view-app { min-height:100vh; }
+.view-app { min-height:100vh; display:flex; flex-direction:column; }
+.view-content { flex:1; }
 .view-footer { padding-block:2.25rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.8rem; }
 .view-footer a { color:var(--ink); text-decoration:none; }
 @media (max-width:38rem) { .view-footer { align-items:flex-start; flex-direction:column; } }
 CSS
     );
     writeNewFile($root, 'src/views/stylesheets/pages/home.css', <<<'CSS'
-.view-hero { min-height:39rem; padding-block:5rem; display:grid; grid-template-columns:1.15fr .85fr; align-items:center; gap:4rem; }
+.view-hero { min-height:calc(100vh - 4.75rem); padding-block:clamp(4.5rem,9vw,8rem); display:grid; grid-template-columns:minmax(0,1.15fr) minmax(17rem,.85fr); align-items:center; gap:clamp(2.5rem,7vw,6.5rem); }
 .hero-content { min-width:0; }
 .eyebrow { color:var(--lime); font:.76rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:850; letter-spacing:.15em; }
-.view-hero h1 { max-width:48rem; margin:0; font-size:clamp(3.2rem,6.8vw,6rem); line-height:.94; letter-spacing:-.065em; }
+.view-hero h1 { max-width:49rem; margin:0; font-size:clamp(3.25rem,6.6vw,6.25rem); line-height:.94; letter-spacing:-.067em; text-wrap:balance; }
 .hero-copy,.demo-copy { max-width:42rem; color:var(--muted); font-size:clamp(1rem,2vw,1.15rem); }
 .hero-actions { display:flex; flex-wrap:wrap; gap:.8rem; }
 .hero-logo { width:min(100%,25rem); height:auto; justify-self:center; filter:drop-shadow(0 2rem 4rem rgba(0,0,0,.45)); }
-.view-demo { padding-block:5.5rem; border-top:1px solid var(--line); }
+.view-demo { padding-block:clamp(4.5rem,8vw,7rem); border-top:1px solid var(--line); }
+.view-demo > .eyebrow,.view-demo > h2,.view-demo > .demo-copy { display:block; max-width:47rem; margin-inline:auto; text-align:center; }
 .view-demo h2 { margin:.75rem 0 1rem; font-size:clamp(2.2rem,5vw,4rem); letter-spacing:-.055em; }
-.counter-card { margin-top:2.3rem; padding:1.4rem; display:flex; align-items:center; gap:1rem; border:1px solid rgba(155,114,255,.45); border-radius:.85rem; background:linear-gradient(135deg,rgba(155,114,255,.16),rgba(255,255,255,.025)); }
+.counter-card { max-width:58rem; margin:3rem auto 0; padding:1.5rem; display:grid; grid-template-columns:minmax(5rem,.65fr) auto auto minmax(7rem,1fr); align-items:center; gap:1rem; border:1px solid color-mix(in srgb,var(--violet) 45%,var(--line)); border-radius:1rem; background:linear-gradient(145deg,color-mix(in srgb,var(--panel) 86%,var(--violet) 14%),var(--panel-soft)); box-shadow:var(--shadow); }
 .counter-value { min-width:5rem; font:700 clamp(2.4rem,8vw,5rem)/1 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--violet); }
-.counter-button { margin-left:auto; }
+.counter-button { margin-left:0; }
 .counter-button:disabled { opacity:.65; cursor:wait; }
-.counter-message { color:var(--muted); font-size:.85rem; }
+.counter-message { justify-self:end; color:var(--muted); font-size:.85rem; }
 .details-toggle { margin-top:1rem; }
 .details-toggle.is-active { color:var(--bg); border-color:var(--lime); background:var(--lime); }
 .details-panel { margin-top:1rem; padding:1.25rem; border-left:3px solid var(--lime); background:rgba(199,255,61,.06); }
-.local-form-card { margin-top:1rem; padding:1.4rem; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:1rem; border:1px solid var(--line); border-radius:.85rem; background:rgba(255,255,255,.025); }
+.local-form-card { max-width:58rem; margin:1rem auto 0; padding:1.5rem; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:1rem; border:1px solid var(--line); border-radius:1rem; background:var(--panel-soft); box-shadow:var(--shadow); }
 .local-input { width:100%; padding:.85rem 1rem; border:1px solid var(--line); border-radius:.55rem; color:var(--ink); background:var(--panel); font:inherit; }
 .local-preview { color:var(--lime); font-weight:800; }
 .local-form-card [role="alert"] { grid-column:1/-1; color:#ff8585; font-size:.82rem; }
-.api-card { margin-top:1rem; display:flex; align-items:center; flex-wrap:wrap; gap:1rem; }
+.api-card { max-width:58rem; margin:1rem auto 0; display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:1rem; }
 .api-status { color:var(--lime); font-weight:800; }
 .api-error { color:#ff8585; }
-.task-card { margin-top:1rem; padding:1.4rem; display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; border:1px solid var(--line); border-radius:.85rem; }
+.task-card { max-width:58rem; margin:1rem auto 0; padding:1.5rem; display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; border:1px solid var(--line); border-radius:1rem; background:var(--panel-soft); box-shadow:var(--shadow); }
 .task-card h3 { width:100%; margin:0; }
 .task-card ul { width:100%; margin:.5rem 0 0; padding-left:1.25rem; color:var(--muted); }
 .task-card li { padding:.25rem 0; }
 .view-features { padding-block:1rem 6rem; gap:1rem !important; }
-.view-feature { min-height:14rem; padding:1.5rem; border:1px solid var(--line); border-radius:.75rem; background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.012)); }
+.view-feature { min-height:15rem; padding:1.7rem; border:1px solid var(--line); border-radius:1rem; background:linear-gradient(145deg,var(--soft-fill),transparent),var(--panel-soft); transition:transform .2s ease,border-color .2s ease; }
+.view-feature:hover { transform:translateY(-4px); border-color:color-mix(in srgb,var(--violet) 42%,var(--line)); }
 .view-feature h3 { margin:2rem 0 0; font-size:1.25rem; }
 .view-feature > span:last-child { color:var(--muted); font-size:.92rem; }
 .feature-number { color:var(--violet); font:800 .75rem/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
-@media (max-width:58rem) { .view-hero { min-height:auto; grid-template-columns:1fr; gap:1rem; } .hero-logo { width:min(60vw,20rem); } .view-features { grid-template-columns:1fr !important; } }
+@media (max-width:58rem) { .view-hero { min-height:auto; grid-template-columns:1fr; gap:2rem; text-align:center; } .hero-content { align-items:center; } .hero-copy { margin-inline:auto; } .hero-actions { justify-content:center; } .hero-logo { width:min(52vw,19rem); grid-row:1; } .counter-card { grid-template-columns:1fr 1fr; } .counter-value,.counter-message { grid-column:1/-1; justify-self:center; text-align:center; } .view-features { grid-template-columns:1fr !important; } }
 @media (max-width:38rem) { .view-hero { padding-block:3.5rem; } .view-hero h1 { font-size:clamp(2.75rem,14vw,4rem); overflow-wrap:anywhere; } .hero-actions { flex-direction:column; } .hero-actions .button { width:100%; } .counter-card { align-items:stretch; flex-direction:column; } .counter-button { width:100%; margin-left:0; } .local-form-card { grid-template-columns:1fr; } }
 CSS
     );
@@ -1771,11 +1775,11 @@ CSS
 CSS
     );
     writeNewFile($root, 'src/views/themes/light/tokens.css', <<<'CSS'
-[data-aml-theme="light"] { color-scheme:light; --bg:#f7f5fb; --panel:#ffffff; --ink:#17121f; --muted:#625d6d; --line:rgba(23,18,31,.14); --violet:#6d3de8; --lime:#7da800; }
+[data-theme="light"] { color-scheme:light; --bg:#f7f6fa; --panel:#ffffff; --panel-soft:#f0edf6; --ink:#17121f; --muted:#625d6d; --line:rgba(23,18,31,.13); --violet:#6d3de8; --lime:#6f9600; --header-bg:rgba(247,246,250,.86); --soft-fill:rgba(23,18,31,.035); --shadow:0 24px 65px rgba(48,34,71,.11); }
 CSS
     );
     writeNewFile($root, 'src/views/themes/dark/tokens.css', <<<'CSS'
-[data-aml-theme="dark"] { color-scheme:dark; --bg:#09070d; --panel:#15111f; --ink:#f8f7ff; --muted:#aaa6ba; --line:rgba(255,255,255,.11); --violet:#9b72ff; --lime:#c7ff3d; }
+[data-theme="dark"] { color-scheme:dark; --bg:#09070d; --panel:#15111f; --panel-soft:#100d17; --ink:#f8f7ff; --muted:#aaa6ba; --line:rgba(255,255,255,.11); --violet:#9b72ff; --lime:#c7ff3d; --header-bg:rgba(9,7,13,.82); --soft-fill:rgba(255,255,255,.04); --shadow:0 24px 70px rgba(0,0,0,.28); }
 CSS
     );
     writeNewFile($root, 'tests/aml-view.php', <<<'PHP'
@@ -2402,7 +2406,7 @@ function generateMigration(string $name): void
     if ($className === '') {
         fail('Le nom de migration est invalide.');
     }
-    $relative = 'database/migrations/' . date('Ymd_His') . '_' . $className . '.php';
+    $relative = 'runtime/database/migrations/' . date('Ymd_His') . '_' . $className . '.php';
     $path = projectRoot() . '/' . $relative;
     if (!is_dir(dirname($path))) {
         mkdir(dirname($path), 0755, true);
@@ -2443,7 +2447,7 @@ function migrate(bool $rollback = false, int $steps = 1): void
         $database['username'] ?: null,
         $database['password'] ?: null
     );
-    $migrator = new \PHPAML\Data\Migrator($connection, $root . '/database/migrations');
+    $migrator = new \PHPAML\Data\Migrator($connection, $root . '/runtime/database/migrations');
     $completed = $rollback ? $migrator->rollback($steps) : $migrator->migrate();
     output($completed === []
         ? ($rollback ? 'Aucune migration à annuler.' : 'Aucune migration en attente.')
@@ -3184,6 +3188,8 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     $runtime = $root . '/runtime';
     $legacyView = $root . '/app/View';
     $ui = $root . '/app/UI';
+    $legacyDatabase = $root . '/database';
+    $runtimeDatabase = $root . '/runtime/database';
 
     $conflicts = [];
     if (is_file($legacyManifest) && is_file($manifest)) {
@@ -3195,6 +3201,9 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     if (is_dir($legacyView) && is_dir($ui)) {
         $conflicts[] = 'app/View/ + app/UI/';
     }
+    if (is_dir($legacyDatabase) && is_dir($runtimeDatabase)) {
+        $conflicts[] = 'database/ + runtime/database/';
+    }
     if ($conflicts !== []) {
         fail('Migration impossible : conflits détectés (' . implode(', ', $conflicts) . ').');
     }
@@ -3202,7 +3211,8 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     $renameManifest = is_file($legacyManifest);
     $renameRuntime = is_dir($legacyRuntime);
     $renameView = is_dir($legacyView);
-    if (!$renameManifest && !$renameRuntime && !$renameView) {
+    $renameDatabase = is_dir($legacyDatabase);
+    if (!$renameManifest && !$renameRuntime && !$renameView && !$renameDatabase) {
         output(currentLanguage() === 'fr' ? 'La structure du projet est déjà à jour.' : 'The project structure is already up to date.');
         return;
     }
@@ -3216,6 +3226,9 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     }
     if ($renameView) {
         output('  app/View/ → app/UI/');
+    }
+    if ($renameDatabase) {
+        output('  database/ → runtime/database/');
     }
     output(currentLanguage() === 'fr'
         ? '  Les références connues aml_env/info.json seront actualisées.'
@@ -3264,7 +3277,9 @@ function migrateProjectStructure(bool $apply, bool $yes): void
                 || (!str_contains($content, 'aml_env')
                     && !str_contains($content, 'info.json')
                     && !str_contains($content, 'app/View')
-                    && !str_contains($content, 'App\\View'))) {
+                    && !str_contains($content, 'App\\View')
+                    && !str_contains($content, 'database/migrations')
+                    && !str_contains($content, 'database/seeders'))) {
                 continue;
             }
             $relative = ltrim(substr($path, strlen($root)), '/');
@@ -3276,10 +3291,20 @@ function migrateProjectStructure(bool $apply, bool $yes): void
                 throw new RuntimeException("Unable to back up {$relative}");
             }
             $saved[$path] = $target;
-            $updated = str_replace(
-                ['aml_env', 'info.json', 'app/View', 'App\\View'],
-                ['runtime', 'phpaml.json', 'app/UI', 'App\\UI'],
+            $protected = str_replace(
+                ['runtime/database/migrations', 'runtime/database/seeders'],
+                ['__PHPAML_RUNTIME_MIGRATIONS__', '__PHPAML_RUNTIME_SEEDERS__'],
                 $content
+            );
+            $updated = str_replace(
+                ['aml_env', 'info.json', 'app/View', 'App\\View', 'database/migrations', 'database/seeders'],
+                ['runtime', 'phpaml.json', 'app/UI', 'App\\UI', 'runtime/database/migrations', 'runtime/database/seeders'],
+                $protected
+            );
+            $updated = str_replace(
+                ['__PHPAML_RUNTIME_MIGRATIONS__', '__PHPAML_RUNTIME_SEEDERS__'],
+                ['runtime/database/migrations', 'runtime/database/seeders'],
+                $updated
             );
             if (file_put_contents($path, $updated) === false) {
                 throw new RuntimeException("Unable to update {$relative}");
@@ -3311,10 +3336,21 @@ function migrateProjectStructure(bool $apply, bool $yes): void
         if ($renameRuntime && !rename($legacyRuntime, $runtime)) {
             throw new RuntimeException('Unable to migrate aml_env');
         }
+        if ($renameDatabase) {
+            if (!is_dir($runtime) && !mkdir($runtime, 0755, true) && !is_dir($runtime)) {
+                throw new RuntimeException('Unable to create runtime');
+            }
+            if (!rename($legacyDatabase, $runtimeDatabase)) {
+                throw new RuntimeException('Unable to migrate database');
+            }
+        }
         if ($renameView && !rename($legacyView, $ui)) {
             throw new RuntimeException('Unable to migrate app/View');
         }
     } catch (Throwable $error) {
+        if (is_dir($runtimeDatabase) && !is_dir($legacyDatabase) && $renameDatabase) {
+            @rename($runtimeDatabase, $legacyDatabase);
+        }
         if (is_dir($ui) && !is_dir($legacyView) && $renameView) {
             @rename($ui, $legacyView);
         }

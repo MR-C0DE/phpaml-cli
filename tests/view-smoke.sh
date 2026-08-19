@@ -134,6 +134,8 @@ test -f src/views/stylesheets/components/navigation.css
 test -f src/views/stylesheets/layouts/app.css
 test -f src/views/stylesheets/states/route-states.css
 test -f src/views/themes/light/tokens.css
+grep -q '\[data-theme="light"\]' src/views/themes/light/tokens.css
+grep -q '\[data-theme="dark"\]' src/views/themes/dark/tokens.css
 test -f src/views/themes/dark/tokens.css
 test -f tests/aml-view.php
 test ! -f public/css/aml-view.css
