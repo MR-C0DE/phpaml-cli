@@ -21,8 +21,10 @@ same revision. AML checks `public/.htaccess`, then writes:
 
 The archive excludes secrets and non-runtime material: `.env`, `.git/`, test
 files, logs, SQLite databases, temporary files, `output/`, `tools/`, and
-`deliverables/`. The public document root is `public/`; routes must be exposed
-as `/about`, never `/index.php/about`.
+`deliverables/`. Bundled development tools, module tests, examples and
+documentation are also removed while executable `runtime/phpaml/*/src`
+directories remain available. The public document root is `public/`; routes
+must be exposed as `/about`, never `/index.php/about`.
 
 If ZIP finalization, checksum creation, disk space, or output permissions fail,
 AML removes incomplete build artifacts and exits with an error.
@@ -115,8 +117,11 @@ la même révision. AML vérifie `public/.htaccess`, puis crée :
 
 L’archive exclut les secrets et les éléments inutiles en production : `.env`,
 `.git/`, tests, journaux, bases SQLite, fichiers temporaires, `output/`,
-`tools/` et `deliverables/`. La racine publique du domaine est `public/` ; une
-route doit être `/about`, jamais `/index.php/about`.
+`tools/` et `deliverables/`. Les outils de développement embarqués, tests,
+exemples et documentations des modules sont également retirés, tandis que les
+dossiers exécutables `runtime/phpaml/*/src` sont conservés. La racine publique
+du domaine est `public/` ; une route doit être `/about`, jamais
+`/index.php/about`.
 
 Si la création du ZIP, du checksum, l’espace disque ou les permissions de
 `output/` échouent, AML supprime les fichiers incomplets et retourne une erreur.

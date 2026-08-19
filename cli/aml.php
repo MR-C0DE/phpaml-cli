@@ -871,7 +871,7 @@ function buildProject(bool $skipTests = false): never
     if ($zip->open($archive, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
         fail('Impossible de créer output/phpaml-build.zip.');
     }
-    $excludedRoots = ['.git', '.env', 'tests', 'output', 'tmp', 'tools', 'readme', 'deliverables'];
+    $excludedRoots = ['.git', '.github', '.env', 'tests', 'output', 'tmp', 'tools', 'readme', 'deliverables'];
     $excludedExtensions = ['log', 'sqlite', 'sqlite3', 'bak'];
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
@@ -882,6 +882,7 @@ function buildProject(bool $skipTests = false): never
         $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
         $top = explode('/', $relative, 2)[0];
         if (in_array($top, $excludedRoots, true)
+            || productionBuildDevelopmentFile($relative)
             || str_starts_with($relative, 'runtime/storage/debug-')
             || str_starts_with($relative, 'runtime/storage/log')
             || in_array(strtolower($file->getExtension()), $excludedExtensions, true)) continue;
@@ -918,6 +919,36 @@ function buildProject(bool $skipTests = false): never
     output('✓ Checksum : output/phpaml-build.zip.sha256');
     output('Document root: public/ — URL propres activées (/about, sans index.php).');
     exit(0);
+}
+
+function productionBuildDevelopmentFile(string $relative): bool
+{
+    $relative = str_replace('\\', '/', $relative);
+    if ($relative === 'phpstan.neon'
+        || str_starts_with($relative, 'runtime/phpstan/')
+        || in_array($relative, ['runtime/bin/phpstan', 'runtime/bin/phpstan.phar'], true)) {
+        return true;
+    }
+
+    if (!str_starts_with($relative, 'runtime/phpaml/')) return false;
+
+    $segments = explode('/', $relative);
+    foreach (['tests', 'docs', 'examples', '.github'] as $developmentDirectory) {
+        if (in_array($developmentDirectory, $segments, true)) return true;
+    }
+
+    $basename = basename($relative);
+    return in_array($basename, [
+        '.gitignore',
+        'CHANGELOG.md',
+        'CONTRIBUTING.md',
+        'README.md',
+        'SECURITY.md',
+        'SPECIFICATION.md',
+        'package.json',
+        'package-lock.json',
+        'playwright.config.mjs',
+    ], true);
 }
 
 /** @return list<string> */

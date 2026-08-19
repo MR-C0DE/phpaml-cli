@@ -5,7 +5,10 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/phpaml-build-deploy.XXXXXX")"
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 mkdir -p "$fixture/project/public" "$fixture/project/app" "$fixture/project/configs" \
-  "$fixture/project/runtime/bin" "$fixture/project/tests" "$fixture/project/deliverables" "$fixture/home"
+  "$fixture/project/runtime/bin" "$fixture/project/runtime/phpstan/phpstan" \
+  "$fixture/project/runtime/phpaml/view/src" "$fixture/project/runtime/phpaml/view/tests" \
+  "$fixture/project/runtime/phpaml/engine/examples" "$fixture/project/tests" \
+  "$fixture/project/deliverables" "$fixture/project/.github/workflows" "$fixture/home"
 cp "$root/cli/"*.php "$fixture/project/runtime/bin/"
 cp "$root/phpaml.json" "$fixture/project/phpaml.json"
 printf '%s\n' '<?php' > "$fixture/project/public/index.php"
@@ -13,11 +16,18 @@ printf '%s\n' 'RewriteEngine On' 'RewriteRule ^ index.php [QSA,L]' > "$fixture/p
 printf '%s\n' '<?php exit(0);' > "$fixture/project/tests/run.php"
 printf '%s\n' 'SECRET=yes' > "$fixture/project/.env"
 printf '%s\n' 'archive-only' > "$fixture/project/deliverables/backup.zip"
+printf '%s\n' 'dev-only' > "$fixture/project/runtime/phpstan/phpstan/phpstan.phar"
+printf '%s\n' '<?php' > "$fixture/project/runtime/phpaml/view/src/View.php"
+printf '%s\n' '<?php' > "$fixture/project/runtime/phpaml/view/tests/run.php"
+printf '%s\n' 'example' > "$fixture/project/runtime/phpaml/engine/examples/demo.php"
+printf '%s\n' 'docs' > "$fixture/project/runtime/phpaml/view/README.md"
+printf '%s\n' 'workflow' > "$fixture/project/.github/workflows/test.yml"
 
 (cd "$fixture/project" && HOME="$fixture/home" AML_LANG=en php runtime/bin/aml.php build)
 listing="$(unzip -l "$fixture/project/output/phpaml-build.zip")"
 grep -q 'public/index.php' <<<"$listing"
-if grep -qE '(^|/)(\.env|tests/|deliverables/)' <<<"$listing"; then
+grep -q 'runtime/phpaml/view/src/View.php' <<<"$listing"
+if grep -qE '(^|/)(\.env|\.github/|tests/|docs/|examples/|deliverables/|runtime/phpstan/)|runtime/phpaml/view/README\.md' <<<"$listing"; then
   echo 'The production build contains forbidden files.' >&2
   exit 1
 fi
