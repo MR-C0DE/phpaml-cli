@@ -1979,7 +1979,8 @@ $application = new \PHPAML\WebApplication($config);
 if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
     $request = \PHPAML\Http\Request::capture();
     $response = $application->handle($request, static function (\PHPAML\Http\Request $viewRequest) use ($application, $viewApp, $requestPath): \PHPAML\Http\Response {
-        if ($requestPath === '/_aml/' . \AML\Engine\EngineRuntime::assetFilename(true)) {
+        if (method_exists(\AML\Engine\EngineRuntime::class, 'assetFilename')
+            && $requestPath === '/_aml/' . \AML\Engine\EngineRuntime::assetFilename(true)) {
             $runtime = file_get_contents(\AML\Engine\EngineRuntime::assetPath(true));
             if ($runtime === false) {
                 return new \PHPAML\Http\Response('AML Engine asset unavailable.', 500);
@@ -1989,7 +1990,8 @@ if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
                 'Cache-Control' => 'public, max-age=31536000, immutable',
             ]);
         }
-        if ($requestPath === '/_aml/' . \AML\Engine\EngineRuntime::assetFilename(true) . '.map') {
+        if (method_exists(\AML\Engine\EngineRuntime::class, 'assetFilename')
+            && $requestPath === '/_aml/' . \AML\Engine\EngineRuntime::assetFilename(true) . '.map') {
             $sourceMap = \AML\Engine\EngineRuntime::assetPath(true) . '.map';
             $runtimeMap = file_get_contents($sourceMap);
             if ($runtimeMap === false) {
@@ -2020,11 +2022,15 @@ if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
         $head = $result instanceof \AML\View\PageResult ? $viewApp->head($requestPath) : '';
         $body = $result instanceof \AML\View\PageResult ? $result->rootHtml() : (string) $result;
         $liveReloadMeta = PHP_SAPI === 'cli-server' ? '<meta name="aml-live-reload" content="/_aml/live-reload">' : '';
+        $cspNonce = \PHPAML\Security\CspNonce::from($viewRequest);
+        $engineScript = method_exists(\AML\Engine\EngineRuntime::class, 'externalScript')
+            ? \AML\Engine\EngineRuntime::externalScript()
+            : \AML\Engine\EngineRuntime::script($cspNonce);
         $html = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . $session->csrfMeta() . $liveReloadMeta . $head
             . '<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/_aml/styles.css">'
-            . '</head><body>' . $body . \AML\Engine\EngineRuntime::externalScript() . '</body></html>';
+            . '</head><body>' . $body . $engineScript . '</body></html>';
         return \PHPAML\Http\Response::html($html, $status);
     });
     $response->send();
@@ -2042,6 +2048,21 @@ PHP;
             ['/app/View/interaction.php', '/app/View/page.php'],
             ['/src/app/interaction.php', '/src/app/page.php'],
             $index
+        );
+        $migratedIndex = str_replace(
+            [
+                "if (\$requestPath === '/_aml/' . \\AML\\Engine\\EngineRuntime::assetFilename(true)) {",
+                "if (\$requestPath === '/_aml/' . \\AML\\Engine\\EngineRuntime::assetFilename(true) . '.map') {",
+                '$html = \'<!doctype html><html lang="en"><head><meta charset="utf-8">\'',
+                ". '</head><body>' . \$body . \\AML\\Engine\\EngineRuntime::externalScript() . '</body></html>';",
+            ],
+            [
+                "if (method_exists(\\AML\\Engine\\EngineRuntime::class, 'assetFilename')\n            && \$requestPath === '/_aml/' . \\AML\\Engine\\EngineRuntime::assetFilename(true)) {",
+                "if (method_exists(\\AML\\Engine\\EngineRuntime::class, 'assetFilename')\n            && \$requestPath === '/_aml/' . \\AML\\Engine\\EngineRuntime::assetFilename(true) . '.map') {",
+                "\$cspNonce = \\PHPAML\\Security\\CspNonce::from(\$viewRequest);\n        \$engineScript = method_exists(\\AML\\Engine\\EngineRuntime::class, 'externalScript')\n            ? \\AML\\Engine\\EngineRuntime::externalScript()\n            : \\AML\\Engine\\EngineRuntime::script(\$cspNonce);\n        \$html = '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">'",
+                ". '</head><body>' . \$body . \$engineScript . '</body></html>';",
+            ],
+            $migratedIndex
         );
         if ($migratedIndex !== $index) {
             file_put_contents($indexPath, $migratedIndex, LOCK_EX);
