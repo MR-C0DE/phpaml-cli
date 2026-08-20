@@ -23,6 +23,9 @@ jobs:
       - name: Validate PHP sources
         shell: bash
         run: find cli tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Test PHP runtime selection
+        shell: bash
+        run: php ./tests/php-runtime-smoke.php
       - name: Test aml doctor on Unix
         if: runner.os != 'Windows'
         shell: bash
@@ -43,6 +46,10 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: PHP_BINARY=php ./tests/data-smoke.sh
+      - name: Test API installation and generator on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: PHP_BINARY=php ./tests/api-smoke.sh
       - name: Test AML View installation and generators on Unix
         if: runner.os != 'Windows'
         shell: bash

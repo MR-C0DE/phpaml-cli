@@ -259,6 +259,14 @@ function showHelp(): void
             '  ai:configure <provider>  Configure DeepSeek, OpenAI or Claude',
             '  ai:show                  Show the active AI provider (key remains hidden)',
             '  routes                   List application routes',
+            '  api:install              Enable the PHPAML API defaults',
+            '  make:api <name>          Generate REST CRUD (--model --migration --fields)',
+            '  api:add-field <name> <fields> Add fields to a generated API resource',
+            '  api:rename-field <name> <old> <new> Rename an API resource field',
+            '  api:remove-field <name> <field> Remove an API resource field',
+            '  api:token <owner>        Create an API token (--name client)',
+            '  api:openapi              Generate public/openapi.json',
+            '  api:client               Generate the TypeScript API client',
             '  make:controller <name>   Generate a controller',
             '  make:model <name>        Generate a model',
             '  make:middleware <name>   Generate middleware',
@@ -338,6 +346,14 @@ function showHelp(): void
     output('  ai:configure <fournisseur> Configure DeepSeek, OpenAI ou Claude');
     output('  ai:show                   Affiche le fournisseur IA (clé masquée)');
     output('  routes                    Affiche les routes de l’application');
+    output('  api:install               Active la configuration API PHPAML');
+    output('  make:api <nom>            Génère un CRUD REST (--model --migration --fields)');
+    output('  api:add-field <nom> <champs> Ajoute des champs au CRUD et crée une migration');
+    output('  api:rename-field <nom> <ancien> <nouveau> Renomme un champ du CRUD');
+    output('  api:remove-field <nom> <champ> Supprime un champ du CRUD');
+    output('  api:token <propriétaire>  Crée un token API (--name client)');
+    output('  api:openapi               Génère public/openapi.json');
+    output('  api:client                Génère le client TypeScript');
     output('  make:controller <nom>     Génère un contrôleur');
     output('  make:model <nom>          Génère un modèle');
     output('  make:middleware <nom>     Génère un middleware');
@@ -786,6 +802,87 @@ function createViewApplication(
     installView($viewVersion, $offline);
 }
 
+/** @return list<string> */
+function projectRequiredPhpExtensions(string $root): array
+{
+    $extensions = [];
+    foreach ([$root . '/composer.json', $root . '/composer.lock'] as $path) {
+        if (!is_file($path)) continue;
+        $document = json_decode((string) file_get_contents($path), true);
+        if (!is_array($document)) continue;
+        $requirements = [];
+        if ($path === $root . '/composer.json') {
+            $requirements[] = $document['require'] ?? [];
+        } else {
+            $requirements[] = $document['platform'] ?? [];
+            foreach (array_merge($document['packages'] ?? [], $document['packages-dev'] ?? []) as $package) {
+                if (is_array($package)) $requirements[] = $package['require'] ?? [];
+            }
+        }
+        foreach ($requirements as $require) {
+            if (!is_array($require)) continue;
+            foreach (array_keys($require) as $name) {
+                if (is_string($name) && str_starts_with(strtolower($name), 'ext-')) {
+                    $extensions[] = strtolower(substr($name, 4));
+                }
+            }
+        }
+    }
+    $extensions = array_values(array_unique(array_filter($extensions)));
+    sort($extensions);
+    return $extensions;
+}
+
+/** @return list<string> */
+function phpRuntimeCandidates(): array
+{
+    $candidates = [];
+    $configured = trim((string) getenv('AML_PHP_BINARY'));
+    if ($configured !== '') $candidates[] = $configured;
+    $candidates[] = PHP_BINARY;
+    $executable = PHP_OS_FAMILY === 'Windows' ? 'php.exe' : 'php';
+    foreach (explode(PATH_SEPARATOR, (string) getenv('PATH')) as $directory) {
+        if ($directory !== '') $candidates[] = rtrim($directory, '/\\') . DIRECTORY_SEPARATOR . $executable;
+    }
+    if (PHP_OS_FAMILY !== 'Windows') {
+        array_push($candidates, '/opt/homebrew/bin/php', '/usr/local/bin/php', '/usr/bin/php');
+    }
+    return array_values(array_unique($candidates));
+}
+
+/** @param list<string> $extensions */
+function phpRuntimeSupports(string $binary, array $extensions, array &$missing = []): bool
+{
+    $missing = [];
+    if (!is_file($binary) || (PHP_OS_FAMILY !== 'Windows' && !is_executable($binary))) return false;
+    $probe = '$required=' . var_export($extensions, true) . ';'
+        . '$missing=array_values(array_filter($required,static fn(string $extension):bool=>!extension_loaded($extension)));'
+        . 'if(PHP_VERSION_ID<80200){$missing[]="php>=8.2";}'
+        . 'fwrite(STDOUT,implode(",",$missing));exit($missing===[]?0:1);';
+    $output = [];
+    $exitCode = 1;
+    exec(escapeshellarg($binary) . ' -r ' . escapeshellarg($probe), $output, $exitCode);
+    $reported = trim(implode('', $output));
+    $missing = $reported === '' ? [] : array_values(array_filter(explode(',', $reported)));
+    return $exitCode === 0;
+}
+
+/** @param list<string> $extensions */
+function compatibleProjectPhp(array $extensions): string
+{
+    $bestMissing = null;
+    foreach (phpRuntimeCandidates() as $candidate) {
+        $missing = [];
+        if (phpRuntimeSupports($candidate, $extensions, $missing)) return $candidate;
+        if ($missing !== [] && ($bestMissing === null || count($missing) < count($bestMissing))) $bestMissing = $missing;
+    }
+    $details = implode(', ', $bestMissing ?? $extensions);
+    if ($details === '') $details = 'PHP >= 8.2';
+    fail(currentLanguage() === 'en'
+        ? 'No compatible PHP runtime was found. Missing requirements: ' . $details . '.'
+        : 'Aucun runtime PHP compatible trouvé. Prérequis absents : ' . $details . '.');
+}
+
 function serve(string $address): never
 {
     if (!preg_match('/^[a-zA-Z0-9.\-]+:\d{1,5}$/', $address)) {
@@ -834,8 +931,23 @@ function serve(string $address): never
     }
     output("PHPAML écoute sur http://{$address}");
     output('Utilisez Ctrl+C pour arrêter le serveur.');
+    $projectIniDirectory = $root . '/configs/php';
+    if (is_dir($projectIniDirectory)) {
+        $scanDirectories = getenv('PHP_INI_SCAN_DIR');
+        $scanDirectories = is_string($scanDirectories) && $scanDirectories !== ''
+            ? $scanDirectories . PATH_SEPARATOR . $projectIniDirectory
+            : PATH_SEPARATOR . $projectIniDirectory;
+        putenv('PHP_INI_SCAN_DIR=' . $scanDirectories);
+    }
+    $requiredExtensions = projectRequiredPhpExtensions($root);
+    $serverPhp = compatibleProjectPhp($requiredExtensions);
+    if ($serverPhp !== PHP_BINARY) {
+        output(currentLanguage() === 'en'
+            ? "Project requirements need a compatible PHP runtime; using {$serverPhp}."
+            : "Les prérequis du projet nécessitent un runtime PHP compatible ; utilisation de {$serverPhp}.");
+    }
     passthru(
-        escapeshellarg(PHP_BINARY) . ' -S ' . escapeshellarg($address)
+        escapeshellarg($serverPhp) . ' -S ' . escapeshellarg($address)
         . ' -t ' . escapeshellarg($root . '/public') . ' ' . escapeshellarg($root . '/public/index.php'),
         $exitCode
     );
@@ -1857,6 +1969,27 @@ $application = new \PHPAML\WebApplication($config);
 if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
     $request = \PHPAML\Http\Request::capture();
     $response = $application->handle($request, static function (\PHPAML\Http\Request $viewRequest) use ($application, $viewApp, $requestPath): \PHPAML\Http\Response {
+        if ($requestPath === '/_aml/' . \AML\Engine\EngineRuntime::assetFilename(true)) {
+            $runtime = file_get_contents(\AML\Engine\EngineRuntime::assetPath(true));
+            if ($runtime === false) {
+                return new \PHPAML\Http\Response('AML Engine asset unavailable.', 500);
+            }
+            return new \PHPAML\Http\Response($runtime, 200, [
+                'Content-Type' => 'text/javascript; charset=utf-8',
+                'Cache-Control' => 'public, max-age=31536000, immutable',
+            ]);
+        }
+        if ($requestPath === '/_aml/' . \AML\Engine\EngineRuntime::assetFilename(true) . '.map') {
+            $sourceMap = \AML\Engine\EngineRuntime::assetPath(true) . '.map';
+            $runtimeMap = file_get_contents($sourceMap);
+            if ($runtimeMap === false) {
+                return new \PHPAML\Http\Response('AML Engine source map unavailable.', 404);
+            }
+            return new \PHPAML\Http\Response($runtimeMap, 200, [
+                'Content-Type' => 'application/json; charset=utf-8',
+                'Cache-Control' => 'public, max-age=31536000, immutable',
+            ]);
+        }
         if ($requestPath === '/_aml/styles.css') {
             return new \PHPAML\Http\Response($viewApp->styles(), 200, [
                 'Content-Type' => 'text/css; charset=utf-8',
@@ -1876,13 +2009,12 @@ if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
         $session = $application->container()->get(\PHPAML\Session\Session::class);
         $head = $result instanceof \AML\View\PageResult ? $viewApp->head($requestPath) : '';
         $body = $result instanceof \AML\View\PageResult ? $result->rootHtml() : (string) $result;
-        $cspNonce = \PHPAML\Security\CspNonce::from($viewRequest);
         $liveReloadMeta = PHP_SAPI === 'cli-server' ? '<meta name="aml-live-reload" content="/_aml/live-reload">' : '';
         $html = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . $session->csrfMeta() . $liveReloadMeta . $head
             . '<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/_aml/styles.css">'
-            . '</head><body>' . $body . \AML\Engine\EngineRuntime::script($cspNonce) . '</body></html>';
+            . '</head><body>' . $body . \AML\Engine\EngineRuntime::externalScript() . '</body></html>';
         return \PHPAML\Http\Response::html($html, $status);
     });
     $response->send();
@@ -2231,6 +2363,7 @@ function runDataCommand(string $command, array $arguments): never
     $candidates = [
         projectRuntimePath($root) . '/bin/aml-data',
         projectRuntimePath($root) . '/phpaml/data/bin/aml-data',
+        projectRuntimePath($root) . '/build/phpaml-data/bin/aml-data',
         $root . '/vendor/phpaml/data/bin/aml-data',
         PHPAML_FRAMEWORK_ROOT . '/runtime/build/phpaml-data/bin/aml-data',
     ];
@@ -2271,6 +2404,587 @@ function className(string $name, string $suffix = ''): string
         fail('Le nom de classe est invalide.');
     }
     return str_ends_with($name, $suffix) ? $name : $name . $suffix;
+}
+
+function installApi(): void
+{
+    $root = projectRoot();
+    writeNewFile($root, 'configs/api.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+use PHPAML\Config\Env;
+
+$origins = array_values(array_filter(array_map('trim', explode(',', (string) Env::get('API_CORS_ORIGINS', 'http://localhost:5173')))));
+
+return [
+    'enabled' => true,
+    'prefix' => '/api',
+    'cors' => [
+        'origins' => $origins,
+        'methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        'headers' => ['Accept', 'Content-Type', 'Authorization'],
+    ],
+    'tokens' => [
+        'storage_path' => dirname(__DIR__) . '/runtime/storage/api-tokens.json',
+        'ttl' => 86400,
+    ],
+    'auth' => [
+        'enabled' => true,
+    ],
+    'version' => [
+        'name' => 'v1',
+    ],
+    'production' => [
+        'idempotency' => true,
+        'idempotency_path' => dirname(__DIR__) . '/runtime/storage/idempotency',
+        'idempotency_ttl' => 86400,
+        'http_cache' => true,
+        'cache_max_age' => 0,
+        'cache_public' => false,
+    ],
+];
+PHP
+    );
+    writeNewFile($root, 'configs/api-routes.php', "<?php\n\ndeclare(strict_types=1);\n\nreturn [\n];\n");
+    $apiRoutesPath = $root . '/configs/api-routes.php';
+    $apiRoutes = (string) file_get_contents($apiRoutesPath);
+    if (!str_contains($apiRoutes, 'POST /api/v1/login')) {
+        $authImports = "use PHPAML\\Api\\AuthController;\nuse PHPAML\\Api\\ApiDocumentationController;\nuse PHPAML\\Middleware\\ApiAuthMiddleware;\nuse PHPAML\\Middleware\\AuthRateLimitMiddleware;\n";
+        $apiRoutes = str_replace("declare(strict_types=1);", "declare(strict_types=1);\n\n{$authImports}", $apiRoutes);
+        $authEntries = "    'POST /api/v1/register' => ['handler' => [AuthController::class, 'register'], 'middleware' => [AuthRateLimitMiddleware::class]],\n"
+            . "    'POST /api/v1/login' => ['handler' => [AuthController::class, 'login'], 'middleware' => [AuthRateLimitMiddleware::class]],\n"
+            . "    'GET /api/v1/me' => ['handler' => [AuthController::class, 'me'], 'middleware' => [ApiAuthMiddleware::class]],\n"
+            . "    'POST /api/v1/logout' => ['handler' => [AuthController::class, 'logout'], 'middleware' => [ApiAuthMiddleware::class]],\n"
+            . "    'POST /api/v1/logout-all' => ['handler' => [AuthController::class, 'logoutAll'], 'middleware' => [ApiAuthMiddleware::class]],\n"
+            . "    'POST /api/v1/token/rotate' => ['handler' => [AuthController::class, 'rotate'], 'middleware' => [ApiAuthMiddleware::class]],\n";
+        $authEntries .= "    'GET /api/openapi.json' => [ApiDocumentationController::class, 'openapi'],\n"
+            . "    'GET /api/docs' => [ApiDocumentationController::class, 'docs'],\n";
+        $position = strrpos($apiRoutes, '];');
+        if ($position === false) { fail('configs/api-routes.php est invalide.'); }
+        $apiRoutes = substr($apiRoutes, 0, $position) . $authEntries . substr($apiRoutes, $position);
+        if (file_put_contents($apiRoutesPath, $apiRoutes, LOCK_EX) === false) { fail('Impossible d’ajouter les routes d’authentification.'); }
+    }
+
+    $appPath = $root . '/configs/app.php';
+    $app = is_file($appPath) ? (string) file_get_contents($appPath) : '';
+    if ($app === '') { fail('configs/app.php est introuvable.'); }
+    $changed = false;
+    if (!str_contains($app, "'api' => require __DIR__ . '/api.php'")) {
+        $anchor = "    'routes' => [";
+        if (!str_contains($app, $anchor)) { fail("configs/app.php ne contient pas la section 'routes'."); }
+        $app = str_replace($anchor, "    'api' => require __DIR__ . '/api.php',\n" . $anchor, $app, $count);
+        $changed = $changed || $count > 0;
+    }
+    if (!str_contains($app, "'project_root' => dirname(__DIR__)")) {
+        $anchor = "return [";
+        $app = str_replace($anchor, $anchor . "\n    'project_root' => dirname(__DIR__),", $app, $count);
+        $changed = $changed || $count > 0;
+    }
+    if (!str_contains($app, "...require __DIR__ . '/api-routes.php'")) {
+        $anchor = "    'routes' => [";
+        $app = str_replace($anchor, $anchor . "\n        ...require __DIR__ . '/api-routes.php',", $app, $count);
+        $changed = $changed || $count > 0;
+    }
+    if ($changed && file_put_contents($appPath, $app, LOCK_EX) === false) { fail('Impossible de modifier configs/app.php.'); }
+
+    $example = $root . '/.env.example';
+    $env = is_file($example) ? (string) file_get_contents($example) : '';
+    if (!str_contains($env, 'API_CORS_ORIGINS=')) {
+        file_put_contents($example, rtrim($env) . "\nAPI_CORS_ORIGINS=http://localhost:5173\n", LOCK_EX);
+    }
+    output('✓ PHPAML API est prêt sur /api/v1.');
+}
+
+/** @return list<array{name:string,type:string,nullable:bool,php:string,rule:string,schema:string}> */
+function apiFields(?string $definition): array
+{
+    $definition = trim((string) ($definition ?? 'name:string'));
+    if ($definition === '') { fail("L'option --fields ne peut pas être vide."); }
+    $types = [
+        'string' => ['string', 'string', 'string'], 'text' => ['string', 'string', 'text'],
+        'integer' => ['int', 'integer', 'integer'], 'int' => ['int', 'integer', 'integer'],
+        'decimal' => ['float', 'numeric', 'decimal'], 'float' => ['float', 'numeric', 'decimal'],
+        'boolean' => ['bool', 'boolean', 'boolean'], 'bool' => ['bool', 'boolean', 'boolean'],
+        'datetime' => ['string', 'string', 'dateTime'],
+    ];
+    $fields = [];
+    foreach (explode(',', $definition) as $item) {
+        [$name, $type] = array_pad(explode(':', trim($item), 2), 2, 'string');
+        $nullable = str_ends_with($type, '?');
+        $type = rtrim(strtolower($type), '?');
+        if (preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name) !== 1 || $name === 'id') { fail("Champ API invalide : {$name}."); }
+        if (!isset($types[$type])) { fail("Type API inconnu : {$type}."); }
+        [$php, $rule, $schema] = $types[$type];
+        $fields[] = compact('name', 'type', 'nullable', 'php', 'rule', 'schema');
+    }
+    return $fields;
+}
+
+/** @return array<string, string> */
+function apiFieldDefaults(?string $definition): array
+{
+    if ($definition === null || trim($definition) === '') { return []; }
+    $defaults = [];
+    foreach (explode(',', $definition) as $item) {
+        [$name, $value] = array_pad(explode('=', trim($item), 2), 2, null);
+        if ($value === null || preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $name) !== 1) { fail('Format --default attendu : champ=valeur.'); }
+        $defaults[$name] = $value;
+    }
+    return $defaults;
+}
+
+function apiPlural(string $singular): string
+{
+    if (preg_match('/[^aeiou]y$/i', $singular) === 1) {
+        return substr($singular, 0, -1) . 'ies';
+    }
+    if (preg_match('/(?:s|x|z|ch|sh)$/i', $singular) === 1) {
+        return $singular . 'es';
+    }
+    return $singular . 's';
+}
+
+/** @return array{model:string,resource:string,create:string,update:string,controller:string} */
+function apiResourcePaths(string $root, string $resource): array
+{
+    if (is_dir($root . '/src/views')) {
+        return [
+            'model' => "src/models/{$resource}.php",
+            'resource' => "src/resources/{$resource}Resource.php",
+            'create' => "src/requests/Create{$resource}Request.php",
+            'update' => "src/requests/Update{$resource}Request.php",
+            'controller' => "src/controllers/api/{$resource}Controller.php",
+        ];
+    }
+    return [
+        'model' => "src/models/{$resource}.php",
+        'resource' => "app/Resources/{$resource}Resource.php",
+        'create' => "app/Requests/Create{$resource}Request.php",
+        'update' => "app/Requests/Update{$resource}Request.php",
+        'controller' => "app/Controllers/Api/{$resource}Controller.php",
+    ];
+}
+
+/** @param array{name:string,type:string,nullable:bool,php:string,rule:string,schema:string} $field */
+function apiFieldDefaultValue(array $field, string $value): mixed
+{
+    return match ($field['php']) {
+        'int' => filter_var($value, FILTER_VALIDATE_INT) !== false ? (int) $value : fail("La valeur de {$field['name']} doit être un entier."),
+        'float' => is_numeric($value) ? (float) $value : fail("La valeur de {$field['name']} doit être numérique."),
+        'bool' => match (strtolower($value)) { '1', 'true', 'yes', 'on' => true, '0', 'false', 'no', 'off' => false, default => fail("La valeur de {$field['name']} doit être booléenne.") },
+        default => $value,
+    };
+}
+
+/** @param list<string> $arguments */
+function addApiFields(string $name, string $definition, array $arguments = []): void
+{
+    $root = projectRoot();
+    $resource = className($name);
+    $route = apiPlural(strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', $resource)));
+    $table = str_replace('-', '_', $route);
+    $paths = apiResourcePaths($root, $resource);
+    $files = [];
+    foreach ($paths as $key => $path) {
+        if (!is_file($root . '/' . $path)) { fail("{$path} est introuvable. Utilisez d’abord make:api --fields."); }
+        $files[$key] = (string) file_get_contents($root . '/' . $path);
+    }
+    $fields = apiFields($definition);
+    $defaults = apiFieldDefaults(optionValue($arguments, '--default'));
+    $csvOption = static fn (string $option): array => array_values(array_filter(array_map('trim', explode(',', (string) (optionValue($arguments, $option) ?? '')))));
+    $unique = $csvOption('--unique');
+    $indexed = $csvOption('--index');
+    $names = array_column($fields, 'name');
+    if (count($names) !== count(array_unique($names))) { fail('Un champ est présent plusieurs fois.'); }
+    foreach (array_keys($defaults) as $field) { if (!in_array($field, $names, true)) { fail("Champ --default inconnu : {$field}."); } }
+    foreach (array_merge($unique, $indexed) as $field) { if (!in_array($field, $names, true)) { fail("Champ d’index inconnu : {$field}."); } }
+
+    foreach ($fields as $field) {
+        $fieldName = $field['name'];
+        if (preg_match('/public\s+[^;$]+\$' . preg_quote($fieldName, '/') . '\b/', $files['model']) === 1) { fail("Le champ {$fieldName} existe déjà."); }
+        $value = array_key_exists($fieldName, $defaults) ? apiFieldDefaultValue($field, $defaults[$fieldName]) : null;
+        $nullableMark = $field['nullable'] ? '?' : '';
+        $propertyDefault = $field['nullable'] ? ' = null' : (array_key_exists($fieldName, $defaults) ? ' = ' . var_export($value, true) : '');
+        $files['model'] = preg_replace('/\n}\s*$/', "\n    public {$nullableMark}{$field['php']} \${$fieldName}{$propertyDefault};\n}\n", $files['model'], 1, $count) ?? $files['model'];
+        if ($count !== 1) { fail("Structure inattendue dans {$paths['model']}."); }
+        foreach (['resource' => "            '{$fieldName}' => \$item->{$fieldName},\n", 'create' => "            '{$fieldName}' => [" . ($field['nullable'] || array_key_exists($fieldName, $defaults) ? '' : "'required', ") . "'{$field['rule']}'],\n", 'update' => "            '{$fieldName}' => ['{$field['rule']}'],\n"] as $key => $line) {
+            $files[$key] = str_replace("        ];\n    }", $line . "        ];\n    }", $files[$key], $count);
+            if ($count !== 1) { fail("Structure inattendue dans {$paths[$key]}."); }
+        }
+        $cast = match ($field['php']) { 'int' => '(int) ', 'float' => '(float) ', 'bool' => '(bool) ', default => '' };
+        $fallback = array_key_exists($fieldName, $defaults) ? var_export($value, true) : 'null';
+        $assigned = $field['nullable'] || array_key_exists($fieldName, $defaults) ? "(isset(\$data['{$fieldName}']) ? {$cast}\$data['{$fieldName}'] : {$fallback})" : "{$cast}\$data['{$fieldName}']";
+        $files['controller'] = str_replace("        \$this->items()->add(\$item);", "        \$item->{$fieldName} = {$assigned};\n        \$this->items()->add(\$item);", $files['controller'], $count);
+        if ($count !== 1) { fail("Structure inattendue dans {$paths['controller']}."); }
+        $files['controller'] = str_replace("        \$this->items()->update(\$item);", "        if (array_key_exists('{$fieldName}', \$data)) { \$item->{$fieldName} = {$cast}\$data['{$fieldName}']; }\n        \$this->items()->update(\$item);", $files['controller'], $count);
+        if ($count !== 1) { fail("Structure inattendue dans {$paths['controller']}."); }
+    }
+    if (preg_match('/new CollectionQuery\((\[[^\)]*\]), (\[[^\)]*\]), (\[[^\)]*\])\)/', $files['controller'], $match) !== 1) { fail('CollectionQuery généré non reconnu.'); }
+    $append = static function (string $array, array $values): string {
+        $items = array_filter([trim($array, '[] '), implode(', ', array_map(static fn (string $value): string => "'{$value}'", $values))]);
+        return '[' . implode(', ', $items) . ']';
+    };
+    $searchable = array_column(array_filter($fields, static fn (array $field): bool => in_array($field['type'], ['string', 'text'], true)), 'name');
+    $files['controller'] = str_replace($match[0], 'new CollectionQuery(' . $append($match[1], $names) . ', ' . $append($match[2], $names) . ', ' . $append($match[3], $searchable) . ')', $files['controller']);
+
+    $schemaLines = '';
+    foreach ($fields as $field) {
+        $fieldName = $field['name'];
+        $chain = $field['nullable'] ? '->nullable()' : '';
+        if (array_key_exists($fieldName, $defaults)) { $chain .= '->default(' . var_export(apiFieldDefaultValue($field, $defaults[$fieldName]), true) . ')'; }
+        $schemaLines .= "            \$table->{$field['schema']}('{$fieldName}'){$chain};\n";
+        if (in_array($fieldName, $unique, true)) { $schemaLines .= "            \$table->index('{$fieldName}', null, true);\n"; }
+        elseif (in_array($fieldName, $indexed, true)) { $schemaLines .= "            \$table->index('{$fieldName}');\n"; }
+    }
+    $drops = implode("\n", array_map(static fn (string $field): string => "            \$table->dropColumn('{$field}');", array_reverse($names)));
+    $stamp = date('YmdHis');
+    foreach (glob($root . '/runtime/database/migrations/*.php') ?: [] as $existingMigration) {
+        if (preg_match('/\/(\d{14})_/', $existingMigration, $stampMatch) === 1 && $stampMatch[1] >= $stamp) {
+            $date = \DateTimeImmutable::createFromFormat('YmdHis', $stampMatch[1]);
+            if ($date !== false) { $stamp = $date->modify('+1 second')->format('YmdHis'); }
+        }
+    }
+    $migration = 'runtime/database/migrations/' . $stamp . '_add_' . implode('_', $names) . '_to_' . $table . '_table.php';
+    if (is_file($root . '/' . $migration)) { fail('Une migration portant ce nom existe déjà. Réessayez dans une seconde.'); }
+    $migrationContent = "<?php\n\ndeclare(strict_types=1);\n\nuse AML\\Data\\Connection;\nuse AML\\Data\\Migrations\\Migration;\nuse AML\\Data\\Schema\\{AlterTable, Schema};\n\nreturn new class extends Migration {\n    public function up(Connection \$connection): void\n    {\n        (new Schema(\$connection))->table('{$table}', function (AlterTable \$table): void {\n{$schemaLines}        });\n    }\n    public function down(Connection \$connection): void\n    {\n        (new Schema(\$connection))->table('{$table}', function (AlterTable \$table): void {\n{$drops}\n        });\n    }\n};\n";
+    foreach ($files as $key => $content) { if (file_put_contents($root . '/' . $paths[$key], $content, LOCK_EX) === false) { fail("Impossible de modifier {$paths[$key]}."); } }
+    writeNewFile($root, $migration, $migrationContent);
+    output('✓ Champs ajoutés à ' . $resource . ' : ' . implode(', ', $names));
+    output('  Migration créée : ' . $migration);
+}
+
+/** @return array{root:string,resource:string,table:string,paths:array<string,string>,files:array<string,string>} */
+function editableApiResource(string $name): array
+{
+    $root = projectRoot();
+    $resource = className($name);
+    $route = apiPlural(strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', $resource)));
+    $paths = apiResourcePaths($root, $resource);
+    $files = [];
+    foreach ($paths as $key => $path) {
+        if (!is_file($root . '/' . $path)) { fail("{$path} est introuvable. Utilisez une ressource persistante générée."); }
+        $files[$key] = (string) file_get_contents($root . '/' . $path);
+    }
+    return compact('root', 'resource', 'paths', 'files') + ['table' => str_replace('-', '_', $route)];
+}
+
+function nextApiMigrationStamp(string $root): string
+{
+    $stamp = date('YmdHis');
+    foreach (glob($root . '/runtime/database/migrations/*.php') ?: [] as $path) {
+        if (preg_match('/\/(\d{14})_/', $path, $match) === 1 && $match[1] >= $stamp) {
+            $date = \DateTimeImmutable::createFromFormat('YmdHis', $match[1]);
+            if ($date !== false) { $stamp = $date->modify('+1 second')->format('YmdHis'); }
+        }
+    }
+    return $stamp;
+}
+
+/** @return array{unique:bool,index:bool} */
+function apiFieldIndexes(string $root, string $field): array
+{
+    $all = '';
+    foreach (glob($root . '/runtime/database/migrations/*.php') ?: [] as $path) { $all .= (string) file_get_contents($path); }
+    return [
+        'unique' => str_contains($all, "index('{$field}', null, true)"),
+        'index' => str_contains($all, "index('{$field}')"),
+    ];
+}
+
+function renameApiField(string $name, string $old, string $new): void
+{
+    if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $old) !== 1 || preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $new) !== 1 || in_array('id', [$old, $new], true)) { fail('Nom de champ invalide.'); }
+    $api = editableApiResource($name);
+    if (preg_match('/\$' . preg_quote($old, '/') . '\b/', $api['files']['model']) !== 1) { fail("Le champ {$old} n’existe pas."); }
+    if (preg_match('/\$' . preg_quote($new, '/') . '\b/', $api['files']['model']) === 1) { fail("Le champ {$new} existe déjà."); }
+    foreach ($api['files'] as $key => $content) {
+        $content = str_replace("'{$old}'", "'{$new}'", $content);
+        $api['files'][$key] = preg_replace('/\$' . preg_quote($old, '/') . '\b/', '\$' . $new, $content) ?? $content;
+    }
+    $indexes = apiFieldIndexes($api['root'], $old);
+    $dropIndexes = ($indexes['unique'] ? "            \$table->dropIndexIfExists('{$api['table']}_{$old}_unique');\n" : '')
+        . ($indexes['index'] ? "            \$table->dropIndexIfExists('{$api['table']}_{$old}_index');\n" : '');
+    $createIndexes = ($indexes['unique'] ? "            \$table->index('{$new}', null, true);\n" : '')
+        . ($indexes['index'] ? "            \$table->index('{$new}');\n" : '');
+    $dropNewIndexes = ($indexes['unique'] ? "            \$table->dropIndexIfExists('{$api['table']}_{$new}_unique');\n" : '')
+        . ($indexes['index'] ? "            \$table->dropIndexIfExists('{$api['table']}_{$new}_index');\n" : '');
+    $restoreIndexes = ($indexes['unique'] ? "            \$table->index('{$old}', null, true);\n" : '')
+        . ($indexes['index'] ? "            \$table->index('{$old}');\n" : '');
+    $stamp = nextApiMigrationStamp($api['root']);
+    $migration = "runtime/database/migrations/{$stamp}_rename_{$old}_to_{$new}_on_{$api['table']}_table.php";
+    $body = "<?php\n\ndeclare(strict_types=1);\n\nuse AML\\Data\\Connection;\nuse AML\\Data\\Migrations\\Migration;\nuse AML\\Data\\Schema\\{AlterTable, Schema};\n\nreturn new class extends Migration {\n    public function up(Connection \$connection): void\n    {\n        (new Schema(\$connection))->table('{$api['table']}', function (AlterTable \$table): void {\n{$dropIndexes}            \$table->renameColumn('{$old}', '{$new}');\n{$createIndexes}        });\n    }\n    public function down(Connection \$connection): void\n    {\n        (new Schema(\$connection))->table('{$api['table']}', function (AlterTable \$table): void {\n{$dropNewIndexes}            \$table->renameColumn('{$new}', '{$old}');\n{$restoreIndexes}        });\n    }\n};\n";
+    foreach ($api['files'] as $key => $content) { if (file_put_contents($api['root'] . '/' . $api['paths'][$key], $content, LOCK_EX) === false) { fail("Impossible de modifier {$api['paths'][$key]}."); } }
+    writeNewFile($api['root'], $migration, $body);
+    output("✓ {$api['resource']}.{$old} renommé en {$new}");
+}
+
+function removeApiField(string $name, string $field): void
+{
+    if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $field) !== 1 || $field === 'id') { fail('Nom de champ invalide.'); }
+    $api = editableApiResource($name);
+    if (preg_match('/^\s*public\s+(\??)(string|int|float|bool)\s+\$' . preg_quote($field, '/') . '(?:\s*=\s*([^;]+))?;\s*$/m', $api['files']['model'], $property) !== 1) { fail("Le champ {$field} n’existe pas ou son type n’est pas pris en charge."); }
+    $schema = ['string' => 'string', 'int' => 'integer', 'float' => 'decimal', 'bool' => 'boolean'][$property[2]];
+    foreach (['model', 'resource', 'create', 'update'] as $key) {
+        $api['files'][$key] = preg_replace('/^.*(?:\$' . preg_quote($field, '/') . '\b|\'' . preg_quote($field, '/') . '\').*\R/m', '', $api['files'][$key]) ?? $api['files'][$key];
+    }
+    $api['files']['controller'] = preg_replace('/^.*(?:\$item->' . preg_quote($field, '/') . '\b|array_key_exists\(\'' . preg_quote($field, '/') . '\').*\R/m', '', $api['files']['controller']) ?? $api['files']['controller'];
+    $api['files']['controller'] = preg_replace_callback('/new CollectionQuery\((\[[^\)]*\]), (\[[^\)]*\]), (\[[^\)]*\])\)/', static function (array $match) use ($field): string {
+        $clean = static fn (string $array): string => preg_replace(["/'" . preg_quote($field, '/') . "'\s*,\s*/", "/,\s*'" . preg_quote($field, '/') . "'/", "/'" . preg_quote($field, '/') . "'/"], ['', '', ''], $array) ?? $array;
+        return 'new CollectionQuery(' . $clean($match[1]) . ', ' . $clean($match[2]) . ', ' . $clean($match[3]) . ')';
+    }, $api['files']['controller']) ?? $api['files']['controller'];
+    $chain = $property[1] === '?' ? '->nullable()' : '';
+    if (isset($property[3]) && trim($property[3]) !== 'null') { $chain .= '->default(' . trim($property[3]) . ')'; }
+    $stamp = nextApiMigrationStamp($api['root']);
+    $indexes = apiFieldIndexes($api['root'], $field);
+    $dropIndexes = ($indexes['unique'] ? "            \$table->dropIndexIfExists('{$api['table']}_{$field}_unique');\n" : '')
+        . ($indexes['index'] ? "            \$table->dropIndexIfExists('{$api['table']}_{$field}_index');\n" : '');
+    $restoreIndexes = ($indexes['unique'] ? "            \$table->index('{$field}', null, true);\n" : '')
+        . ($indexes['index'] ? "            \$table->index('{$field}');\n" : '');
+    $migration = "runtime/database/migrations/{$stamp}_remove_{$field}_from_{$api['table']}_table.php";
+    $body = "<?php\n\ndeclare(strict_types=1);\n\nuse AML\\Data\\Connection;\nuse AML\\Data\\Migrations\\Migration;\nuse AML\\Data\\Schema\\{AlterTable, Schema};\n\nreturn new class extends Migration {\n    public function up(Connection \$connection): void\n    {\n        (new Schema(\$connection))->table('{$api['table']}', function (AlterTable \$table): void {\n{$dropIndexes}            \$table->dropColumn('{$field}');\n        });\n    }\n    public function down(Connection \$connection): void\n    {\n        (new Schema(\$connection))->table('{$api['table']}', function (AlterTable \$table): void {\n            \$table->{$schema}('{$field}'){$chain};\n{$restoreIndexes}        });\n    }\n};\n";
+    foreach ($api['files'] as $key => $content) { if (file_put_contents($api['root'] . '/' . $api['paths'][$key], $content, LOCK_EX) === false) { fail("Impossible de modifier {$api['paths'][$key]}."); } }
+    writeNewFile($api['root'], $migration, $body);
+    output("✓ Champ {$api['resource']}.{$field} supprimé");
+}
+
+/** @param list<string> $arguments */
+function generateApi(string $name, array $arguments = []): void
+{
+    $root = projectRoot();
+    if (!is_file($root . '/configs/api.php')) { installApi(); }
+    $resource = className($name);
+    $controller = $resource . 'Controller';
+    $route = apiPlural(strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', $resource)));
+    $paths = apiResourcePaths($root, $resource);
+    $path = $paths['controller'];
+    foreach (["app/Controllers/Api/{$controller}.php", "src/controllers/api/{$controller}.php"] as $existingController) {
+        if (is_file($root . '/' . $existingController)) {
+            fail("Le fichier '{$existingController}' existe déjà.");
+        }
+    }
+    $persistent = in_array('--model', $arguments, true) || in_array('--migration', $arguments, true) || optionValue($arguments, '--fields') !== null;
+    if (!$persistent) {
+        $content = str_replace('{{CONTROLLER}}', $controller, <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controllers\Api;
+
+use PHPAML\Api\ApiResponse;
+use PHPAML\Http\Request;
+use PHPAML\Http\Response;
+
+final class {{CONTROLLER}}
+{
+    public function index(Request $request): Response { return ApiResponse::ok([]); }
+    public function store(Request $request): Response { return ApiResponse::created($request->input()); }
+    public function show(Request $request): Response { return ApiResponse::ok(['id' => $request->attribute('id')]); }
+    public function update(Request $request): Response { return ApiResponse::ok(array_merge(['id' => $request->attribute('id')], $request->input())); }
+    public function destroy(Request $request): Response { return ApiResponse::noContent(); }
+}
+PHP
+        );
+    } else {
+        bootstrapProject($root);
+        if (!class_exists(\AML\Data\Entity::class)) { fail("Le module phpaml/data est absent. Exécutez 'aml install data'."); }
+        if (!is_file($root . '/configs/data.php')) { fail("configs/data.php est absent. Exécutez 'aml install data'."); }
+        $appPath = $root . '/configs/app.php';
+        $appConfig = (string) file_get_contents($appPath);
+        if (!str_contains($appConfig, "'data' => require __DIR__ . '/data.php'")) {
+            $appConfig = str_replace("    'api' => require __DIR__ . '/api.php',", "    'api' => require __DIR__ . '/api.php',\n    'data' => require __DIR__ . '/data.php',", $appConfig);
+            if (file_put_contents($appPath, $appConfig, LOCK_EX) === false) { fail('Impossible de brancher configs/data.php.'); }
+        }
+        $fields = apiFields(optionValue($arguments, '--fields'));
+        $table = str_replace('-', '_', $route);
+        $modelProperties = '';
+        $resourceProperties = "            'id' => \$item->id,\n";
+        $assignCreate = '';
+        $assignUpdate = '';
+        $createRules = '';
+        $updateRules = '';
+        $schemaLines = '';
+        $fieldNames = [];
+        $searchableNames = [];
+        foreach ($fields as $field) {
+            $fieldName = $field['name'];
+            $nullableMark = $field['nullable'] ? '?' : '';
+            $default = $field['nullable'] ? ' = null' : '';
+            $required = $field['nullable'] ? '' : "'required', ";
+            $modelProperties .= "    public {$nullableMark}{$field['php']} \${$fieldName}{$default};\n";
+            $resourceProperties .= "            '{$fieldName}' => \$item->{$fieldName},\n";
+            $cast = match ($field['php']) { 'int' => '(int) ', 'float' => '(float) ', 'bool' => '(bool) ', default => '' };
+            $assigned = $field['nullable']
+                ? "(isset(\$data['{$fieldName}']) ? {$cast}\$data['{$fieldName}'] : null)"
+                : "{$cast}\$data['{$fieldName}']";
+            $assignCreate .= "        \$item->{$fieldName} = {$assigned};\n";
+            $assignUpdate .= "        if (array_key_exists('{$fieldName}', \$data)) { \$item->{$fieldName} = {$cast}\$data['{$fieldName}']; }\n";
+            $createRules .= "            '{$fieldName}' => [{$required}'{$field['rule']}'],\n";
+            $updateRules .= "            '{$fieldName}' => ['{$field['rule']}'],\n";
+            $nullable = $field['nullable'] ? '->nullable()' : '';
+            $schemaLines .= "            \$table->{$field['schema']}('{$fieldName}'){$nullable};\n";
+            $fieldNames[] = $fieldName;
+            if (in_array($field['type'], ['string', 'text'], true)) { $searchableNames[] = $fieldName; }
+        }
+        writeNewFile($root, $paths['model'], "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Models;\n\nuse AML\\Data\\Entity;\nuse AML\\Data\\Metadata\\{Key, Table};\n\n#[Table('{$table}')]\nfinal class {$resource} extends Entity\n{\n    #[Key]\n    public int \$id;\n{$modelProperties}}\n");
+        writeNewFile($root, $paths['resource'], "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Resources;\n\nuse App\\Models\\{$resource};\n\nfinal class {$resource}Resource\n{\n    /** @return array<string, mixed> */\n    public static function make({$resource} \$item): array\n    {\n        return [\n{$resourceProperties}        ];\n    }\n}\n");
+        writeNewFile($root, $paths['create'], "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Requests;\n\nuse PHPAML\\Api\\ApiRequest;\n\nfinal class Create{$resource}Request extends ApiRequest\n{\n    public function rules(): array\n    {\n        return [\n{$createRules}        ];\n    }\n}\n");
+        writeNewFile($root, $paths['update'], "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Requests;\n\nuse PHPAML\\Api\\ApiRequest;\n\nfinal class Update{$resource}Request extends ApiRequest\n{\n    public function rules(): array\n    {\n        return [\n{$updateRules}        ];\n    }\n}\n");
+        if (in_array('--migration', $arguments, true) || optionValue($arguments, '--fields') !== null) {
+            $migration = 'runtime/database/migrations/' . date('YmdHis') . '_create_' . $table . '_table.php';
+            writeNewFile($root, $migration, "<?php\n\ndeclare(strict_types=1);\n\nuse AML\\Data\\Connection;\nuse AML\\Data\\Migrations\\Migration;\nuse AML\\Data\\Schema\\{Schema, Table};\n\nreturn new class extends Migration {\n    public function up(Connection \$connection): void\n    {\n        (new Schema(\$connection))->create('{$table}', function (Table \$table): void {\n            \$table->id();\n{$schemaLines}            \$table->timestamps();\n        });\n    }\n    public function down(Connection \$connection): void { (new Schema(\$connection))->dropIfExists('{$table}'); }\n};\n");
+        }
+        $content = str_replace(
+            ['{{RESOURCE}}', '{{CONTROLLER}}', '{{ROUTE}}', '{{CREATE_ASSIGN}}', '{{UPDATE_ASSIGN}}', '{{FIELDS_ARRAY}}', '{{SEARCHABLE_ARRAY}}'],
+            [$resource, $controller, $route, rtrim($assignCreate), rtrim($assignUpdate), "['" . implode("', '", $fieldNames) . "']", $searchableNames === [] ? '[]' : "['" . implode("', '", $searchableNames) . "']"],
+            <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controllers\Api;
+
+use AML\Data\Connection;
+use AML\Data\DbSet;
+use App\Models\{{RESOURCE}};
+use App\Requests\Create{{RESOURCE}}Request;
+use App\Requests\Update{{RESOURCE}}Request;
+use App\Resources\{{RESOURCE}}Resource;
+use PHPAML\Api\ApiResponse;
+use PHPAML\Api\CollectionQuery;
+use PHPAML\Http\Request;
+use PHPAML\Http\Response;
+
+final class {{CONTROLLER}}
+{
+    public function __construct(private Connection $connection) {}
+    private function items(): DbSet { return new DbSet($this->connection, {{RESOURCE}}::class); }
+    public function index(Request $request): Response
+    {
+        $parameters = (new CollectionQuery({{FIELDS_ARRAY}}, {{FIELDS_ARRAY}}, {{SEARCHABLE_ARRAY}}))->parse($request->query());
+        $query = $this->items();
+        foreach ($parameters['filters'] as $field => $value) { $query = $query->where($field, '=', $value); }
+        foreach ($parameters['sort'] as $sort) { $query = $query->orderBy($sort['field'], $sort['direction']); }
+        if ($parameters['search'] !== null && $parameters['searchable'] !== []) {
+            $query = $query->where($parameters['searchable'][0], 'LIKE', '%' . $parameters['search'] . '%');
+        }
+        $result = $query->paginate($parameters['page'], $parameters['per_page']);
+        return ApiResponse::collection(array_map({{RESOURCE}}Resource::make(...), $result->items), [
+            'current_page' => $result->page, 'per_page' => $result->perPage,
+            'total' => $result->total, 'last_page' => $result->lastPage(),
+        ]);
+    }
+    public function store(Request $request): Response
+    {
+        $data = (new Create{{RESOURCE}}Request())->validated($request);
+        $item = new {{RESOURCE}}();
+{{CREATE_ASSIGN}}
+        $this->items()->add($item);
+        return ApiResponse::created({{RESOURCE}}Resource::make($item));
+    }
+    public function show(Request $request): Response
+    {
+        $item = $this->items()->find((string) $request->attribute('id'));
+        return $item === null ? ApiResponse::error('NOT_FOUND', '{{RESOURCE}} introuvable.', 404) : ApiResponse::ok({{RESOURCE}}Resource::make($item));
+    }
+    public function update(Request $request): Response
+    {
+        $item = $this->items()->find((string) $request->attribute('id'));
+        if ($item === null) { return ApiResponse::error('NOT_FOUND', '{{RESOURCE}} introuvable.', 404); }
+        $data = (new Update{{RESOURCE}}Request())->validated($request);
+{{UPDATE_ASSIGN}}
+        $this->items()->update($item);
+        return ApiResponse::ok({{RESOURCE}}Resource::make($item));
+    }
+    public function destroy(Request $request): Response
+    {
+        $item = $this->items()->find((string) $request->attribute('id'));
+        if ($item === null) { return ApiResponse::error('NOT_FOUND', '{{RESOURCE}} introuvable.', 404); }
+        $this->items()->remove($item);
+        return ApiResponse::noContent();
+    }
+}
+PHP
+        );
+    }
+    if (!writeNewFile($root, $path, $content)) { fail("Le fichier '{$path}' existe déjà."); }
+
+    $routesPath = $root . '/configs/api-routes.php';
+    $routes = (string) file_get_contents($routesPath);
+    $import = "use App\\Controllers\\Api\\{$controller};";
+    if (!str_contains($routes, $import)) {
+        $routes = str_replace("declare(strict_types=1);", "declare(strict_types=1);\n\n{$import}", $routes);
+    }
+    $auth = in_array('--auth', $arguments, true);
+    if ($auth) {
+        foreach (['use PHPAML\\Middleware\\ApiAuthMiddleware;', 'use PHPAML\\Middleware\\AbilityMiddleware;'] as $middlewareImport) {
+            if (!str_contains($routes, $middlewareImport)) {
+                $routes = str_replace("declare(strict_types=1);", "declare(strict_types=1);\n\n{$middlewareImport}", $routes);
+            }
+        }
+    }
+    $readAbility = optionValue($arguments, '--read-ability') ?? str_replace('-', '.', $route) . '.read';
+    $writeAbility = optionValue($arguments, '--write-ability') ?? str_replace('-', '.', $route) . '.write';
+    $entry = static function (string $handler, string $ability) use ($controller, $auth): string {
+        if (!$auth) { return "[{$controller}::class, '{$handler}']"; }
+        return "['handler' => [{$controller}::class, '{$handler}'], 'middleware' => [ApiAuthMiddleware::class, AbilityMiddleware::class], 'abilities' => ['{$ability}']]";
+    };
+    $entries = "    'GET /api/v1/{$route}' => " . $entry('index', $readAbility) . ",\n"
+        . "    'POST /api/v1/{$route}' => " . $entry('store', $writeAbility) . ",\n"
+        . "    'GET /api/v1/{$route}/{id}' => " . $entry('show', $readAbility) . ",\n"
+        . "    'PUT /api/v1/{$route}/{id}' => " . $entry('update', $writeAbility) . ",\n"
+        . "    'DELETE /api/v1/{$route}/{id}' => " . $entry('destroy', $writeAbility) . ",\n";
+    $position = strrpos($routes, '];');
+    if ($position === false) { fail('configs/api-routes.php est invalide.'); }
+    $routes = substr($routes, 0, $position) . $entries . substr($routes, $position);
+    if (file_put_contents($routesPath, $routes, LOCK_EX) === false) { fail('Impossible de modifier configs/api-routes.php.'); }
+    output("✓ API {$resource} créée : /api/v1/{$route}");
+}
+
+function issueApiToken(string $owner, string $name = 'cli'): void
+{
+    $config = loadProjectConfig();
+    $application = new \PHPAML\WebApplication($config);
+    $manager = $application->container()->get(\PHPAML\Api\TokenManager::class);
+    if (!$manager instanceof \PHPAML\Api\TokenManager) { fail('Le gestionnaire de tokens API est indisponible.'); }
+    output($manager->issue($owner, $name));
+}
+
+/** @return array<string, mixed> */
+function apiOpenApiDocument(): array
+{
+    $root = projectRoot();
+    bootstrapProject($root);
+    $config = loadProjectConfig();
+    return (new \PHPAML\Api\OpenApiGenerator(
+        (string) ($config['name'] ?? 'PHPAML API'),
+        (string) (projectInfo($root)['version'] ?? '1.0.0')
+    ))->generate(is_array($config['routes'] ?? null) ? $config['routes'] : [], '/api');
+}
+
+function generateOpenApi(?string $outputPath = null): void
+{
+    $root = projectRoot();
+    $relative = $outputPath ?? 'public/openapi.json';
+    $path = str_starts_with($relative, '/') ? $relative : $root . '/' . ltrim($relative, '/');
+    if (!is_dir(dirname($path)) && !mkdir(dirname($path), 0755, true) && !is_dir(dirname($path))) { fail('Impossible de créer le dossier OpenAPI.'); }
+    $json = json_encode(apiOpenApiDocument(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    if (file_put_contents($path, $json . PHP_EOL, LOCK_EX) === false) { fail('Impossible de générer OpenAPI.'); }
+    output('✓ OpenAPI généré : ' . $relative);
+}
+
+function generateApiClient(?string $outputPath = null): void
+{
+    $root = projectRoot();
+    bootstrapProject($root);
+    $relative = $outputPath ?? 'resources/ts/phpaml-api.ts';
+    $path = str_starts_with($relative, '/') ? $relative : $root . '/' . ltrim($relative, '/');
+    if (!is_dir(dirname($path)) && !mkdir(dirname($path), 0755, true) && !is_dir(dirname($path))) { fail('Impossible de créer le dossier du client API.'); }
+    $client = (new \PHPAML\Api\TypeScriptClientGenerator())->generate(apiOpenApiDocument());
+    if (file_put_contents($path, $client, LOCK_EX) === false) { fail('Impossible de générer le client TypeScript.'); }
+    output('✓ Client TypeScript généré : ' . $relative);
 }
 
 function generateClass(string $type, string $name): void
@@ -3374,6 +4088,10 @@ function migrateProjectStructure(bool $apply, bool $yes): void
         : 'Recommended verification: aml doctor --offline, then aml test.');
 }
 
+if (defined('PHPAML_CLI_LIBRARY_MODE') && PHPAML_CLI_LIBRARY_MODE === true) {
+    return;
+}
+
 switch ($command) {
     case 'ai:configure':
         aiConfigure($arguments[1] ?? 'deepseek', optionValue($arguments, '--key'), optionValue($arguments, '--model'));
@@ -3472,6 +4190,30 @@ switch ($command) {
         isset($arguments[1]) ? runScript($arguments[1]) : fail('Indiquez le nom du script.');
     case 'routes':
         showRoutes();
+        break;
+    case 'api:install':
+        installApi();
+        break;
+    case 'make:api':
+        isset($arguments[1]) ? generateApi($arguments[1], $arguments) : fail('Indiquez le nom de la ressource API.');
+        break;
+    case 'api:add-field':
+        isset($arguments[1], $arguments[2]) ? addApiFields($arguments[1], $arguments[2], $arguments) : fail('Usage : aml api:add-field <ressource> <champs>.');
+        break;
+    case 'api:rename-field':
+        isset($arguments[1], $arguments[2], $arguments[3]) ? renameApiField($arguments[1], $arguments[2], $arguments[3]) : fail('Usage : aml api:rename-field <ressource> <ancien> <nouveau>.');
+        break;
+    case 'api:remove-field':
+        isset($arguments[1], $arguments[2]) ? removeApiField($arguments[1], $arguments[2]) : fail('Usage : aml api:remove-field <ressource> <champ>.');
+        break;
+    case 'api:token':
+        isset($arguments[1]) ? issueApiToken($arguments[1], optionValue($arguments, '--name') ?? 'cli') : fail('Indiquez le propriétaire du token.');
+        break;
+    case 'api:openapi':
+        generateOpenApi(optionValue($arguments, '--output'));
+        break;
+    case 'api:client':
+        generateApiClient(optionValue($arguments, '--output'));
         break;
     case 'make:controller':
     case 'make:middleware':

@@ -25,6 +25,13 @@ choix de langue et le transmet au CLI.
 | `aml install` | installe moteur et dépendances |
 | `aml serve` | démarre sur `127.0.0.1:8910` et choisit automatiquement le port suivant s’il est occupé |
 | `aml serve hôte:port` | démarre sur une adresse choisie |
+
+Avant de démarrer le serveur, AML lit les prérequis `ext-*` de
+`composer.json` et `composer.lock`. Le runtime privé reste prioritaire lorsqu’il
+est compatible. Si une extension du projet n’y est pas disponible, AML choisit
+automatiquement un autre exécutable PHP compatible présent dans `PATH`. La
+variable `AML_PHP_BINARY` permet de définir explicitement le PHP à essayer en
+premier.
 | `aml routes` | affiche les routes enregistrées |
 | `aml test` | exécute `tests/run.php`, ou la suite déclarative `tests/aml-view.php` dans une application AML View |
 | `aml build` | produit l’archive de déploiement dans `output/` |

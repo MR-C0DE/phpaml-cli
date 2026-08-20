@@ -3,7 +3,7 @@
 PHPAML uses Semantic Versioning independently for each component:
 
 - AML CLI stable: `1.6.0`
-- AML CLI preview: `1.7.0-beta.11`
+- AML CLI preview: `1.7.0-beta.12`
 - PHPAML Framework preview: `0.2.1-beta.1`
 - PHPAML Template stable: `0.3.0`
 
