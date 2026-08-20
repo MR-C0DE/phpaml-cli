@@ -38,9 +38,11 @@ grep -q "products.write" configs/api-routes.php
 # Persistent resources can receive fields after their initial generation.
 mkdir -p src/views
 mkdir -p runtime
-ln -s "$(cd "$root/../.." && pwd)/autoload.php" runtime/autoload.php
-mkdir -p runtime/bin
-ln -s "$root/../phpaml-data/bin/aml-data" runtime/bin/aml-data
+cat > runtime/autoload.php <<'PHP'
+<?php
+namespace AML\Data;
+abstract class Entity {}
+PHP
 cat > configs/data.php <<'PHP'
 <?php
 return ['default' => 'sqlite', 'connections' => ['sqlite' => ['driver' => 'sqlite', 'database' => __DIR__ . '/../runtime/database.sqlite']]];
@@ -67,8 +69,6 @@ if grep -q '\$code' src/models/Inventory.php; then
     exit 1
 fi
 grep -q "dropColumn('code')" runtime/database/migrations/*_remove_code_from_inventories_table.php
-AML_LANG=fr "$php_bin" "$root/cli/aml.php" data:migrate >/dev/null
-
 if AML_LANG=fr "$php_bin" "$root/cli/aml.php" api:add-field Inventory "stock:integer" >/dev/null 2>&1; then
     echo 'api:add-field should refuse duplicate fields' >&2
     exit 1

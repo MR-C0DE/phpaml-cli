@@ -859,10 +859,20 @@ function phpRuntimeSupports(string $binary, array $extensions, array &$missing =
         . '$missing=array_values(array_filter($required,static fn(string $extension):bool=>!extension_loaded($extension)));'
         . 'if(PHP_VERSION_ID<80200){$missing[]="php>=8.2";}'
         . 'fwrite(STDOUT,implode(",",$missing));exit($missing===[]?0:1);';
-    $output = [];
-    $exitCode = 1;
-    exec(escapeshellarg($binary) . ' -r ' . escapeshellarg($probe), $output, $exitCode);
-    $reported = trim(implode('', $output));
+    $pipes = [];
+    $process = proc_open(
+        [$binary, '-r', $probe],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+        null,
+        null,
+        ['bypass_shell' => true]
+    );
+    if (!is_resource($process)) return false;
+    $reported = trim((string) stream_get_contents($pipes[1]));
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $exitCode = proc_close($process);
     $missing = $reported === '' ? [] : array_values(array_filter(explode(',', $reported)));
     return $exitCode === 0;
 }
