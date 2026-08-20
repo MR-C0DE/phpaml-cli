@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.0-beta.13 — 2026-08-20
+
+- rétablit le fonctionnement des nouvelles applications AML View avec
+  `phpaml/engine` 0.1.0-beta.2 ;
+- utilise automatiquement la ressource JavaScript externe lorsqu’elle est
+  disponible, avec repli sûr vers le runtime inline protégé par nonce CSP ;
+- migre aussi les intégrations `public/index.php` déjà générées par la bêta 12 ;
+- ajoute une régression couvrant les deux générations du moteur.
+
 ## 1.7.0-beta.12 — 2026-08-20
 
 - sélectionne pour `aml serve` un runtime PHP 8.2+ réellement compatible avec

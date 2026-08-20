@@ -155,10 +155,12 @@ grep -q '/_aml/styles.css' public/index.php
 grep -q 'AML\\Engine\\EngineRuntime::externalScript' public/index.php
 grep -q 'EngineRuntime::assetFilename(true)' public/index.php
 grep -q 'EngineRuntime::assetPath(true)' public/index.php
+grep -Fq "method_exists(\\AML\\Engine\\EngineRuntime::class, 'assetFilename')" public/index.php
+grep -Fq 'EngineRuntime::script($cspNonce)' public/index.php
+grep -Fq 'PHPAML\Security\CspNonce::from($viewRequest)' public/index.php
 grep -q "assetPath(true) . '.map'" public/index.php
 grep -q 'application/json; charset=utf-8' public/index.php
 grep -q 'max-age=31536000, immutable' public/index.php
-! grep -q 'EngineRuntime::script($cspNonce)' public/index.php
 grep -q "\$root . '/src', \$root . '/configs'" public/index.php
 grep -q 'meta name="aml-live-reload"' public/index.php
 ! grep -q '/_aml/view' public/index.php
