@@ -58,7 +58,9 @@ All strategies use `build-manifest.json`; there is no hard-coded `app/` or
 manifest is used to remove only obsolete files previously owned by PHPAML.
 Local SFTP staging data is removed after both successful and failed transfers.
 The build checksum is verified before every transfer, including `--skip-build`.
-Remote deployment remains a beta feature until SSH/SFTP end-to-end CI is added.
+The CLI test suite starts an isolated SSH/SFTP server and validates real
+transfers for classic MVC and AML View projects. Test provider-specific paths
+and permissions on staging before promoting a production profile.
 
 ```bash
 aml deploy:prune production --keep 5
@@ -155,8 +157,10 @@ pour `app/` ou `src/`. Avec `public-html` et `sftp-only`, l’ancien manifeste
 distant permet de supprimer uniquement les fichiers PHPAML devenus obsolètes.
 Le dossier temporaire SFTP local est supprimé après un succès comme un échec.
 Le checksum du build est vérifié avant chaque transfert, même avec
-`--skip-build`. Le déploiement distant reste en bêta tant qu’une CI SSH/SFTP de
-bout en bout n’est pas disponible.
+`--skip-build`. La CI démarre désormais un vrai serveur SSH/SFTP isolé et valide
+les transferts des projets MVC classiques comme AML View. Les chemins et
+permissions propres à chaque hébergeur doivent néanmoins être testés sur un
+sous-domaine de staging.
 
 ```bash
 aml deploy:prune production --keep 5

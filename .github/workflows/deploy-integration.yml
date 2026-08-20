@@ -1,0 +1,83 @@
+name: SSH and SFTP deployment integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, pdo, pdo_sqlite, zip
+
+      - name: Start isolated SSH/SFTP server
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openssh-server
+          sudo useradd --create-home --shell /bin/bash aml-deploy
+          sudo mkdir -p /home/aml-deploy/.ssh /run/sshd
+          ssh-keygen -q -t ed25519 -N '' -f "$RUNNER_TEMP/aml-deploy-key"
+          sudo cp "$RUNNER_TEMP/aml-deploy-key.pub" /home/aml-deploy/.ssh/authorized_keys
+          sudo chown -R aml-deploy:aml-deploy /home/aml-deploy/.ssh
+          sudo chmod 700 /home/aml-deploy/.ssh
+          sudo chmod 600 /home/aml-deploy/.ssh/authorized_keys
+          printf '%s\n' 'Port 2222' 'PasswordAuthentication no' 'PubkeyAuthentication yes' | sudo tee -a /etc/ssh/sshd_config >/dev/null
+          sudo /usr/sbin/sshd
+          mkdir -p "$HOME/.ssh"
+          ssh-keyscan -p 2222 127.0.0.1 >> "$HOME/.ssh/known_hosts"
+
+      - name: Prepare deployable MVC and AML View fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          for kind in mvc view; do
+            project="$RUNNER_TEMP/$kind"
+            mkdir -p "$project/public" "$project/configs" "$project/runtime/bin" "$project/tests"
+            cp cli/*.php "$project/runtime/bin/"
+            cp phpaml.json "$project/phpaml.json"
+            printf '%s\n' '<?php $root = dirname(__DIR__); echo "PHPAML-'"$kind"'";' > "$project/public/index.php"
+            printf '%s\n' 'RewriteEngine On' 'RewriteCond %{REQUEST_FILENAME} !-f' 'RewriteCond %{REQUEST_FILENAME} !-d' 'RewriteRule ^ index.php [QSA,L]' > "$project/public/.htaccess"
+            printf '%s\n' '<?php exit(0);' > "$project/tests/run.php"
+            printf '%s\n' '{}' > "$project/composer.json"
+            if [ "$kind" = mvc ]; then
+              mkdir -p "$project/app/Controllers"
+              printf '%s\n' '<?php' > "$project/app/Controllers/HomeController.php"
+            else
+              mkdir -p "$project/src/views/pages/home" "$project/src/controllers" "$project/src/models"
+              printf '%s\n' '<?php' > "$project/src/views/pages/home/page.php"
+            fi
+          done
+
+      - name: Deploy through real SSH and SFTP transports
+        shell: bash
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/aml-deploy-key"
+          cli="$GITHUB_WORKSPACE/cli/aml.php"
+          for kind in mvc view; do
+            project="$RUNNER_TEMP/$kind"
+            HOME="$RUNNER_TEMP/home-$kind" php "$cli" deploy:configure "ssh-$kind" \
+              --host 127.0.0.1 --port 2222 --user aml-deploy \
+              --path "/home/aml-deploy/ssh-$kind" --key "$key"
+            (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy:check "ssh-$kind")
+            (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy "ssh-$kind")
+            ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
+              "test -f /home/aml-deploy/ssh-$kind/current/public/index.php"
+
+            HOME="$RUNNER_TEMP/home-$kind" php "$cli" deploy:configure "sftp-$kind" \
+              --host 127.0.0.1 --port 2222 --user aml-deploy \
+              --path "/home/aml-deploy/sftp-$kind/private" \
+              --public-path "/home/aml-deploy/sftp-$kind/public" \
+              --strategy sftp-only --key "$key"
+            (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy:check "sftp-$kind")
+            (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy "sftp-$kind")
+            ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
+              "test -f /home/aml-deploy/sftp-$kind/public/index.php"
+          done

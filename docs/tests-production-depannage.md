@@ -85,6 +85,19 @@ aml doctor --port 8080
 aml serve 127.0.0.1:8080
 ```
 
+### Une extension PHP du projet est absente
+
+`aml serve` vérifie les extensions déclarées par le projet et ses paquets. Si
+le runtime privé ne convient pas, AML recherche automatiquement un PHP 8.2 ou
+supérieur compatible. Pour imposer un runtime précis pendant le développement :
+
+```bash
+AML_PHP_BINARY=/chemin/vers/php aml serve
+```
+
+Si aucun PHP ne satisfait les prérequis, la commande s’arrête avant d’ouvrir le
+serveur et indique les extensions manquantes.
+
 ### Le diagnostic fonctionne dans un environnement isolé
 
 `aml doctor` distingue un port réellement occupé (`Address already in use`)

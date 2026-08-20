@@ -186,7 +186,18 @@ function deploySftpCommands(string $staging, array $profile, array $oldFiles = [
     $remote = static fn (string $file): string => str_starts_with($file, 'public/')
         ? $publicRoot . '/' . substr($file, 7)
         : $privateRoot . '/' . $file;
-    $commands = ['-mkdir ' . deploySftpQuote($privateRoot), '-mkdir ' . deploySftpQuote($publicRoot)];
+    $commands = [];
+    $rootDirectories = [];
+    foreach ([$privateRoot, $publicRoot] as $root) {
+        $prefix = str_starts_with($root, '/') ? '/' : '';
+        foreach (array_values(array_filter(explode('/', trim($root, '/')), 'strlen')) as $segment) {
+            $prefix = rtrim($prefix, '/') . '/' . $segment;
+            $rootDirectories[$prefix] = true;
+        }
+    }
+    foreach (array_keys($rootDirectories) as $directory) {
+        $commands[] = '-mkdir ' . deploySftpQuote($directory);
+    }
     $obsolete = array_values(array_diff($oldFiles, $files));
     $directories = [];
     foreach ($files as $file) {

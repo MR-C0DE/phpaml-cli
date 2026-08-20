@@ -5,8 +5,8 @@ reproduire toute leur taille.
 
 | PHPAML | Java EE | ASP.NET Core |
 |---|---|---|
-| `Controllers` | ressources/contrôleurs | controllers |
-| `Models` | entités/services métier | models |
+| `app/Controllers` ou `src/controllers` | ressources/contrôleurs | controllers |
+| `app/Models` ou `src/models` | entités/services métier | models |
 | `configs/app.php` | configuration de l’application | `Program.cs` / configuration |
 | `MiddlewareInterface` | filtres/intercepteurs | middleware |
 | `Container` | injection de dépendances | service container |
@@ -41,8 +41,8 @@ mon-projet/
 └── phpaml.json
 ```
 
-Le développeur travaille principalement dans `app`, `configs`, `database`,
-`public` et `tests`. `runtime` contient le moteur, Composer, l’autoloading, le
+Le développeur travaille principalement dans `app`, `configs`, `public` et
+`tests`. `runtime` contient le moteur, Composer, l’autoloading, la base locale, le
 cache et les données d’exécution ; il ne doit normalement pas être modifié à la
 main. `phpaml.json` est le manifeste du projet : il décrit notamment le nom, la
 version et le runtime attendu.
@@ -51,6 +51,29 @@ Les projets créés avant cette convention peuvent être inspectés puis convert
 avec `aml migrate:structure` et `aml migrate:structure --apply --yes`. Une
 sauvegarde est créée dans `runtime/storage/migrations/structure-<date>/` avant
 toute modification.
+
+## Variante AML View
+
+Une application créée avec `aml create-view-app` remplace `app/` par `src/`.
+Elle conserve le modèle MVC obligatoire tout en regroupant la présentation dans
+`src/views` :
+
+```text
+src/
+├── controllers/
+├── models/
+├── middleware/
+└── views/
+    ├── pages/
+    ├── components/
+    ├── layouts/
+    ├── states/
+    ├── stylesheets/
+    └── assets/
+```
+
+Consultez [AML View](aml-view.md) pour les pages déclaratives, l’état réactif,
+les effets et la navigation sans rechargement complet.
 
 ## Cycle d’une requête
 

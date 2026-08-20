@@ -134,6 +134,7 @@ foreach (['mvc' => 'app/Controllers/HomeController.php', 'view' => 'src/views/pa
     $commands = deploySftpCommands($build, ['path' => '/remote/private', 'public_path' => '/remote/public'], ['public/debug.php']);
     $batch = implode("\n", $commands);
     if (!str_contains($batch, $sourceFile) || !str_contains($batch, '-rm "/remote/public/debug.php"')) exit(9);
+    if (!str_contains($batch, '-mkdir "/remote"') || !str_contains($batch, '-mkdir "/remote/private"')) exit(14);
     $putPosition = strpos($batch, 'put "' . $build . '/' . $sourceFile . '"');
     $removePosition = strpos($batch, '-rm "/remote/public/debug.php"');
     $renamePosition = strpos($batch, 'rename "/remote/private/.phpaml-deploy-manifest.next.json"');

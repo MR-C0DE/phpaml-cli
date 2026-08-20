@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.0-beta.12 — 2026-08-20
+
+- sélectionne pour `aml serve` un runtime PHP 8.2+ réellement compatible avec
+  les extensions Composer du projet, notamment SQLite et MongoDB ;
+- ajoute les commandes de génération d’API, les migrations de ressources, les
+  jetons et la génération OpenAPI/client ;
+- sert AML Engine comme ressource JavaScript versionnée afin d’améliorer la
+  CSP, la mise en cache et le débogage navigateur ;
+- crée récursivement les racines SFTP absentes avant le transfert ;
+- étend la CI Linux, macOS et Windows au choix du runtime et ajoute les
+  régressions API, View et déploiement correspondantes.
+
 ## 1.7.0-beta.11 — 2026-08-19
 
 - améliore le starter AML View : header adaptatif, rythme vertical, cartes,

@@ -15,6 +15,7 @@ autonome AML.
 8. [Créer un build et déployer par SSH/SFTP](build-deployment.md)
 9. [Tester la production et dépanner](tests-production-depannage.md)
 10. [Gérer le SEO avec AML](seo.md)
+11. [Construire une interface déclarative avec AML View](aml-view.md)
 
 ## Ce que fournit PHPAML
 
@@ -27,10 +28,12 @@ autonome AML.
 - PDO, requêtes simples et migrations transactionnelles ;
 - serveur local avec actualisation automatique ;
 - CLI autonome avec PHP et Composer privés.
+- AML View optionnel pour l’état frontend, les effets et la navigation locale ;
+- i18n JSON avec détection de langue et fallback.
 
 ## Version documentée
 
-Cette documentation décrit PHPAML CLI **1.7.0-beta.11**, notamment le build de
+Cette documentation décrit PHPAML CLI **1.7.0-beta.12**, notamment le build de
 production, le déploiement SSH/SFTP, le diagnostic IA et la boîte à outils SEO.
 La version installée est visible avec :
 

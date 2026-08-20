@@ -152,9 +152,13 @@ grep -q 'use (\$application, \$viewApp, \$requestPath)' public/index.php
 grep -q '\$session->csrfMeta()' public/index.php
 grep -q '\\PHPAML\\Http\\Response::html' public/index.php
 grep -q '/_aml/styles.css' public/index.php
-grep -q 'AML\\Engine\\EngineRuntime::script' public/index.php
-grep -q 'EngineRuntime::script($cspNonce)' public/index.php
-grep -q 'PHPAML\\Security\\CspNonce::from($viewRequest)' public/index.php
+grep -q 'AML\\Engine\\EngineRuntime::externalScript' public/index.php
+grep -q 'EngineRuntime::assetFilename(true)' public/index.php
+grep -q 'EngineRuntime::assetPath(true)' public/index.php
+grep -q "assetPath(true) . '.map'" public/index.php
+grep -q 'application/json; charset=utf-8' public/index.php
+grep -q 'max-age=31536000, immutable' public/index.php
+! grep -q 'EngineRuntime::script($cspNonce)' public/index.php
 grep -q "\$root . '/src', \$root . '/configs'" public/index.php
 grep -q 'meta name="aml-live-reload"' public/index.php
 ! grep -q '/_aml/view' public/index.php
