@@ -116,6 +116,48 @@ aml make:migration create_users_table
 
 AML refuse de remplacer une classe existante.
 
+## API JSON
+
+Créez une API sans vues ni dossier `configs/` :
+
+```bash
+aml create-api movies-api
+cd movies-api
+aml install
+```
+
+Une ressource simple produit `src/controllers/MovieController.php` et
+`src/routes/MovieRoute.php` :
+
+```bash
+aml make:api Movie
+```
+
+Pour une ressource persistée avec PHPAML Data :
+
+```bash
+aml install data --driver sqlite
+aml make:api Movie --fields "title:string,year:integer,genre:string?" --migration
+aml data:migrate
+aml serve
+```
+
+Les routes REST sont découvertes automatiquement :
+
+```text
+GET     /api/v1/movies
+POST    /api/v1/movies
+GET     /api/v1/movies/{id}
+PUT     /api/v1/movies/{id}
+PATCH   /api/v1/movies/{id}
+DELETE  /api/v1/movies/{id}
+```
+
+La configuration modifiable se trouve dans `phpaml.json` et `.env`.
+`runtime/config/app.php` est généré automatiquement et ne doit pas être édité.
+Les API pures n’exigent pas de jeton CSRF de formulaire; les routes privées
+utilisent un token Bearer et, au besoin, des capacités.
+
 ## Données
 
 SQLite est le pilote par défaut :
@@ -134,8 +176,9 @@ aml install data --driver mongodb
 ```
 
 AML installe `phpaml/data` pour les moteurs SQL et `phpaml/data-mongodb` pour
-MongoDB, puis crée `configs/data.php`, `src/models/`, `runtime/database/migrations/` et
-`runtime/database/seeders/`. Le pilote choisi est enregistré dans `phpaml.json`.
+MongoDB, puis crée `src/models/`, `runtime/database/migrations/` et
+`runtime/database/seeders/`. La configuration et le pilote sont enregistrés dans
+la section `data` de `phpaml.json`; `.env` peut les surcharger.
 
 ```bash
 aml make:model User

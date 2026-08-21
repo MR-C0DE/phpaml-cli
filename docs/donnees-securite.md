@@ -157,8 +157,11 @@ Dans le formulaire :
 <?= $this->csrfField() ?>
 ```
 
-Pour une API, envoyez le token dans `X-CSRF-Token`. Les méthodes `GET`, `HEAD`
-et `OPTIONS` ne sont pas bloquées.
+Une application classique ou AML View utilisant une session envoie le token
+dans `X-CSRF-Token`. Les méthodes `GET`, `HEAD` et `OPTIONS` ne sont pas
+bloquées. Une application créée avec `aml create-api` est une API pure : elle
+n’utilise pas le CSRF de formulaire. Protégez ses routes privées avec les tokens
+Bearer et les capacités API. Une requête Bearer n’est jamais soumise au CSRF.
 
 ## Middlewares globaux
 

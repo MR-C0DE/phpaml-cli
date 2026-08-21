@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.0-beta.14 — 2026-08-21
+
+- ajoute `aml create-api` et les routes par classes dans `src/routes` ;
+- remplace la configuration visible des projets modernes par `phpaml.json` et
+  `.env`, avec cache interne dans `runtime/config/app.php` ;
+- conserve automatiquement les anciens projets fondés sur `configs/*.php` ;
+- configure API et Data sans recréer de dossier `configs/` ;
+- rend la création API compatible avec les anciens Templates mis en cache ;
+- ajoute un test croisé CLI, Framework et Data couvrant migration SQLite,
+  validation et cycle CRUD complet ;
+- aligne le Template officiel sur `0.5.0-beta.1`.
+
 ## 1.7.0-beta.13 — 2026-08-20
 
 - rétablit le fonctionnement des nouvelles applications AML View avec
