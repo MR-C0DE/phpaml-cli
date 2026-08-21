@@ -52,13 +52,13 @@ AML_LANG=fr "$php_bin" "$root/cli/aml.php" api:add-field Inventory "sku:string?,
 grep -q 'public ?string $sku = null' src/models/Inventory.php
 grep -q 'public int $stock = 0' src/models/Inventory.php
 grep -q "'stock' => \['integer'\]" src/requests/UpdateInventoryRequest.php
-grep -q "'sku', 'stock'" src/controllers/api/InventoryController.php
+grep -q "'sku', 'stock'" src/controllers/InventoryController.php
 grep -q "string('sku')->nullable()" runtime/database/migrations/*_add_sku_stock_to_inventories_table.php
 grep -q "index('sku', null, true)" runtime/database/migrations/*_add_sku_stock_to_inventories_table.php
 grep -q "integer('stock')->default(0)" runtime/database/migrations/*_add_sku_stock_to_inventories_table.php
 grep -q "index('stock')" runtime/database/migrations/*_add_sku_stock_to_inventories_table.php
 "$php_bin" -l src/models/Inventory.php >/dev/null
-"$php_bin" -l src/controllers/api/InventoryController.php >/dev/null
+"$php_bin" -l src/controllers/InventoryController.php >/dev/null
 "$php_bin" -l runtime/database/migrations/*_add_sku_stock_to_inventories_table.php >/dev/null
 AML_LANG=fr "$php_bin" "$root/cli/aml.php" api:rename-field Inventory sku code
 grep -q 'public ?string $code = null' src/models/Inventory.php
@@ -78,5 +78,19 @@ if AML_LANG=fr "$php_bin" "$root/cli/aml.php" make:api Product >/dev/null 2>&1; 
     echo 'make:api should refuse to overwrite an existing controller' >&2
     exit 1
 fi
+
+# Modern projects keep all editable configuration in phpaml.json.
+modern="$(mktemp -d)"
+mkdir -p "$modern/public"
+printf '%s\n' '{"name":"modern-api","application":{"type":"api"},"modules":{}}' > "$modern/phpaml.json"
+printf '%s\n' '<?php' > "$modern/public/index.php"
+cd "$modern"
+AML_LANG=fr "$php_bin" "$root/cli/aml.php" api:install
+AML_LANG=fr "$php_bin" "$root/cli/aml.php" make:api Movie
+test -f src/controllers/MovieController.php
+test -f src/routes/MovieRoute.php
+test ! -e configs
+grep -q '"api"' phpaml.json
+rm -rf "$modern"
 
 echo "api smoke: OK"

@@ -201,8 +201,14 @@ function loadProjectConfig(): array
 {
     $root = projectRoot();
     bootstrapProject($root);
+    if (class_exists(\PHPAML\Config\ApplicationConfig::class)) {
+        return \PHPAML\Config\ApplicationConfig::load($root);
+    }
     \PHPAML\Config\Env::load($root . '/.env');
-    return require $root . '/configs/app.php';
+    foreach ([$root . '/config/app.php', $root . '/configs/app.php'] as $legacyConfig) {
+        if (is_file($legacyConfig)) return require $legacyConfig;
+    }
+    fail('La configuration du projet ne peut pas être chargée.');
 }
 
 function bootstrapProject(string $root): void
@@ -240,6 +246,7 @@ function showHelp(): void
             'Usage: aml <command> [options]', '', 'Commands:',
             '  create <directory>       Create an application (use . for the current directory)',
             '  create-view-app <directory> Create an application with AML View',
+            '  create-api <directory>   Create a JSON API application',
             '  serve [host:port]        Start the development server',
             '  install [module]         Install the engine or an optional module',
             '  build [options]          Create a production deployment archive',
@@ -327,6 +334,7 @@ function showHelp(): void
     output('Commandes :');
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
     output('  create-view-app <dossier> Crée une application avec AML View');
+    output('  create-api <dossier>      Crée une application API JSON');
     output('  serve [hôte:port]         Lance le serveur de développement');
     output('  install [module]          Installe le moteur ou un module optionnel');
     output('  build [options]           Crée une archive de déploiement production');
@@ -800,6 +808,114 @@ function createViewApplication(
         fail("Impossible d’ouvrir le projet créé dans {$target}.");
     }
     installView($viewVersion, $offline);
+}
+
+function removeGeneratedPath(string $path): void
+{
+    if (is_file($path) || is_link($path)) { @unlink($path); return; }
+    if (!is_dir($path)) return;
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST,
+    );
+    foreach ($iterator as $item) {
+        $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+    }
+    @rmdir($path);
+}
+
+function createApiApplication(string $destination, ?string $templateVersion = null, bool $refresh = false, bool $offline = false): void
+{
+    $target = creationTarget($destination);
+    createProject($destination, $templateVersion, $refresh, $offline);
+    foreach (['app/views', 'public/css', 'public/js', 'public/img', 'configs', 'config', 'routes'] as $obsolete) removeGeneratedPath($target . '/' . $obsolete);
+    foreach (['app/Controllers/HomeController.php', 'app/Models/HomeModel.php'] as $obsolete) @unlink($target . '/' . $obsolete);
+    foreach (['src/controllers', 'src/models', 'src/repositories', 'src/requests', 'src/resources', 'src/routes', 'src/middleware'] as $directory) {
+        if (!is_dir($target . '/' . $directory) && !mkdir($target . '/' . $directory, 0755, true) && !is_dir($target . '/' . $directory)) fail("Impossible de créer {$directory}.");
+    }
+    removeGeneratedPath($target . '/app');
+    writeNewFile($target, 'src/controllers/HealthController.php', <<<'PHP'
+<?php
+declare(strict_types=1);
+namespace App\Controllers;
+use PHPAML\Http\Response;
+final class HealthController
+{
+    public function show(): Response { return Response::json(['status' => 'ok', 'framework' => 'PHPAML']); }
+}
+PHP
+    );
+    writeNewFile($target, 'src/routes/ApiRoute.php', <<<'PHP'
+<?php
+declare(strict_types=1);
+namespace App\Routes;
+use App\Controllers\HealthController;
+use PHPAML\Routing\Route;
+final class ApiRoute extends Route
+{
+    protected string $prefix = '/api/v1';
+    protected function routes(): void { $this->get('/health', [HealthController::class, 'show']); }
+}
+PHP
+    );
+    $manifest = json_decode((string) file_get_contents($target . '/phpaml.json'), true, 512, JSON_THROW_ON_ERROR);
+    $manifest['application'] = is_array($manifest['application'] ?? null) ? $manifest['application'] : [];
+    $manifest['application']['type'] = 'api';
+    $manifest['api'] = apiManifestDefaults();
+    unset($manifest['application']['views'], $manifest['seo']);
+    writeProjectManifest($target, $manifest);
+    $composerPath = $target . '/composer.json';
+    $composer = json_decode((string) file_get_contents($composerPath), true, 512, JSON_THROW_ON_ERROR);
+    $composer['autoload']['psr-4']['App\\'] = 'src/';
+    $composer['autoload']['psr-4']['App\\Controllers\\'] = 'src/controllers/';
+    $composer['autoload']['psr-4']['App\\Models\\'] = 'src/models/';
+    $composer['autoload']['psr-4']['App\\Repositories\\'] = 'src/repositories/';
+    $composer['autoload']['psr-4']['App\\Requests\\'] = 'src/requests/';
+    $composer['autoload']['psr-4']['App\\Resources\\'] = 'src/resources/';
+    $composer['autoload']['psr-4']['App\\Routes\\'] = 'src/routes/';
+    $composer['autoload']['psr-4']['App\\Middleware\\'] = 'src/middleware/';
+    file_put_contents($composerPath, json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL, LOCK_EX);
+    $indexPath = $target . '/public/index.php';
+    $index = (string) file_get_contents($indexPath);
+    $index = str_replace("'App\\\\' => \$root . '/app'", "'App\\\\' => \$root . '/src'", $index);
+    $index = preg_replace(
+        '/^\s*foreach \(\[[^\r\n]*\] as \$watchedRoot\) \{$/m',
+        "    foreach ([\$root . '/src', __DIR__] as \$watchedRoot) {",
+        $index,
+    ) ?? $index;
+    $modernConfigLoader = "\$config = \\PHPAML\\Config\\ApplicationConfig::load(\$root);";
+    $index = str_replace([
+        "\\PHPAML\\Config\\Env::load(\$root . '/.env');\n\$config = require \$root . '/configs/app.php';",
+        "\\PHPAML\\Config\\Env::load(\$root . '/.env');\n\$config = require \$root . '/config/app.php';",
+        "\$config = require \$root . '/configs/app.php';",
+        "\$config = require \$root . '/config/app.php';",
+    ], $modernConfigLoader, $index);
+    if (!str_contains($index, 'ApplicationConfig::load($root)')) {
+        fail('Le point d’entrée public/index.php du modèle ne peut pas être modernisé.');
+    }
+    file_put_contents($indexPath, $index, LOCK_EX);
+    $phpstanPath = $target . '/phpstan.neon';
+    if (is_file($phpstanPath)) {
+        $phpstan = (string) file_get_contents($phpstanPath);
+        $phpstan = preg_replace('/\s*- app\/Controllers\R\s*- app\/Models\R?/', "\n        - src\n", $phpstan) ?? $phpstan;
+        $phpstan = str_replace('        - routes' . PHP_EOL, '', $phpstan);
+        file_put_contents($phpstanPath, $phpstan, LOCK_EX);
+    }
+    @unlink($target . '/tests/run.php');
+    writeNewFile($target, 'tests/run.php', <<<'PHP'
+<?php
+declare(strict_types=1);
+$root = dirname(__DIR__);
+require $root . '/runtime/autoload.php';
+$config = \PHPAML\Config\ApplicationConfig::load($root);
+$response = (new \PHPAML\WebApplication($config))->handle(new \PHPAML\Http\Request('GET', '/api/v1/health'));
+if ($response->status() !== 200 || !str_contains($response->content(), '"status":"ok"')) throw new RuntimeException('The generated API health route failed.');
+echo "✓ Generated API health route\n";
+PHP
+    );
+    output(currentLanguage() === 'en'
+        ? "API '{$manifest['name']}' created in {$target}. Run: aml install && aml serve"
+        : "API '{$manifest['name']}' créée dans {$target}. Lancez : aml install && aml serve");
 }
 
 /** @return list<string> */
@@ -1967,14 +2083,19 @@ PHP
     $index = is_file($indexPath) ? (string) file_get_contents($indexPath) : '';
     $marker = "// AML View integration\n";
     if (!str_contains($index, $marker)) {
-        $anchor = '$config = require $root . \'/configs/app.php\';';
-        if (!str_contains($index, $anchor)) {
+        $anchors = [
+            '$config = \\PHPAML\\Config\\ApplicationConfig::load($root);',
+            '$config = require $root . \'/configs/app.php\';',
+            '$config = require $root . \'/config/app.php\';',
+        ];
+        $anchor = array_values(array_filter($anchors, static fn (string $candidate): bool => str_contains($index, $candidate)))[0] ?? '';
+        if ($anchor === '') {
             fail("public/index.php ne contient pas le point d’intégration attendu.");
         }
         $integration = <<<'PHP'
 // AML View integration
 $viewApp = new \AML\View\FileApplication($root . '/src/views');
-$config = require $root . '/configs/app.php';
+$config = \PHPAML\Config\ApplicationConfig::load($root);
 $application = new \PHPAML\WebApplication($config);
 if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
     $request = \PHPAML\Http\Request::capture();
@@ -2072,6 +2193,8 @@ PHP;
 
     $manifest = projectInfo($root);
     $manifest['modules'] = is_array($manifest['modules'] ?? null) ? $manifest['modules'] : [];
+    $manifest['application'] = is_array($manifest['application'] ?? null) ? $manifest['application'] : [];
+    $manifest['application']['type'] = 'view';
     $manifest['modules']['view'] = ['package' => 'phpaml/view', 'constraint' => $constraint, 'mode' => 'frontend'];
     $manifest['modules']['engine'] = ['package' => 'phpaml/engine', 'mode' => 'client'];
     writeProjectManifest($root, $manifest);
@@ -2372,8 +2495,8 @@ function installData(array $arguments): never
     }
 
     $packages = $driver === 'mongodb'
-        ? ['phpaml/data:^0.1@alpha', 'phpaml/data-mongodb:^0.1@alpha']
-        : ['phpaml/data:^0.1@alpha'];
+        ? ['phpaml/data:^0.2@alpha', 'phpaml/data-mongodb:^0.1@alpha']
+        : ['phpaml/data:^0.2@alpha'];
     $packageList = implode(' ', $packages);
     output("Installation de {$packageList}…");
     $command = 'cd ' . escapeshellarg($root) . ' && ' . composerCommand()
@@ -2412,17 +2535,18 @@ function runDataCommand(string $command, array $arguments): never
 function showRoutes(): void
 {
     $config = loadProjectConfig();
-    $routes = $config['routes'] ?? [];
+    $application = new \PHPAML\WebApplication($config);
+    $routes = $application->router()->routes();
     if ($routes === []) {
         output('Aucune route trouvée.');
         return;
     }
     output(str_pad('MÉTHODE', 12) . str_pad('ROUTE', 20) . 'ACTION');
     output(str_repeat('-', 64));
-    foreach ($routes as $definition => $routeConfig) {
-        $handler = isset($routeConfig['handler']) ? $routeConfig['handler'] : $routeConfig;
-        [$method, $route] = array_pad(explode(' ', $definition, 2), 2, '');
-        [$controller, $action] = $handler;
+    foreach ($routes as $routeConfig) {
+        $method = (string) ($routeConfig['method'] ?? '');
+        $route = (string) ($routeConfig['path'] ?? '');
+        [$controller, $action] = $routeConfig['handler'];
         output(str_pad($method, 12) . str_pad($route, 20) . $controller . '::' . $action);
     }
 }
@@ -2440,6 +2564,23 @@ function className(string $name, string $suffix = ''): string
 function installApi(): void
 {
     $root = projectRoot();
+    $manifest = projectInfo($root);
+    if (isset($manifest['application'])) {
+        $manifest['api'] = is_array($manifest['api'] ?? null) ? $manifest['api'] : apiManifestDefaults();
+        writeProjectManifest($root, $manifest);
+        foreach (['src/controllers', 'src/models', 'src/repositories', 'src/requests', 'src/resources', 'src/routes', 'src/middleware'] as $directory) {
+            if (!is_dir($root . '/' . $directory) && !mkdir($root . '/' . $directory, 0755, true) && !is_dir($root . '/' . $directory)) {
+                fail("Impossible de créer {$directory}.");
+            }
+        }
+        $example = $root . '/.env.example';
+        $env = is_file($example) ? (string) file_get_contents($example) : '';
+        if (!str_contains($env, 'API_CORS_ORIGINS=')) {
+            file_put_contents($example, rtrim($env) . "\nAPI_CORS_ORIGINS=http://localhost:5173\n", LOCK_EX);
+        }
+        output('✓ PHPAML API est configuré dans phpaml.json.');
+        return;
+    }
     writeNewFile($root, 'configs/api.php', <<<'PHP'
 <?php
 
@@ -2528,6 +2669,31 @@ PHP
     output('✓ PHPAML API est prêt sur /api/v1.');
 }
 
+/** @return array<string, mixed> */
+function apiManifestDefaults(): array
+{
+    return [
+        'enabled' => true,
+        'prefix' => '/api',
+        'cors' => [
+            'origins' => ['http://localhost:5173'],
+            'methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+            'headers' => ['Accept', 'Content-Type', 'Authorization'],
+        ],
+        'tokens' => ['storage_path' => 'runtime/storage/api-tokens.json', 'ttl' => 86400],
+        'auth' => ['enabled' => true],
+        'version' => ['name' => 'v1'],
+        'production' => [
+            'idempotency' => true,
+            'idempotency_path' => 'runtime/storage/idempotency',
+            'idempotency_ttl' => 86400,
+            'http_cache' => true,
+            'cache_max_age' => 0,
+            'cache_public' => false,
+        ],
+    ];
+}
+
 /** @return list<array{name:string,type:string,nullable:bool,php:string,rule:string,schema:string}> */
 function apiFields(?string $definition): array
 {
@@ -2580,13 +2746,13 @@ function apiPlural(string $singular): string
 /** @return array{model:string,resource:string,create:string,update:string,controller:string} */
 function apiResourcePaths(string $root, string $resource): array
 {
-    if (is_dir($root . '/src/views')) {
+    if (is_dir($root . '/src')) {
         return [
             'model' => "src/models/{$resource}.php",
             'resource' => "src/resources/{$resource}Resource.php",
             'create' => "src/requests/Create{$resource}Request.php",
             'update' => "src/requests/Update{$resource}Request.php",
-            'controller' => "src/controllers/api/{$resource}Controller.php",
+            'controller' => "src/controllers/{$resource}Controller.php",
         ];
     }
     return [
@@ -2784,13 +2950,15 @@ function removeApiField(string $name, string $field): void
 function generateApi(string $name, array $arguments = []): void
 {
     $root = projectRoot();
-    if (!is_file($root . '/configs/api.php')) { installApi(); }
+    $manifest = projectInfo($root);
+    $modernApi = ($manifest['application']['type'] ?? null) === 'api';
+    if (!$modernApi && !is_file($root . '/configs/api.php')) { installApi(); }
     $resource = className($name);
     $controller = $resource . 'Controller';
     $route = apiPlural(strtolower((string) preg_replace('/(?<!^)[A-Z]/', '-$0', $resource)));
     $paths = apiResourcePaths($root, $resource);
     $path = $paths['controller'];
-    foreach (["app/Controllers/Api/{$controller}.php", "src/controllers/api/{$controller}.php"] as $existingController) {
+    foreach (["app/Controllers/Api/{$controller}.php", "src/controllers/api/{$controller}.php", "src/controllers/{$controller}.php"] as $existingController) {
         if (is_file($root . '/' . $existingController)) {
             fail("Le fichier '{$existingController}' existe déjà.");
         }
@@ -2821,12 +2989,17 @@ PHP
     } else {
         bootstrapProject($root);
         if (!class_exists(\AML\Data\Entity::class)) { fail("Le module phpaml/data est absent. Exécutez 'aml install data'."); }
-        if (!is_file($root . '/configs/data.php')) { fail("configs/data.php est absent. Exécutez 'aml install data'."); }
-        $appPath = $root . '/configs/app.php';
-        $appConfig = (string) file_get_contents($appPath);
-        if (!str_contains($appConfig, "'data' => require __DIR__ . '/data.php'")) {
-            $appConfig = str_replace("    'api' => require __DIR__ . '/api.php',", "    'api' => require __DIR__ . '/api.php',\n    'data' => require __DIR__ . '/data.php',", $appConfig);
-            if (file_put_contents($appPath, $appConfig, LOCK_EX) === false) { fail('Impossible de brancher configs/data.php.'); }
+        $manifest = projectInfo($root);
+        if ($modernApi) {
+            if (!is_array($manifest['data'] ?? null)) { fail("La section data de phpaml.json est absente. Exécutez 'aml install data'."); }
+        } else {
+            if (!is_file($root . '/configs/data.php')) { fail("configs/data.php est absent. Exécutez 'aml install data'."); }
+            $appPath = $root . '/configs/app.php';
+            $appConfig = (string) file_get_contents($appPath);
+            if (!str_contains($appConfig, "'data' => require __DIR__ . '/data.php'")) {
+                $appConfig = str_replace("    'api' => require __DIR__ . '/api.php',", "    'api' => require __DIR__ . '/api.php',\n    'data' => require __DIR__ . '/data.php',", $appConfig);
+                if (file_put_contents($appPath, $appConfig, LOCK_EX) === false) { fail('Impossible de brancher configs/data.php.'); }
+            }
         }
         $fields = apiFields(optionValue($arguments, '--fields'));
         $table = str_replace('-', '_', $route);
@@ -2940,7 +3113,34 @@ final class {{CONTROLLER}}
 PHP
         );
     }
+    if ($modernApi) {
+        $content = str_replace('namespace App\\Controllers\\Api;', 'namespace App\\Controllers;', $content);
+    }
     if (!writeNewFile($root, $path, $content)) { fail("Le fichier '{$path}' existe déjà."); }
+
+    if ($modernApi) {
+        $routeClass = $resource . 'Route';
+        writeNewFile($root, "src/routes/{$routeClass}.php", "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Routes;\n\nuse App\\Controllers\\{$controller};\nuse PHPAML\\Routing\\Route;\n\nfinal class {$routeClass} extends Route\n{\n    protected string \$prefix = '/api/v1';\n\n    protected function routes(): void\n    {\n        \$this->apiResource('/{$route}', {$controller}::class);\n    }\n}\n");
+        $composerPath = $root . '/composer.json';
+        if (is_file($composerPath)) {
+            $composer = json_decode((string) file_get_contents($composerPath), true, 512, JSON_THROW_ON_ERROR);
+            $composer['autoload']['psr-4'] = is_array($composer['autoload']['psr-4'] ?? null) ? $composer['autoload']['psr-4'] : [];
+            foreach ([
+                'App\\Controllers\\' => 'src/controllers/',
+                'App\\Models\\' => 'src/models/',
+                'App\\Repositories\\' => 'src/repositories/',
+                'App\\Requests\\' => 'src/requests/',
+                'App\\Resources\\' => 'src/resources/',
+                'App\\Routes\\' => 'src/routes/',
+                'App\\Middleware\\' => 'src/middleware/',
+            ] as $namespace => $directory) {
+                $composer['autoload']['psr-4'][$namespace] = $directory;
+            }
+            file_put_contents($composerPath, json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL, LOCK_EX);
+        }
+        output("✓ API {$resource} créée : /api/v1/{$route}");
+        return;
+    }
 
     $routesPath = $root . '/configs/api-routes.php';
     $routes = (string) file_get_contents($routesPath);
@@ -2989,10 +3189,15 @@ function apiOpenApiDocument(): array
     $root = projectRoot();
     bootstrapProject($root);
     $config = loadProjectConfig();
+    $application = new \PHPAML\WebApplication($config);
+    $routes = [];
+    foreach ($application->router()->routes() as $route) {
+        $routes[$route['method'] . ' ' . $route['path']] = ['name' => $route['name'] ?? null];
+    }
     return (new \PHPAML\Api\OpenApiGenerator(
         (string) ($config['name'] ?? 'PHPAML API'),
         (string) (projectInfo($root)['version'] ?? '1.0.0')
-    ))->generate(is_array($config['routes'] ?? null) ? $config['routes'] : [], '/api');
+    ))->generate($routes, '/api');
 }
 
 function generateOpenApi(?string $outputPath = null): void
@@ -3430,11 +3635,13 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
                 );
             }
         }
+        $declarativeConfig = is_array($projectInfo['application'] ?? null);
+        $legacyConfig = is_file($current . '/config/app.php') || is_file($current . '/configs/app.php');
         doctorAdd(
             $checks,
-            is_file($current . '/configs/app.php') ? 'ok' : 'error',
+            ($declarativeConfig || $legacyConfig) ? 'ok' : 'error',
             'Configuration',
-            is_file($current . '/configs/app.php') ? 'configs/app.php présent' : 'configs/app.php absent'
+            $declarativeConfig ? 'phpaml.json déclaratif' : ($legacyConfig ? 'configuration PHP historique' : 'configuration absente')
         );
         doctorAdd(
             $checks,
@@ -3660,46 +3867,36 @@ function showDatabaseConfig(): void
     output('  Mot de passe : ' . (isset($values['DATABASE_PASSWORD']) && $values['DATABASE_PASSWORD'] !== '' ? '********' : '(vide)'));
 }
 
-function seoConfigPath(): string
-{
-    return projectRoot() . '/configs/seo.json';
-}
-
 /** @return array<string, mixed> */
 function seoConfig(): array
 {
-    $path = seoConfigPath();
-    if (!is_file($path)) {
-        fail("La configuration SEO est absente. Exécutez 'aml seo:init'.");
+    $manifest = projectInfo();
+    if (is_array($manifest['seo'] ?? null)) {
+        return $manifest['seo'];
     }
-    try {
-        $config = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-    } catch (JsonException) {
-        fail('La configuration SEO est invalide.');
+    $legacy = projectRoot() . '/configs/seo.json';
+    if (is_file($legacy)) {
+        $config = json_decode((string) file_get_contents($legacy), true);
+        if (is_array($config)) return $config;
     }
-    if (!is_array($config)) {
-        fail('La configuration SEO est invalide.');
-    }
-    return $config;
+    fail("La configuration SEO est absente. Exécutez 'aml seo:init'.");
 }
 
 /** @param array<string, mixed> $config */
 function writeSeoConfig(array $config): void
 {
-    $json = json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-    if (file_put_contents(seoConfigPath(), $json . PHP_EOL, LOCK_EX) === false) {
-        fail('Impossible d’enregistrer la configuration SEO.');
-    }
+    $manifest = projectInfo();
+    $manifest['seo'] = $config;
+    writeProjectManifest(projectRoot(), $manifest);
 }
 
 function seoInit(bool $force = false): void
 {
-    $path = seoConfigPath();
-    if (is_file($path) && !$force) {
-        fail("configs/seo.json existe déjà. Utilisez 'aml seo:init --force' pour le remplacer.");
+    $info = projectInfo();
+    if (is_array($info['seo'] ?? null) && !$force) {
+        fail("La section seo de phpaml.json existe déjà. Utilisez 'aml seo:init --force' pour la remplacer.");
     }
     $environment = readEnvValues(projectRoot() . '/.env');
-    $info = projectInfo();
     $name = (string) ($info['name'] ?? 'PHPAML application');
     writeSeoConfig([
         'site_name' => $name,
@@ -3716,7 +3913,7 @@ function seoInit(bool $force = false): void
         'allow' => ['/'],
         'disallow' => [],
     ]);
-    output('✓ Configuration SEO créée : configs/seo.json');
+    output('✓ Configuration SEO créée dans phpaml.json');
 }
 
 function seoSet(string $key, string $value): void
@@ -3886,7 +4083,8 @@ function seoAuditChecks(string $url, string $html): array
 
 function seoAudit(?string $url, bool $json, ?string $file = null): never
 {
-    $seo = is_file(seoConfigPath()) ? seoConfig() : [];
+    $manifest = projectInfo();
+    $seo = is_array($manifest['seo'] ?? null) || is_file(projectRoot() . '/configs/seo.json') ? seoConfig() : [];
     $url ??= (string) ($seo['base_url'] ?? 'http://127.0.0.1:8910');
     if (filter_var($url, FILTER_VALIDATE_URL) === false) {
         fail('L’URL à auditer est invalide.');
@@ -4164,6 +4362,15 @@ switch ($command) {
             $destination,
             optionValue($arguments, '--template-version') ?? optionValue($arguments, '--version'),
             optionValue($arguments, '--view-version'),
+            in_array('--refresh', $arguments, true),
+            in_array('--offline', $arguments, true)
+        );
+        break;
+    case 'create-api':
+        $destination = isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : '.';
+        createApiApplication(
+            $destination,
+            optionValue($arguments, '--template-version') ?? optionValue($arguments, '--version'),
             in_array('--refresh', $arguments, true),
             in_array('--offline', $arguments, true)
         );

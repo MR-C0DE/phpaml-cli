@@ -2,22 +2,29 @@
 
 ## Déclarer une route
 
-Les routes se trouvent dans `configs/app.php` :
+Une application classique place ses routes dans `routes/WebApp.php`. Une API
+ou le backend d’une application AML View utilise une classe par ressource dans
+`src/routes`, par exemple `MovieRoute.php` :
 
 ```php
-use App\Controllers\UserController;
+namespace App\Routes;
 
-'routes' => [
-    'GET /users' => [UserController::class, 'index'],
-    'GET /users/{id}' => [
-        'handler' => [UserController::class, 'show'],
-        'name' => 'users.show',
-    ],
-    'POST /users' => [UserController::class, 'store'],
-],
+use App\Controllers\MovieController;
+use PHPAML\Routing\Route;
+
+final class MovieRoute extends Route
+{
+    protected string $prefix = '/api/v1';
+
+    protected function routes(): void
+    {
+        $this->apiResource('/movies', MovieController::class);
+    }
+}
 ```
 
-Une route accepte toute méthode HTTP écrite dans sa clé. Une URL inconnue
+Les méthodes `get`, `post`, `put`, `patch`, `delete` et `options` sont aussi
+disponibles. Une URL inconnue
 retourne `404`; une méthode incorrecte sur un chemin connu retourne `405` avec
 l’en-tête `Allow`.
 

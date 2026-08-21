@@ -7,7 +7,7 @@ reproduire toute leur taille.
 |---|---|---|
 | `app/Controllers` ou `src/controllers` | ressources/contrôleurs | controllers |
 | `app/Models` ou `src/models` | entités/services métier | models |
-| `configs/app.php` | configuration de l’application | `Program.cs` / configuration |
+| `phpaml.json` et `.env` | configuration de l’application | `Program.cs` / configuration |
 | `MiddlewareInterface` | filtres/intercepteurs | middleware |
 | `Container` | injection de dépendances | service container |
 | `DbContext` / `Connection` | couche de persistance | `DbContext` |
@@ -32,7 +32,7 @@ mon-projet/
 │   ├── css/index.css
 │   ├── js/main.js
 │   └── img/favicon.svg
-├── configs/app.php
+├── routes/WebApp.php
 ├── runtime/database/migrations/
 ├── tests/
 ├── runtime/
@@ -41,11 +41,13 @@ mon-projet/
 └── phpaml.json
 ```
 
-Le développeur travaille principalement dans `app`, `configs`, `public` et
-`tests`. `runtime` contient le moteur, Composer, l’autoloading, la base locale, le
+Le développeur travaille principalement dans `app`, `routes`, `public` et
+`tests`. `runtime` contient le moteur, Composer, l’autoloading, la configuration générée, la base locale, le
 cache et les données d’exécution ; il ne doit normalement pas être modifié à la
 main. `phpaml.json` est le manifeste du projet : il décrit notamment le nom, la
-version et le runtime attendu.
+version, l’application, l’API et Data. Les secrets et les valeurs propres à une
+machine restent dans `.env`. PHPAML génère automatiquement
+`runtime/config/app.php`; ce fichier ne doit jamais être modifié à la main.
 
 Les projets créés avant cette convention peuvent être inspectés puis convertis
 avec `aml migrate:structure` et `aml migrate:structure --apply --yes`. Une
@@ -77,10 +79,10 @@ les effets et la navigation sans rechargement complet.
 
 ## Cycle d’une requête
 
-1. `public/index.php` charge l’environnement et `configs/app.php`.
+1. `public/index.php` charge `phpaml.json` et `.env` avec `ApplicationConfig`.
 2. `WebApplication` prépare le conteneur, la session, les vues et la connexion.
 3. Les middlewares globaux reçoivent la requête.
-4. Le routeur trouve la route et extrait ses paramètres.
+4. Le routeur découvre `routes/` et `src/routes/`, puis extrait les paramètres.
 5. Le conteneur construit le contrôleur et injecte ses dépendances.
 6. L’action retourne obligatoirement une `Response`.
 7. La réponse traverse les middlewares puis est envoyée au navigateur.

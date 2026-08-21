@@ -16,6 +16,16 @@ jobs:
         os: [ubuntu-24.04, macos-14, windows-2022]
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        if: runner.os != 'Windows'
+        with:
+          repository: MR-C0DE/phpaml-framework
+          path: .integration/framework
+      - uses: actions/checkout@v5
+        if: runner.os != 'Windows'
+        with:
+          repository: MR-C0DE/phpaml-data
+          path: .integration/data
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -50,6 +60,13 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: PHP_BINARY=php ./tests/api-smoke.sh
+      - name: Test modern API and Data CRUD integration on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          PHPAML_FRAMEWORK_SOURCE: ${{ github.workspace }}/.integration/framework/src
+          PHPAML_DATA_SOURCE: ${{ github.workspace }}/.integration/data/src
+        run: php ./tests/modern-api-crud.php
       - name: Test AML View installation and generators on Unix
         if: runner.os != 'Windows'
         shell: bash
