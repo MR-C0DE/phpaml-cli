@@ -867,9 +867,13 @@ PHP
     $composerPath = $target . '/composer.json';
     $composer = json_decode((string) file_get_contents($composerPath), true, 512, JSON_THROW_ON_ERROR);
     $composer['autoload']['psr-4']['App\\'] = 'src/';
-    foreach (array_keys($composer['autoload']['psr-4'] ?? []) as $namespace) {
-        if ($namespace !== 'App\\' && str_starts_with($namespace, 'App\\')) unset($composer['autoload']['psr-4'][$namespace]);
-    }
+    $composer['autoload']['psr-4']['App\\Controllers\\'] = 'src/controllers/';
+    $composer['autoload']['psr-4']['App\\Models\\'] = 'src/models/';
+    $composer['autoload']['psr-4']['App\\Repositories\\'] = 'src/repositories/';
+    $composer['autoload']['psr-4']['App\\Requests\\'] = 'src/requests/';
+    $composer['autoload']['psr-4']['App\\Resources\\'] = 'src/resources/';
+    $composer['autoload']['psr-4']['App\\Routes\\'] = 'src/routes/';
+    $composer['autoload']['psr-4']['App\\Middleware\\'] = 'src/middleware/';
     file_put_contents($composerPath, json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL, LOCK_EX);
     $indexPath = $target . '/public/index.php';
     $index = (string) file_get_contents($indexPath);
@@ -3117,6 +3121,23 @@ PHP
     if ($modernApi) {
         $routeClass = $resource . 'Route';
         writeNewFile($root, "src/routes/{$routeClass}.php", "<?php\n\ndeclare(strict_types=1);\n\nnamespace App\\Routes;\n\nuse App\\Controllers\\{$controller};\nuse PHPAML\\Routing\\Route;\n\nfinal class {$routeClass} extends Route\n{\n    protected string \$prefix = '/api/v1';\n\n    protected function routes(): void\n    {\n        \$this->apiResource('/{$route}', {$controller}::class);\n    }\n}\n");
+        $composerPath = $root . '/composer.json';
+        if (is_file($composerPath)) {
+            $composer = json_decode((string) file_get_contents($composerPath), true, 512, JSON_THROW_ON_ERROR);
+            $composer['autoload']['psr-4'] = is_array($composer['autoload']['psr-4'] ?? null) ? $composer['autoload']['psr-4'] : [];
+            foreach ([
+                'App\\Controllers\\' => 'src/controllers/',
+                'App\\Models\\' => 'src/models/',
+                'App\\Repositories\\' => 'src/repositories/',
+                'App\\Requests\\' => 'src/requests/',
+                'App\\Resources\\' => 'src/resources/',
+                'App\\Routes\\' => 'src/routes/',
+                'App\\Middleware\\' => 'src/middleware/',
+            ] as $namespace => $directory) {
+                $composer['autoload']['psr-4'][$namespace] = $directory;
+            }
+            file_put_contents($composerPath, json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL, LOCK_EX);
+        }
         output("✓ API {$resource} créée : /api/v1/{$route}");
         return;
     }

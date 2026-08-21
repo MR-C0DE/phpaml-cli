@@ -60,6 +60,13 @@ PHP;
     $autoload = str_replace('__PREFIXES__', var_export([
         'PHPAML\\' => $frameworkSource,
         'AML\\Data\\' => $dataSource,
+        'App\\Controllers\\' => $project . '/src/controllers',
+        'App\\Models\\' => $project . '/src/models',
+        'App\\Repositories\\' => $project . '/src/repositories',
+        'App\\Requests\\' => $project . '/src/requests',
+        'App\\Resources\\' => $project . '/src/resources',
+        'App\\Routes\\' => $project . '/src/routes',
+        'App\\Middleware\\' => $project . '/src/middleware',
         'App\\' => $project . '/src',
     ], true), $autoload);
     file_put_contents($project . '/runtime/autoload.php', $autoload);
@@ -69,6 +76,12 @@ PHP;
     passthru('cd ' . escapeshellarg($project) . ' && ' . $command, $exitCode);
     $expect($exitCode === 0, 'La génération de la ressource persistante a échoué.');
     $expect(!is_dir($project . '/configs'), 'Une API moderne ne doit pas créer configs/.');
+    $generatedComposer = json_decode((string) file_get_contents($project . '/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+    $expect(
+        ($generatedComposer['autoload']['psr-4']['App\\Routes\\'] ?? null) === 'src/routes/'
+        && ($generatedComposer['autoload']['psr-4']['App\\Controllers\\'] ?? null) === 'src/controllers/',
+        'Les dossiers minuscules doivent disposer de correspondances PSR-4 explicites.'
+    );
 
     require $project . '/runtime/autoload.php';
     $config = PHPAML\Config\ApplicationConfig::load($project);
