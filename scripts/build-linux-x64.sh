@@ -60,8 +60,8 @@ Section: devel
 Priority: optional
 Architecture: amd64
 Maintainer: PHPAML <noreply@phpaml.dev>
-Description: Environnement autonome du mini-framework PHPAML
- Inclut la commande AML, PHP et Composer sans dépendance système.
+Description: Plateforme PHP autonome pour applications Web et API
+ Inclut AML, PHP et Composer sans configuration système manuelle.
 EOF
 
 dpkg-deb --root-owner-group --build "$DEB_ROOT" \

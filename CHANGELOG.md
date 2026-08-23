@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.7.0-beta.15 — 2026-08-23
+
+- repositionne PHPAML comme une plateforme PHP autonome pour applications Web
+  structurées, interfaces déclaratives et API ;
+- remplace la vitrine du dépôt par un README anglais avec version française,
+  démarrages rapides orientés résultat et carte des paquets officiels ;
+- ajoute une capture actuelle de l’application Book Reader et des liens vers
+  les démonstrations publiques ;
+- adopte la licence MIT et documente la licence des contributions ;
+- ajoute les guides de contribution et de conduite communautaire ;
+- ajoute des formulaires GitHub pour mesurer les installations et premiers
+  projets réussis ou échoués sans télémétrie cachée ;
+- ajoute des modèles structurés pour les bugs, propositions et pull requests.
+- ajoute un kit bilingue pour préparer le lancement de `1.7.0-beta.15` et
+  mesurer l’activation par premier projet réussi.
+- enregistre la baseline publique d’adoption avant lancement et documente les
+  limites des compteurs de téléchargement GitHub.
+- aligne les nouvelles applications sur Template `0.5.0-beta.2` et Framework
+  `0.3.0-beta.2`, tous deux sous licence MIT.
+- documente l’audit complet de préparation de la release et ses contrôles
+  multiplateformes encore requis.
+
 ## 1.7.0-beta.14 — 2026-08-21
 
 - ajoute `aml create-api` et les routes par classes dans `src/routes` ;

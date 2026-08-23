@@ -1,47 +1,166 @@
 # PHPAML
 
-PHPAML est un mini-framework MVC en PHP 8.2+, inspiré de l’organisation de
-Java EE et d’ASP.NET. Son environnement autonome AML fournit sa propre commande
-`aml`, PHP 8.4 et Composer : l’utilisateur n’a pas besoin d’installer PHP.
+[![Latest release](https://img.shields.io/github/v/release/MR-C0DE/phpaml-cli?include_prereleases&label=release)](https://github.com/MR-C0DE/phpaml-cli/releases/latest)
+[![CLI tests](https://github.com/MR-C0DE/phpaml-cli/actions/workflows/test-cli.yml/badge.svg?branch=main)](https://github.com/MR-C0DE/phpaml-cli/actions/workflows/test-cli.yml)
+[![MIT License](https://img.shields.io/badge/license-MIT-7c3aed.svg)](LICENSE)
+![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-c8f000)
+
+**Build structured PHP applications, declarative interfaces, and APIs without
+manually setting up PHP, Composer, or a development environment.**
+
+PHPAML is a self-contained PHP platform for Windows, macOS, and Linux. Its
+`aml` command bundles PHP and Composer, creates ready-to-run projects, checks
+their environment, and takes them from local development to a verified
+production build.
+
+[Website](https://phpaml.com) · [Documentation](https://phpaml.com/docs) ·
+[Live demo](https://phpaml-book-reader-demo.onrender.com) ·
+[Releases](https://github.com/MR-C0DE/phpaml-cli/releases/latest) ·
+[Français](README.fr.md)
+
+[![Book Reader — an application built with PHPAML](docs/assets/phpaml-book-reader-demo.jpg)](https://phpaml-book-reader-demo.onrender.com)
+
+_Book Reader is a complete PHPAML application. [Open the live demo](https://phpaml-book-reader-demo.onrender.com)
+or [read its source](https://github.com/MR-C0DE/phpaml-book-reader-demo)._
+
+> PHPAML is currently in beta. It is ready for exploration and real-world
+> validation, but production applications should follow the
+> [production checklist](docs/tests-production-depannage.md).
+
+## From install to running app
+
+Install PHPAML from the [latest release](https://github.com/MR-C0DE/phpaml-cli/releases/latest),
+then create an application:
 
 ```bash
-aml create mon-projet
-cd mon-projet
+aml create my-app
+cd my-app
 aml install
 aml doctor
 aml serve
 ```
 
-## Documentation
+Open **http://127.0.0.1:8910**. You get a working MVC application with routing,
+dependency injection, views, validation, sessions, CSRF protection, PDO,
+migrations, tests, and live reload.
 
-- [Commencer ici](docs/README.md)
-- [Installation](docs/installation.md)
-- [Premier projet](docs/demarrage-rapide.md)
+```text
+✓ PHPAML engine installed
+✓ Project diagnostics passed
+→ PHPAML is running at http://127.0.0.1:8910
+```
+
+No global PHP, Composer, or Node.js installation is required.
+
+## Choose what you want to build
+
+### A structured web application
+
+```bash
+aml create my-app
+cd my-app
+aml install
+aml serve
+```
+
+Start with a conventional MVC structure and add controllers, models,
+middleware, migrations, and views as the application grows.
+
+### A declarative interface
+
+```bash
+aml create-view-app my-interface
+cd my-interface
+aml doctor
+aml serve
+```
+
+Build typed, component-based interfaces in PHP with AML View and the reactive
+Engine. See the [Book Reader](https://phpaml-book-reader-demo.onrender.com) and
+[Chess Tutor](https://phpaml-chess-tutor.onrender.com) demos.
+
+### A JSON API
+
+```bash
+aml create-api movies-api
+cd movies-api
+aml install
+aml serve
+```
+
+Start with an API-oriented structure, CORS configuration, validation, data
+access, migrations, and OpenAPI tooling. Explore the
+[Movies API source](https://github.com/MR-C0DE/phpaml-movies-api-demo).
+
+## One platform, focused packages
+
+PHPAML is presented through separate repositories so each package can evolve
+and be installed independently. They form one platform:
+
+```mermaid
+flowchart TD
+    CLI["PHPAML CLI / aml<br/>runtime, project creation, diagnostics, build"]
+    Framework["Framework<br/>HTTP, routing, MVC, security"]
+    View["View<br/>declarative PHP interfaces"]
+    Engine["Engine<br/>client-side reactivity"]
+    Data["Data<br/>database and migrations"]
+
+    CLI --> Framework
+    CLI --> View
+    CLI --> Data
+    View --> Engine
+    Framework --> Data
+```
+
+| Repository | Role |
+| --- | --- |
+| [`phpaml-cli`](https://github.com/MR-C0DE/phpaml-cli) | Self-contained AML environment, installers, project lifecycle, and developer commands |
+| [`phpaml-framework`](https://github.com/MR-C0DE/phpaml-framework) | HTTP, routing, MVC, middleware, validation, security, and runtime foundation |
+| [`phpaml-view`](https://github.com/MR-C0DE/phpaml-view) | Declarative, component-based interfaces written in PHP |
+| [`phpaml-engine`](https://github.com/MR-C0DE/phpaml-engine) | Reactive browser runtime used by AML View applications |
+| [`phpaml-data`](https://github.com/MR-C0DE/phpaml-data) | Data access, schemas, and migrations |
+| [`phpaml-template`](https://github.com/MR-C0DE/phpaml-template) | Starting structure generated for classic applications |
+
+## What `aml` handles
+
+- Self-contained PHP and Composer environment
+- Project creation for MVC, AML View, and JSON API applications
+- Dependency and framework installation with SHA-256 verification
+- Environment diagnostics and project health checks
+- Code generators, routes, migrations, tests, and live reload
+- Verified production archives, deployment profiles, and rollback
+- English and French CLI output
+
+Run `aml help` to see the complete command reference.
+
+## Learn PHPAML
+
+- [Official documentation](https://phpaml.com/docs)
+- [Progressive tutorial](https://phpaml.com/tutorial)
+- [Installation guide](docs/installation.md)
+- [CLI reference](docs/cli.md)
 - [Architecture](docs/architecture.md)
-- [Référence AML](docs/cli.md)
-- [Routes et contrôleurs](docs/routage-controleurs.md)
-- [Vues et fichiers publics](docs/vues-et-public.md)
-- [Données, validation et sécurité](docs/donnees-securite.md)
-- [Tests, production et dépannage](docs/tests-production-depannage.md)
+- [AML View guide](docs/aml-view.md)
+- [Security policy](SECURITY.md)
+- [Public release checklist](docs/release-checklist.md)
+- [PHPAML CLI 1.7.0-beta.15 launch draft](docs/launch-1.7.0-beta.15.md)
+- [Pre-launch adoption baseline](docs/adoption-baseline-2026-08-23.md)
+- [PHPAML CLI 1.7.0-beta.15 release audit](docs/release-audit-1.7.0-beta.15.md)
 
-## Plateformes
+## Contributing
 
-Les installateurs officiels couvrent Windows x64, macOS ARM64 et Linux x64
-(Debian/Ubuntu). Ils sont disponibles dans la
-[dernière release](https://github.com/MR-C0DE/phpaml-cli/releases/latest).
+PHPAML is young, and early feedback has an outsized impact. Bug reports,
+installation results on supported platforms, documentation improvements, and
+focused pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and
+our [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
 
-## Dépôts officiels
+[Share your installation result](https://github.com/MR-C0DE/phpaml-cli/issues/new?template=installation-report.yml),
+even when everything worked. Successful and failed first runs are both useful.
 
-- [`phpaml-cli`](https://github.com/MR-C0DE/phpaml-cli) : AML et installateurs ;
-- [`phpaml-framework`](https://github.com/MR-C0DE/phpaml-framework) : moteur ;
-- [`phpaml-template`](https://github.com/MR-C0DE/phpaml-template) : modèle de projet.
+When reporting an installation or first-project failure, include the platform,
+PHPAML version, command that failed, and sanitized output. This helps us improve
+the first-run success rate without collecting hidden telemetry.
 
-PHPAML CLI 1.6.0 est la première version stable de l’environnement autonome.
-La préversion 1.7.0-beta.14 inclut `runtime/`, `phpaml.json`, la commande
-sécurisée `aml migrate:structure` pour les projets existants.
-Elle intègre aussi AML View : `aml create-view-app mon-interface`
-crée une application dédiée, installe `phpaml/view`, prépare une page interactive sécurisée et active les
-générateurs `make:view-page`, `make:view-component` et `make:view-layout`.
-PHPAML reste un jeune mini-framework : consultez la
-[documentation de production](docs/tests-production-depannage.md) et validez
-votre application avant de l’exposer publiquement.
+## License
+
+PHPAML CLI is open-source software licensed under the [MIT License](LICENSE).

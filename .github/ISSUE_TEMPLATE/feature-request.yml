@@ -1,0 +1,42 @@
+name: Feature proposal
+description: Propose a focused improvement to PHPAML CLI.
+title: "[Proposal]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Describe the user problem before describing a solution.
+    validations:
+      required: true
+  - type: textarea
+    id: audience
+    attributes:
+      label: Who has this problem?
+      description: Identify the developer, project type, or workflow affected.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should become easier, safer, or faster?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What can users do today, and why is it insufficient?
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This proposal is focused on one problem or outcome.
+          required: true
+        - label: I searched existing issues and documentation first.
+          required: true
+

@@ -1,0 +1,53 @@
+name: Bug report
+description: Report a reproducible problem in PHPAML CLI.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not report security vulnerabilities here. Use a private GitHub Security Advisory instead.
+  - type: input
+    id: version
+    attributes:
+      label: PHPAML CLI version
+      placeholder: "Output of: aml version"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: "Example: Windows 11 x64 or macOS 15 ARM64"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Provide the shortest sequence of commands or steps that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Sanitized output
+      description: Remove secrets and personal data.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: This report contains no credentials, tokens, or personal data.
+          required: true
+
