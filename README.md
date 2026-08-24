@@ -145,6 +145,7 @@ Run `aml help` to see the complete command reference.
 - [Public release checklist](docs/release-checklist.md)
 - [PHPAML CLI 1.7.0-beta.15 launch draft](docs/launch-1.7.0-beta.15.md)
 - [Pre-launch adoption baseline](docs/adoption-baseline-2026-08-23.md)
+- [Privacy-first adoption measurement](docs/adoption-measurement.md)
 - [PHPAML CLI 1.7.0-beta.15 release audit](docs/release-audit-1.7.0-beta.15.md)
 
 ## Contributing

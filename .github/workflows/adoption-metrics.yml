@@ -1,0 +1,36 @@
+name: Public adoption metrics
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 8 * * 1"
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  report:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Test aggregation rules
+        run: node --test tests/adoption-report.test.mjs
+      - name: Capture public aggregates
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/adoption-report.mjs \
+            --release=v1.7.0-beta.15 \
+            --json=phpaml-adoption.json \
+            --markdown=phpaml-adoption.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phpaml-public-adoption-metrics
+          path: |
+            phpaml-adoption.json
+            phpaml-adoption.md
+          retention-days: 90

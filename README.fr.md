@@ -131,6 +131,7 @@ Exécutez `aml help` pour voir la référence complète des commandes.
 - [Liste de vérification avant publication](docs/release-checklist.md)
 - [Projet de lancement PHPAML CLI 1.7.0-beta.15](docs/launch-1.7.0-beta.15.md)
 - [Mesures d’adoption avant lancement](docs/adoption-baseline-2026-08-23.md)
+- [Mesure d’adoption respectueuse de la vie privée](docs/adoption-measurement.md)
 - [Audit de publication PHPAML CLI 1.7.0-beta.15](docs/release-audit-1.7.0-beta.15.md)
 
 ## Contribuer

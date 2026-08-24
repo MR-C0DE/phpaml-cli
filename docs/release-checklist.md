@@ -36,6 +36,7 @@ open-source positioning and for later public releases.
 
 ## First-run measurement
 
+- [ ] Run the public adoption report and archive its JSON and Markdown outputs.
 - [ ] Publish the installation-report link in the release notes.
 - [ ] Record successful and failed reports by platform and project type.
 - [ ] Separate installation failures from creation, diagnostics, and serve
