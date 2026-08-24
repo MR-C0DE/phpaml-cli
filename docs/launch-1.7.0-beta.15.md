@@ -1,7 +1,9 @@
 # PHPAML CLI 1.7.0-beta.15 launch kit
 
-This document is a publication draft. Verify every version, asset, checksum,
-and link against the release candidate before publishing it.
+Publication status: ready. CLI `1.7.0-beta.15`, Framework `0.3.0-beta.2`,
+Template `0.5.0-beta.2`, and Engine `0.1.0-beta.3` are public. Installer assets,
+checksums, documentation links, governance files, and website downloads have
+been verified.
 
 ## Core message
 
@@ -32,7 +34,8 @@ Then open `http://127.0.0.1:8910`.
 
 ### What changed
 
-- PHPAML CLI, Framework, and the official Template now use the MIT License.
+- All official PHPAML repositories now use the MIT License and share the same
+  contribution, conduct, security, issue, and pull-request guidance.
 - The repository now leads with the self-contained platform promise.
 - English is the primary README language, with a complete French version.
 - The quick starts show the result for MVC, AML View, and API projects.
@@ -41,6 +44,8 @@ Then open `http://127.0.0.1:8910`.
 - Contribution, conduct, security, and pull-request guidance are available.
 - Installation reports measure successful and failed first projects without
   hidden telemetry.
+- PHPAML Engine now ships a modular, versioned browser runtime validated on
+  Chromium, Firefox, and WebKit.
 
 PHPAML is still in beta. Validate production applications with the documented
 production checklist.
@@ -77,7 +82,8 @@ Ouvrez ensuite `http://127.0.0.1:8910`.
 
 ### Ce qui change
 
-- PHPAML CLI, Framework et le Template officiel adoptent la licence MIT.
+- Tous les dépôts PHPAML officiels utilisent désormais la licence MIT et des
+  règles communes de contribution, conduite et sécurité.
 - Le dépôt présente désormais clairement la plateforme autonome.
 - L’anglais devient la langue principale du README, avec une version française
   complète.
@@ -88,6 +94,8 @@ Ouvrez ensuite `http://127.0.0.1:8910`.
 - Les règles de contribution, de conduite et de sécurité sont documentées.
 - Les rapports d’installation mesurent les premiers projets réussis et échoués
   sans télémétrie cachée.
+- PHPAML Engine distribue désormais un runtime navigateur modulaire et versionné,
+  validé sur Chromium, Firefox et WebKit.
 
 PHPAML reste en bêta. Toute application en production doit suivre la liste de
 vérification documentée.
@@ -145,6 +153,83 @@ long explanations of internal architecture before the application runs.
 6. Publish the English announcement and French translation together.
 7. Share the five-minute demonstration.
 8. Review installation reports after 24 hours, 7 days, and 30 days.
+
+## Community publication pack
+
+### Show HN title
+
+```text
+Show HN: PHPAML – a self-contained PHP platform with PHP and Composer included
+```
+
+### Show HN introduction
+
+PHPAML is an MIT-licensed PHP platform for creating structured MVC applications,
+declarative interfaces, and JSON APIs without installing PHP or Composer
+globally. The CLI includes its own runtime on Windows, macOS, and Linux.
+
+The project started as a compact MVC framework and grew into a set of optional
+components: AML View for declarative interfaces, Engine for browser-side state
+and effects, Data for typed persistence, and i18n for JSON translation catalogs.
+The beta now has reproducible installers, bilingual documentation, public demos,
+cross-browser tests, and privacy-first adoption reporting.
+
+Repository: https://github.com/MR-C0DE/phpaml-cli
+
+Demo: https://phpaml-book-reader-demo.onrender.com
+
+I would especially value feedback on the first-project workflow and whether the
+relationship between the components is understandable to a new visitor.
+
+### Reddit / PHP community post
+
+```text
+PHPAML beta: a self-contained PHP environment for MVC apps, declarative UI, and APIs
+```
+
+PHPAML is now fully MIT licensed. Its CLI packages PHP and Composer with a single
+cross-platform `aml` workflow, so a new project can run without preparing a
+global PHP environment first.
+
+```bash
+aml create-view-app my-interface
+cd my-interface
+aml doctor
+aml serve
+```
+
+The platform remains beta, but the public foundation now includes English and
+French documentation, versioned releases, Windows/macOS/Linux installers,
+Framework, View, Engine, Data and i18n packages, cross-browser coverage, and
+standard contribution and security policies.
+
+Source: https://github.com/MR-C0DE/phpaml-cli
+
+Install: https://phpaml.com/download
+
+I am looking for candid feedback from PHP developers, especially about the
+five-minute setup and the declarative AML View approach.
+
+### DEV article outline
+
+1. The setup problem: evaluating a PHP project should not begin with runtime
+   configuration.
+2. The five-minute result: install, create, diagnose, serve, and show the app.
+3. The architecture: explain CLI, Framework, View, Engine, Data, and i18n in one
+   diagram.
+4. The trade-offs: beta APIs, packaged runtime size, and when classic PHP views
+   remain the better choice.
+5. The open-source foundation: MIT, tests, releases, security, and contribution.
+6. The request: ask readers to report successful as well as failed first runs.
+
+## Publication safety check
+
+- Use the real application screenshot or demonstration; do not use a mockup.
+- State that PHPAML is beta in every long-form announcement.
+- Do not describe GitHub download requests as users or installations.
+- Link directly to the repository, download page, documentation, and demo.
+- Publish English first and attach the French version in the same campaign.
+- Ask for focused feedback on first-project success and component clarity.
 
 ## Success measures
 
