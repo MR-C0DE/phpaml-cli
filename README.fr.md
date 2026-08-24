@@ -135,6 +135,7 @@ Exécutez `aml help` pour voir la référence complète des commandes.
 - [Politique de sécurité](SECURITY.md)
 - [Liste de vérification avant publication](docs/release-checklist.md)
 - [Kit de lancement communautaire PHPAML CLI 1.7.0-beta.16](docs/launch-1.7.0-beta.16.md)
+- [Backlog contributeur PHPAML CLI 1.7.0-beta.16](docs/contributor-backlog-1.7.0-beta.16.md)
 - [Mesures d’adoption avant lancement](docs/adoption-baseline-2026-08-23.md)
 - [Mesure d’adoption respectueuse de la vie privée](docs/adoption-measurement.md)
 - [Audit de publication PHPAML CLI 1.7.0-beta.15](docs/release-audit-1.7.0-beta.15.md)
