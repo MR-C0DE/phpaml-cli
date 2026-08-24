@@ -177,3 +177,7 @@ the first-run success rate without collecting hidden telemetry.
 ## License
 
 PHPAML CLI is open-source software licensed under the [MIT License](LICENSE).
+
+
+## Developer Reference #39
+Resolves issue #39: Add a regression for a Framework archive with an unexpected root name.
