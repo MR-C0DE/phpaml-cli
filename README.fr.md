@@ -19,6 +19,11 @@ une archive de production vérifiée.
 [Releases](https://github.com/MR-C0DE/phpaml-cli/releases/latest) ·
 [English](README.md)
 
+[![PHPAML en 36 secondes — de la CLI à une application AML View fonctionnelle](docs/assets/demo/phpaml-demo-contact-sheet.png)](docs/assets/demo/phpaml-demo-no-voice.mp4)
+
+_[Regardez la démonstration de 36 secondes, sans voix](docs/assets/demo/phpaml-demo-no-voice.mp4) :
+la CLI autonome crée et lance une véritable application AML View._
+
 [![Book Reader — une application construite avec PHPAML](docs/assets/phpaml-book-reader-demo.jpg)](https://phpaml-book-reader-demo.onrender.com)
 
 _Book Reader est une application PHPAML complète. [Ouvrez la démo](https://phpaml-book-reader-demo.onrender.com)

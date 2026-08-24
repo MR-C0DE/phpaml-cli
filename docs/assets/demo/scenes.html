@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PHPAML demo scenes</title>
+<style>
+  *{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}
+  body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#07060b;color:#f8f7fb}
+  .scene{display:none;width:100vw;height:100vh;position:relative;padding:64px 72px;background:radial-gradient(circle at 78% 34%,#24134a 0,#0d0918 36%,#07060b 68%)}
+  .scene.active{display:flex}.brand{position:absolute;left:72px;top:52px;font-weight:900;letter-spacing:.08em;font-size:18px}.brand b{color:#beff4d}
+  .tag{font:700 14px Menlo,monospace;color:#beff4d;letter-spacing:.16em;text-transform:uppercase}
+  .intro{align-items:center}.intro .copy{max-width:920px}.intro h1{font-size:72px;line-height:.98;letter-spacing:-.055em;margin:22px 0 24px;max-width:1050px}.intro p{font-size:26px;line-height:1.45;color:#bbb6c8;max-width:900px;margin:0}.pill{display:inline-flex;margin-top:34px;padding:14px 20px;border:1px solid #413852;border-radius:12px;background:#110e19;font:700 18px Menlo,monospace}.pill strong{color:#beff4d;margin-right:12px}
+  .terminal-scene{align-items:center;justify-content:center;padding-top:96px}.terminal{width:1120px;min-height:520px;border:1px solid #352e42;border-radius:18px;background:#0b0910;box-shadow:0 40px 100px #0008;overflow:hidden}.bar{height:52px;background:#15111d;border-bottom:1px solid #2c2537;display:flex;align-items:center;padding:0 20px;gap:9px;color:#8c8499;font-size:13px}.dot{width:12px;height:12px;border-radius:99px;background:#ff625a}.dot:nth-child(2){background:#ffbd2e}.dot:nth-child(3){background:#28c840}.bar span:last-child{margin-left:14px}.screen{padding:30px 36px;font:20px/1.55 Menlo,Monaco,monospace;white-space:pre-wrap;color:#ddd8e8}.prompt{color:#beff4d}.muted{color:#8f879d}.violet{color:#9d6cff}.ok{color:#beff4d}.terminal-scene h2{position:absolute;top:45px;left:80px;margin:0;font-size:24px;letter-spacing:-.02em}.step{position:absolute;right:72px;top:52px;color:#8f879d;font:700 14px Menlo,monospace}
+  .success{align-items:center;justify-content:center;text-align:center}.check{width:92px;height:92px;border-radius:99px;background:#beff4d;color:#0a0710;display:grid;place-items:center;font-size:56px;font-weight:900;margin:0 auto 28px}.success h1{font-size:66px;margin:0 0 16px;letter-spacing:-.05em}.success p{font-size:25px;color:#bdb7c9;margin:0}.stack{display:flex;gap:14px;justify-content:center;margin-top:34px}.stack span{border:1px solid #43394f;background:#100d17;border-radius:999px;padding:11px 17px;font:700 15px Menlo,monospace}.stack b{color:#beff4d}
+  .outro{align-items:center;justify-content:center;text-align:center}.outro h1{font-size:76px;line-height:1;margin:20px 0;letter-spacing:-.055em}.outro p{font-size:25px;color:#bdb7c9}.url{font:700 24px Menlo,monospace;color:#beff4d;margin-top:32px}
+  .terminal-scene h2{left:270px}
+</style>
+</head>
+<body>
+<section id="intro" class="scene intro"><div class="brand"><b>🐘</b> PHPAML</div><div class="copy"><div class="tag">One platform. Zero environment setup.</div><h1>Structured PHP apps, declarative interfaces and APIs.</h1><p>PHPAML bundles PHP, Composer and the development environment so you can move from an idea to a running project in minutes.</p><div class="pill"><strong>MIT</strong> Open source · macOS · Windows · Linux</div></div></section>
+<section id="version" class="scene terminal-scene"><div class="brand"><b>🐘</b> PHPAML</div><h2>Start with the autonomous CLI</h2><div class="step">01 / 03</div><div class="terminal"><div class="bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>Terminal — fresh folder</span></div><div class="screen"><span class="prompt">$</span> aml version
+<span class="violet">1.7.0-beta.16</span>
+
+<span class="prompt">$</span> aml create-view-app phpaml-demo
+<span class="muted">Creating a structured PHPAML application…</span></div></div></section>
+<section id="install" class="scene terminal-scene"><div class="brand"><b>🐘</b> PHPAML</div><h2>Framework, View and Engine install automatically</h2><div class="step">02 / 03</div><div class="terminal"><div class="bar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>Terminal — phpaml-demo</span></div><div class="screen"><span class="ok">✓</span> AML environment installed successfully.
+<span class="ok">✓</span> phpaml/engine <span class="muted">v0.1.0-beta.3</span>
+<span class="ok">✓</span> phpaml/view <span class="muted">v0.1.0-beta.3</span>
+<span class="ok">✓</span> Pages, layouts, components and route states created.
+
+<span class="prompt">$</span> cd phpaml-demo
+<span class="prompt">$</span> aml serve
+<span class="violet">PHPAML is listening at http://127.0.0.1:8910</span></div></div></section>
+<section id="success" class="scene success"><div class="brand"><b>🐘</b> PHPAML</div><div><div class="check">✓</div><h1>From zero to running app.</h1><p>No manual PHP, Composer or environment configuration.</p><div class="stack"><span><b>Framework</b> 0.3</span><span><b>View</b> 0.1</span><span><b>Engine</b> 0.1</span><span><b>MIT</b></span></div></div></section>
+<section id="outro" class="scene outro"><div class="brand"><b>🐘</b> PHPAML</div><div><div class="tag">Build your first project</div><h1>PHPAML</h1><p>Autonomous PHP for structured web applications.</p><div class="url">phpaml.com</div></div></section>
+<script>const key=new URLSearchParams(location.search).get('scene')||'intro';document.getElementById(key)?.classList.add('active')</script>
+</body>
+</html>
