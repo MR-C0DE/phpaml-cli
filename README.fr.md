@@ -144,7 +144,7 @@ Exécutez `aml help` pour voir la référence complète des commandes.
 - [Backlog contributeur PHPAML CLI 1.7.0-beta.16](docs/contributor-backlog-1.7.0-beta.16.md)
 - [Mesures d’adoption avant lancement](docs/adoption-baseline-2026-08-23.md)
 - [Mesure d’adoption respectueuse de la vie privée](docs/adoption-measurement.md)
-- [Audit de publication PHPAML CLI 1.7.0-beta.15](docs/release-audit-1.7.0-beta.15.md)
+- [Archives des audits de publication](docs/archive/README.md)
 
 ## Contribuer
 
