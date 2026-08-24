@@ -16,7 +16,13 @@ production build.
 [Website](https://phpaml.com) · [Documentation](https://phpaml.com/docs) ·
 [Live demo](https://phpaml-book-reader-demo.onrender.com) ·
 [Releases](https://github.com/MR-C0DE/phpaml-cli/releases/latest) ·
+[Start contributing](https://github.com/MR-C0DE/phpaml-cli/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22) ·
 [Français](README.fr.md)
+
+> **New to PHPAML?** Pick a scoped
+> [`good first issue`](https://github.com/MR-C0DE/phpaml-cli/issues?q=is%3Aissue%20state%3Aopen%20label%3A%22good%20first%20issue%22),
+> read the [contribution guide](CONTRIBUTING.md), and ask questions in
+> [GitHub Discussions](https://github.com/MR-C0DE/phpaml-cli/discussions/37).
 
 [![PHPAML in 36 seconds — CLI to running AML View application](docs/assets/demo/phpaml-demo-contact-sheet.png)](docs/assets/demo/phpaml-demo-no-voice.mp4)
 
