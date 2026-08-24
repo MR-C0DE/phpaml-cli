@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.0-beta.16 — 2026-08-24
+
+- corrige l’installation du Framework depuis les archives GitHub dont le
+  dossier racine contient maintenant le numéro de version ;
+- rétablit le parcours public `aml create-view-app` avec Framework, View et
+  Engine installés automatiquement ;
+- ajoute une régression utilisant le format réel des archives Framework
+  récentes.
+
 ## 1.7.0-beta.15 — 2026-08-23
 
 - repositionne PHPAML comme une plateforme PHP autonome pour applications Web

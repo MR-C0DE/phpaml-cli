@@ -2433,13 +2433,24 @@ function installFramework(string $projectRoot, ?string $version, bool $refresh, 
     if ($zip->open($framework['archive']) !== true) {
         fail("Impossible d'ouvrir l'archive du moteur PHPAML.");
     }
+    $sourcePrefix = null;
     for ($index = 0; $index < $zip->numFiles; $index++) {
         $entry = str_replace('\\', '/', (string) $zip->getNameIndex($index));
-        $prefix = 'phpaml-framework/src/';
-        if (!str_starts_with($entry, $prefix) || str_ends_with($entry, '/')) {
+        if (preg_match('#^([^/]+/src/)#', $entry, $matches) === 1) {
+            $sourcePrefix = $matches[1];
+            break;
+        }
+    }
+    if ($sourcePrefix === null) {
+        $zip->close();
+        fail('L’archive du moteur ne contient pas de dossier src/.');
+    }
+    for ($index = 0; $index < $zip->numFiles; $index++) {
+        $entry = str_replace('\\', '/', (string) $zip->getNameIndex($index));
+        if (!str_starts_with($entry, $sourcePrefix) || str_ends_with($entry, '/')) {
             continue;
         }
-        $relative = substr($entry, strlen($prefix));
+        $relative = substr($entry, strlen($sourcePrefix));
         if ($relative === '' || in_array('..', explode('/', $relative), true)) {
             $zip->close();
             fail('L’archive du moteur contient un chemin non sécurisé.');

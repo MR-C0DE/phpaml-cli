@@ -26,11 +26,6 @@ cat > "$template/composer.json" <<'JSON'
 {"name":"phpaml/view-test","require":{"php":"^8.2"},"autoload":{"psr-4":{"App\\":"app/"}},"config":{"vendor-dir":"runtime"}}
 JSON
 printf 'APP_ENV=local\n' > "$template/.env.example"
-mkdir -p "$template/runtime/framework/Security"
-touch "$template/runtime/framework/Autoloader.php" "$template/runtime/aml-installed.json"
-cat > "$template/runtime/framework/Security/CspNonce.php" <<'PHP'
-<?php namespace PHPAML\Security; final class CspNonce {}
-PHP
 cat > "$template/configs/app.php" <<'PHP'
 <?php
 use App\Controllers\HomeController;
@@ -70,6 +65,19 @@ foreach($it as $file){$relative=substr($file->getPathname(),strlen($source)+1);$
 $zip->close();
 ' "$template" "$archive"
 "$php_bin" -r 'echo hash_file("sha256",$argv[1]),"  ",basename($argv[1]),PHP_EOL;' "$archive" > "$archive.sha256"
+
+framework_cache="$fixture/cache/framework/0.0.0"
+mkdir -p "$framework_cache"
+framework_archive="$framework_cache/phpaml-framework-0.0.0.zip"
+"$php_bin" -r '
+$archive=$argv[1]; $zip=new ZipArchive();
+$zip->open($archive, ZipArchive::CREATE|ZipArchive::OVERWRITE);
+$zip->addEmptyDir("phpaml-framework-0.0.0/src/Security");
+$zip->addFromString("phpaml-framework-0.0.0/src/Autoloader.php", "<?php namespace PHPAML; final class Autoloader {}\n");
+$zip->addFromString("phpaml-framework-0.0.0/src/Security/CspNonce.php", "<?php namespace PHPAML\\Security; final class CspNonce {}\n");
+$zip->close();
+' "$framework_archive"
+"$php_bin" -r 'echo hash_file("sha256",$argv[1]),"  ",basename($argv[1]),PHP_EOL;' "$framework_archive" > "$framework_archive.sha256"
 
 cat > "$fixture/composer" <<'SH'
 #!/usr/bin/env bash
