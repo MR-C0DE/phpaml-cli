@@ -153,7 +153,7 @@ sample is large enough and its voluntary-selection bias is stated.
 
 const main = async () => {
   const repo = String(args.repo || 'MR-C0DE/phpaml-cli');
-  const tag = String(args.release || 'v1.7.0-beta.15');
+  const tag = String(args.release || 'v1.7.0-beta.16');
   const [repository, release, issues] = await Promise.all([
     request(`/repos/${repo}`),
     request(`/repos/${repo}/releases/tags/${encodeURIComponent(tag)}`),

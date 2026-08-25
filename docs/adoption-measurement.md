@@ -21,7 +21,7 @@ with 90-day retention; it does not commit changing counters to the repository.
 ```bash
 node --test tests/adoption-report.test.mjs
 node scripts/adoption-report.mjs \
-  --release=v1.7.0-beta.15 \
+  --release=v1.7.0-beta.16 \
   --json=phpaml-adoption.json \
   --markdown=phpaml-adoption.md
 ```
