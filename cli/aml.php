@@ -2109,6 +2109,7 @@ PHP
     $marker = "// AML View integration\n";
     if (!str_contains($index, $marker)) {
         $anchors = [
+            '$config = phpamlComposeApplication(\\PHPAML\\Config\\ApplicationConfig::load($root), $root);',
             '$config = \\PHPAML\\Config\\ApplicationConfig::load($root);',
             '$config = require $root . \'/configs/app.php\';',
             '$config = require $root . \'/config/app.php\';',
@@ -2256,7 +2257,14 @@ function installI18n(?string $version = null): never
     $index = is_file($indexPath) ? (string) file_get_contents($indexPath) : '';
     $marker = "// PHPAML i18n integration\n";
     if ($index !== '' && !str_contains($index, $marker)) {
-        $anchor = "\\PHPAML\\Config\\Env::load(\$root . '/.env');";
+        $anchors = [
+            '$config = phpamlComposeApplication(\\PHPAML\\Config\\ApplicationConfig::load($root), $root);',
+            "\\PHPAML\\Config\\Env::load(\$root . '/.env');",
+        ];
+        $anchor = array_values(array_filter(
+            $anchors,
+            static fn (string $candidate): bool => str_contains($index, $candidate)
+        ))[0] ?? '';
         $integration = <<<'PHP'
 // PHPAML i18n integration
 if (class_exists(\AML\I18n\I18n::class)) {
@@ -2267,7 +2275,7 @@ if (class_exists(\AML\I18n\I18n::class)) {
     );
 }
 PHP;
-        if (!str_contains($index, $anchor)) {
+        if ($anchor === '') {
             fail("public/index.php ne contient pas le point d’intégration i18n attendu.");
         }
         $index = str_replace($anchor, $anchor . PHP_EOL . $integration, $index);

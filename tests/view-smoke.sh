@@ -50,8 +50,12 @@ if (PHP_SAPI === 'cli-server' && $requestPath === '/_aml/live-reload') {
     echo json_encode(['version' => sha1(implode('|', $fingerprint))]); return;
 }
 require_once $root . '/runtime/autoload.php';
-\PHPAML\Config\Env::load($root . '/.env');
-$config = require $root . '/configs/app.php';
+function phpamlComposeApplication(array $config, string $root): array
+{
+    return $config;
+}
+$config = phpamlComposeApplication(\PHPAML\Config\ApplicationConfig::load($root), $root);
+(new \PHPAML\WebApplication($config))->run();
 PHP
 
 cache="$fixture/cache/templates/0.0.0"

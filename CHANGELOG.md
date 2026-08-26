@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.0-beta.18 — 2026-08-26
+
+- adapte l’installation AML View au point d’entrée composé introduit par
+  Template `0.5.0-beta.3` ;
+- adapte également l’intégration i18n à ce nouveau point d’entrée ;
+- ajoute une régression reproduisant la structure exacte des nouveaux projets ;
+- automatise l’assemblage des releases CLI multiplateformes après validation
+  des builds et de leurs checksums.
+
 ## 1.7.0-beta.17 — 2026-08-26
 
 - installe automatiquement le moteur et les dépendances après `aml create` et
