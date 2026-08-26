@@ -1479,9 +1479,12 @@ function installView(?string $version = null, bool $offline = false): never
         $legacyPath = $root . '/src/' . $legacyDirectory;
         $sourcePath = $root . '/src/' . $sourceDirectory;
         if (is_dir($legacyPath)) {
-            $sameDirectory = is_dir($sourcePath)
-                && realpath($legacyPath) !== false
-                && realpath($legacyPath) === realpath($sourcePath);
+            $legacyStat = @stat($legacyPath);
+            $sourceStat = @stat($sourcePath);
+            $sameDirectory = is_array($legacyStat)
+                && is_array($sourceStat)
+                && $legacyStat['dev'] === $sourceStat['dev']
+                && $legacyStat['ino'] === $sourceStat['ino'];
             if ($sameDirectory) {
                 $temporaryPath = $root . '/src/.phpaml-case-' . strtolower($legacyDirectory);
                 if (!rename($legacyPath, $temporaryPath) || !rename($temporaryPath, $sourcePath)) {
