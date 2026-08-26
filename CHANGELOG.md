@@ -1,6 +1,6 @@
 # Changelog
 
-## Non publié
+## 1.7.0-beta.19 — 2026-08-26
 
 - normalise réellement `src/Controllers`, `src/Models`, `src/Middleware` et
   `src/Services` en minuscules sur les systèmes de fichiers macOS
