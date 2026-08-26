@@ -1478,8 +1478,18 @@ function installView(?string $version = null, bool $offline = false): never
     foreach (['Controllers' => 'controllers', 'Models' => 'models', 'Middleware' => 'middleware', 'Services' => 'services'] as $legacyDirectory => $sourceDirectory) {
         $legacyPath = $root . '/src/' . $legacyDirectory;
         $sourcePath = $root . '/src/' . $sourceDirectory;
-        if (is_dir($legacyPath) && !file_exists($sourcePath) && !rename($legacyPath, $sourcePath)) {
-            fail("Impossible de migrer src/{$legacyDirectory} vers src/{$sourceDirectory}.");
+        if (is_dir($legacyPath)) {
+            $sameDirectory = is_dir($sourcePath)
+                && realpath($legacyPath) !== false
+                && realpath($legacyPath) === realpath($sourcePath);
+            if ($sameDirectory) {
+                $temporaryPath = $root . '/src/.phpaml-case-' . strtolower($legacyDirectory);
+                if (!rename($legacyPath, $temporaryPath) || !rename($temporaryPath, $sourcePath)) {
+                    fail("Impossible de normaliser src/{$legacyDirectory} en src/{$sourceDirectory}.");
+                }
+            } elseif (!file_exists($sourcePath) && !rename($legacyPath, $sourcePath)) {
+                fail("Impossible de migrer src/{$legacyDirectory} vers src/{$sourceDirectory}.");
+            }
         }
         if (!is_dir($sourcePath)) {
             continue;
@@ -2224,6 +2234,7 @@ PHP;
     $manifest['modules'] = is_array($manifest['modules'] ?? null) ? $manifest['modules'] : [];
     $manifest['application'] = is_array($manifest['application'] ?? null) ? $manifest['application'] : [];
     $manifest['application']['type'] = 'view';
+    $manifest['application']['views'] = 'src/views';
     $manifest['modules']['view'] = ['package' => 'phpaml/view', 'constraint' => $constraint, 'mode' => 'frontend'];
     $manifest['modules']['engine'] = ['package' => 'phpaml/engine', 'mode' => 'client'];
     writeProjectManifest($root, $manifest);

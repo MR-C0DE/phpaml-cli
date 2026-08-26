@@ -1,5 +1,14 @@
 # Changelog
 
+## Non publié
+
+- normalise réellement `src/Controllers`, `src/Models`, `src/Middleware` et
+  `src/Services` en minuscules sur les systèmes de fichiers macOS
+  insensibles à la casse, afin que les projets restent compatibles Linux ;
+- enregistre `src/views` dans le manifeste des applications AML View ;
+- aligne la documentation moderne sur `phpaml.json`, `.env`, `routes/` et la
+  configuration générée dans `runtime/config/app.php`.
+
 ## 1.7.0-beta.18 — 2026-08-26
 
 - adapte l’installation AML View au point d’entrée composé introduit par

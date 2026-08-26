@@ -28,6 +28,7 @@ src/
 ├── models/                   # domain and data models
 ├── middleware/               # optional middleware
 ├── services/                 # optional services
+├── locales/                  # optional JSON translation catalogs
 └── views/
     ├── pages/
     │   ├── home/page.php     # /
@@ -38,22 +39,25 @@ src/
     ├── states/               # Loading, Error and NotFound
     ├── stylesheets/
     ├── themes/
-    ├── assets/
-    └── locales/
+    └── assets/
+routes/
+└── WebApp.php                # classic web routes
 public/
 ├── index.php                 # only PHP entry point
 ├── favicon.svg
 ├── robots.txt
 └── sitemap.xml
-runtime/                      # generated engine and private runtime data
-configs/
+runtime/                      # generated engine, config and private data
 tests/
 phpaml.json
+.env
 ```
 
 `src/views`, `src/controllers` and `src/models` are mandatory. `public/` is
 reserved for files needing a direct URL. Interface images belong in
-`src/views/assets`; CSS belongs in `src/views/stylesheets`.
+`src/views/assets`; CSS belongs in `src/views/stylesheets`. Shared settings are
+stored in `phpaml.json`, secrets in `.env`, and generated configuration in
+`runtime/config/app.php`; never edit the generated file manually.
 
 ## Pages and components / Pages et composants
 

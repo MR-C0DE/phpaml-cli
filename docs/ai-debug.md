@@ -29,8 +29,9 @@ Avant tout appel externe, AML affiche les fichiers concernés. Les clés, mots d
 passe et tokens sont masqués automatiquement. Sans `--yes`, une confirmation
 interactive est obligatoire. Par défaut, AML exclut le code applicatif et se
 limite au diagnostic, à `phpaml.json`, `composer.json` et `.env.example`.
-L’option `--include-code` autorise explicitement `configs/app.php`,
-`public/index.php` et l’inventaire du code.
+L’option `--include-code` autorise explicitement `routes/`, `src/`, `app/`,
+`public/index.php` et l’inventaire du code. Pour un ancien projet, le fichier
+`configs/app.php` est inclus uniquement s’il existe encore.
 
 L’agent reçoit le diagnostic AML et un nombre limité de fichiers de
 configuration. Il ne reçoit jamais `.env`. Les modifications sont limitées au

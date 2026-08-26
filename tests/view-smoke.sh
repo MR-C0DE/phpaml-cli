@@ -145,6 +145,8 @@ grep -q 'Navigation(),' src/views/layouts/AppLayout.php
 ! grep -q 'new Element(' src/views/pages/home/page.php
 test -d src/controllers
 test -d src/models
+test ! -d src/Controllers
+test ! -d src/Models
 test -d src/views
 test ! -f src/ViewRegistry.php
 test -f src/views/stylesheets/base.css
@@ -212,6 +214,7 @@ grep -q '"App\\\\Views\\\\Components\\\\": "src/views/components/"' composer.jso
 grep -q '"App\\\\Views\\\\Layouts\\\\": "src/views/layouts/"' composer.json
 grep -q '"App\\\\Views\\\\States\\\\": "src/views/states/"' composer.json
 grep -q '"App\\\\Controllers\\\\": "src/controllers/"' composer.json
+grep -q '"views": "src/views"' phpaml.json
 grep -q '"App\\\\Models\\\\": "src/models/"' composer.json
 grep -q '"App\\\\Middleware\\\\": "src/middleware/"' composer.json
 grep -q '"App\\\\Services\\\\": "src/services/"' composer.json

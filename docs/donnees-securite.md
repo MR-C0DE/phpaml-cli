@@ -2,7 +2,9 @@
 
 ## Configuration `.env`
 
-Le modèle charge `.env` avant `configs/app.php` :
+Le modèle charge `.env`, puis combine ses valeurs avec `phpaml.json`. PHPAML
+génère sa configuration interne dans `runtime/config/app.php` : ce fichier ne
+doit jamais être modifié manuellement.
 
 ```dotenv
 APP_DEBUG=false
