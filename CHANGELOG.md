@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.7.0-beta.17 — 2026-08-26
+
+- installe automatiquement le moteur et les dépendances après `aml create` et
+  `aml create-api`, comme le faisait déjà `aml create-view-app` ;
+- initialise `.env` pendant la création et ajoute `--no-install` pour différer
+  explicitement l’installation ;
+- réduit les trois premiers parcours à `create`, `cd` et `serve` ;
+- protège les frontières entre Framework, Engine, View, Data et i18n dans la
+  CI et documente leurs responsabilités ;
+- ajoute un contrôle des ruptures d’API publique à chaque dépôt de paquet ;
+- utilise Template `0.5.0-beta.3` et Framework `0.3.0-beta.3` pour les nouveaux
+  projets.
+
 ## 1.7.0-beta.16 — 2026-08-24
 
 - corrige l’installation du Framework depuis les archives GitHub dont le

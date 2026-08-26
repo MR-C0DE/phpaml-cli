@@ -20,9 +20,9 @@ choix de langue et le transmet au CLI.
 
 | Commande | Description |
 |---|---|
-| `aml create .` | crée le projet dans le dossier courant |
-| `aml create nom` | crée le projet dans `nom/` |
-| `aml install` | installe moteur et dépendances |
+| `aml create .` | crée et installe le projet dans le dossier courant |
+| `aml create nom` | crée et installe le projet dans `nom/` |
+| `aml install` | réinstalle le moteur et les dépendances d’un projet existant |
 | `aml serve` | démarre sur `127.0.0.1:8910` et choisit automatiquement le port suivant s’il est occupé |
 | `aml serve hôte:port` | démarre sur une adresse choisie |
 
@@ -42,6 +42,7 @@ Options de `create` :
 aml create projet --version 0.1.0
 aml create projet --refresh
 aml create projet --offline
+aml create projet --no-install
 ```
 
 Options de `install` :
@@ -123,7 +124,7 @@ Créez une API sans vues ni dossier `configs/` :
 ```bash
 aml create-api movies-api
 cd movies-api
-aml install
+aml serve
 ```
 
 Une ressource simple produit `src/controllers/MovieController.php` et

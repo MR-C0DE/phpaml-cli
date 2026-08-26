@@ -16,17 +16,9 @@ aml create .
 ```
 
 Le générateur refuse d’écraser un fichier existant. Il télécharge le modèle
-officiel, vérifie son SHA-256 et le conserve dans le cache AML.
-
-## Installer le moteur
-
-```bash
-aml install
-```
-
-Cette commande télécharge le moteur officiel dans `runtime/framework`, installe
-les dépendances Composer dans `runtime` et écrit
-`runtime/aml-installed.json`.
+officiel, vérifie son SHA-256, initialise `.env`, installe le moteur et les
+dépendances, puis conserve les téléchargements dans le cache AML. Utilisez
+`--no-install` uniquement pour différer volontairement l’installation.
 
 Contrôlez ensuite le projet :
 
@@ -34,7 +26,7 @@ Contrôlez ensuite le projet :
 aml doctor
 ```
 
-L’absence de `.env` est un avertissement. Créez-le ainsi :
+Pour recréer manuellement `.env` lorsqu’il a été supprimé :
 
 ```bash
 aml env:init

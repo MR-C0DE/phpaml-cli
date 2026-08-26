@@ -26,6 +26,21 @@ jobs:
         with:
           repository: MR-C0DE/phpaml-data
           path: .integration/data
+      - uses: actions/checkout@v5
+        if: runner.os != 'Windows'
+        with:
+          repository: MR-C0DE/phpaml-engine
+          path: .integration/engine
+      - uses: actions/checkout@v5
+        if: runner.os != 'Windows'
+        with:
+          repository: MR-C0DE/phpaml-view
+          path: .integration/view
+      - uses: actions/checkout@v5
+        if: runner.os != 'Windows'
+        with:
+          repository: MR-C0DE/phpaml-i18n
+          path: .integration/i18n
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -33,6 +48,19 @@ jobs:
       - name: Validate PHP sources
         shell: bash
         run: find cli tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Protect package architecture boundaries
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          PHPAML_PACKAGES_ROOT: ${{ github.workspace }}/.integration/packages
+        run: |
+          mkdir -p "$PHPAML_PACKAGES_ROOT"
+          ln -s "$GITHUB_WORKSPACE/.integration/framework" "$PHPAML_PACKAGES_ROOT/phpaml-framework"
+          ln -s "$GITHUB_WORKSPACE/.integration/engine" "$PHPAML_PACKAGES_ROOT/phpaml-engine"
+          ln -s "$GITHUB_WORKSPACE/.integration/view" "$PHPAML_PACKAGES_ROOT/phpaml-view"
+          ln -s "$GITHUB_WORKSPACE/.integration/data" "$PHPAML_PACKAGES_ROOT/phpaml-data"
+          ln -s "$GITHUB_WORKSPACE/.integration/i18n" "$PHPAML_PACKAGES_ROOT/phpaml-i18n"
+          php ./tests/architecture-boundaries.php
       - name: Test PHP runtime selection
         shell: bash
         run: php ./tests/php-runtime-smoke.php

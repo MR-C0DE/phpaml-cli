@@ -50,9 +50,11 @@ aml doctor
 
 Le paquet installe AML dans `/opt/phpaml` et crée `/usr/local/bin/aml`.
 
-## Installer un projet
+## Réinstaller un projet
 
-Depuis la racine d’un projet créé par AML :
+`aml create`, `aml create-view-app` et `aml create-api` installent maintenant le
+projet automatiquement. Depuis la racine d’un projet existant, ou après une
+création avec `--no-install`, utilisez :
 
 ```bash
 aml install

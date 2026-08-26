@@ -46,7 +46,6 @@ then create an application:
 ```bash
 aml create my-app
 cd my-app
-aml install
 aml doctor
 aml serve
 ```
@@ -70,7 +69,6 @@ No global PHP, Composer, or Node.js installation is required.
 ```bash
 aml create my-app
 cd my-app
-aml install
 aml serve
 ```
 
@@ -95,7 +93,6 @@ Engine. See the [Book Reader](https://phpaml-book-reader-demo.onrender.com) and
 ```bash
 aml create-api movies-api
 cd movies-api
-aml install
 aml serve
 ```
 

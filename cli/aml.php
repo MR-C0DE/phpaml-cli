@@ -711,7 +711,9 @@ function createProject(
     string $destination,
     ?string $version = null,
     bool $refresh = false,
-    bool $offline = false
+    bool $offline = false,
+    bool $install = true,
+    bool $announceDeferred = true
 ): void
 {
     $target = creationTarget($destination);
@@ -782,16 +784,38 @@ function createProject(
 
     $zip->close();
 
+    if (!is_file($target . '/.env') && is_file($target . '/.env.example')) {
+        copy($target . '/.env.example', $target . '/.env');
+    }
+
     if (currentLanguage() === 'en') {
         output("Application '{$projectName}' created with PHPAML v{$template['version']} in {$target}");
-        output($destination === '.'
-            ? 'Run: aml install && aml serve'
-            : "Run: cd {$destination} && aml install && aml serve");
     } else {
         output("Application '{$projectName}' créée avec PHPAML v{$template['version']} dans {$target}");
-        output($destination === '.'
-            ? 'Lancez : aml install && aml serve'
-            : "Lancez : cd {$destination} && aml install && aml serve");
+    }
+
+    if ($install) {
+        installCreatedProject($target, $offline);
+        output(currentLanguage() === 'en'
+            ? ($destination === '.' ? 'Ready. Run: aml serve' : "Ready. Run: cd {$destination} && aml serve")
+            : ($destination === '.' ? 'Prêt. Lancez : aml serve' : "Prêt. Lancez : cd {$destination} && aml serve"));
+    } elseif ($announceDeferred) {
+        output(currentLanguage() === 'en'
+            ? 'Project files are ready. Run aml install before aml serve.'
+            : 'Les fichiers du projet sont prêts. Lancez aml install avant aml serve.');
+    }
+}
+
+function installCreatedProject(string $target, bool $offline = false): void
+{
+    $command = 'cd ' . escapeshellarg($target)
+        . ' && ' . escapeshellarg(PHP_BINARY)
+        . ' ' . escapeshellarg(__FILE__)
+        . ' install'
+        . ($offline ? ' --offline' : '');
+    passthru($command, $exitCode);
+    if ($exitCode !== 0) {
+        fail("L’installation automatique du projet a échoué. Relancez 'aml install' dans {$target}.", $exitCode);
     }
 }
 
@@ -803,7 +827,7 @@ function createViewApplication(
     bool $offline = false
 ): never {
     $target = creationTarget($destination);
-    createProject($destination, $templateVersion, $refresh, $offline);
+    createProject($destination, $templateVersion, $refresh, $offline, false, false);
     if (!chdir($target)) {
         fail("Impossible d’ouvrir le projet créé dans {$target}.");
     }
@@ -827,7 +851,7 @@ function removeGeneratedPath(string $path): void
 function createApiApplication(string $destination, ?string $templateVersion = null, bool $refresh = false, bool $offline = false): void
 {
     $target = creationTarget($destination);
-    createProject($destination, $templateVersion, $refresh, $offline);
+    createProject($destination, $templateVersion, $refresh, $offline, false, false);
     foreach (['app/views', 'public/css', 'public/js', 'public/img', 'configs', 'config', 'routes'] as $obsolete) removeGeneratedPath($target . '/' . $obsolete);
     foreach (['app/Controllers/HomeController.php', 'app/Models/HomeModel.php'] as $obsolete) @unlink($target . '/' . $obsolete);
     foreach (['src/controllers', 'src/models', 'src/repositories', 'src/requests', 'src/resources', 'src/routes', 'src/middleware'] as $directory) {
@@ -913,9 +937,10 @@ if ($response->status() !== 200 || !str_contains($response->content(), '"status"
 echo "✓ Generated API health route\n";
 PHP
     );
+    installCreatedProject($target, $offline);
     output(currentLanguage() === 'en'
-        ? "API '{$manifest['name']}' created in {$target}. Run: aml install && aml serve"
-        : "API '{$manifest['name']}' créée dans {$target}. Lancez : aml install && aml serve");
+        ? "API '{$manifest['name']}' is ready in {$target}. Run: cd {$destination} && aml serve"
+        : "L’API '{$manifest['name']}' est prête dans {$target}. Lancez : cd {$destination} && aml serve");
 }
 
 /** @return list<string> */
@@ -2096,6 +2121,9 @@ PHP
 // AML View integration
 $viewApp = new \AML\View\FileApplication($root . '/src/views');
 $config = \PHPAML\Config\ApplicationConfig::load($root);
+if (function_exists('phpamlComposeApplication')) {
+    $config = phpamlComposeApplication($config, $root);
+}
 $application = new \PHPAML\WebApplication($config);
 if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
     $request = \PHPAML\Http\Request::capture();
@@ -4364,7 +4392,8 @@ switch ($command) {
             $destination,
             optionValue($arguments, '--version'),
             in_array('--refresh', $arguments, true),
-            in_array('--offline', $arguments, true)
+            in_array('--offline', $arguments, true),
+            !in_array('--no-install', $arguments, true)
         );
         break;
     case 'create-view-app':

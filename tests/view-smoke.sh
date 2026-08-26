@@ -106,10 +106,17 @@ AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/compos
   "$php_bin" "$root/cli/aml.php" create-view-app generated --offline --version 0.0.0 > create.log
 
 AML_LANG=en AML_CACHE_HOME="$fixture/cache" \
-  "$php_bin" "$root/cli/aml.php" create "$fixture/absolute-project" --offline --version 0.0.0 > absolute-create.log
+  "$php_bin" "$root/cli/aml.php" create "$fixture/absolute-project" --offline --no-install --version 0.0.0 > absolute-create.log
 test -f "$fixture/absolute-project/phpaml.json"
 test ! -e "$fixture/work/$fixture/absolute-project"
 test ! -d "$fixture/absolute-project/app/UI"
+
+AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/composer" \
+  "$php_bin" "$root/cli/aml.php" create automatic-project --offline --version 0.0.0 > automatic-create.log
+test -f automatic-project/.env
+test -f automatic-project/runtime/aml-installed.json
+grep -q 'install --no-interaction --prefer-dist' automatic-project/composer-invocations.log
+grep -q 'Ready. Run: cd automatic-project && aml serve' automatic-create.log
 
 cd generated
 

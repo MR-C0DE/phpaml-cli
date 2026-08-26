@@ -47,7 +47,6 @@ puis créez une application :
 ```bash
 aml create mon-app
 cd mon-app
-aml install
 aml doctor
 aml serve
 ```
@@ -71,7 +70,6 @@ Aucune installation globale de PHP, Composer ou Node.js n’est nécessaire.
 ```bash
 aml create mon-app
 cd mon-app
-aml install
 aml serve
 ```
 
@@ -96,7 +94,6 @@ et [Chess Tutor](https://phpaml-chess-tutor.onrender.com).
 ```bash
 aml create-api films-api
 cd films-api
-aml install
 aml serve
 ```
 
