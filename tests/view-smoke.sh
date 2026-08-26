@@ -145,10 +145,10 @@ grep -q 'Navigation(),' src/views/layouts/AppLayout.php
 ! grep -q 'new Element(' src/views/pages/home/page.php
 test -d src/controllers
 test -d src/models
-find src -maxdepth 1 -type d -print | grep -q '^src/controllers$'
-find src -maxdepth 1 -type d -print | grep -q '^src/models$'
-! find src -maxdepth 1 -type d -print | grep -q '^src/Controllers$'
-! find src -maxdepth 1 -type d -print | grep -q '^src/Models$'
+find src -type d -print | grep -q '^src/controllers$'
+find src -type d -print | grep -q '^src/models$'
+! find src -type d -print | grep -q '^src/Controllers$'
+! find src -type d -print | grep -q '^src/Models$'
 test -d src/views
 test ! -f src/ViewRegistry.php
 test -f src/views/stylesheets/base.css
