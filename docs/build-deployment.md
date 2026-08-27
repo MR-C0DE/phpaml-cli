@@ -40,6 +40,8 @@ aml deploy:configure production \
   --key ~/.ssh/id_ed25519
 
 aml deploy:check production
+aml deploy production --dry-run
+aml deploy:status production
 aml deploy production
 ```
 
@@ -62,6 +64,10 @@ on the server from the current release before the atomic symlink switch, so the
 rollback remains available without uploading the whole project again. For
 `public-html` and `sftp-only`, the previous remote manifest is also used to
 remove only obsolete files previously owned by PHPAML.
+Use `aml deploy <profile> --dry-run` to build and compare manifests while
+leaving the server untouched. `aml deploy:status <profile>` performs the same
+read-only comparison and reports whether local and production are synchronized.
+Both commands list added (`+`), modified (`~`), and removed (`-`) paths.
 Local SFTP staging data is removed after both successful and failed transfers.
 The build checksum is verified before every transfer, including `--skip-build`.
 The CLI test suite starts an isolated SSH/SFTP server and validates real
@@ -145,6 +151,8 @@ aml deploy:configure production \
   --key ~/.ssh/id_ed25519
 
 aml deploy:check production
+aml deploy production --dry-run
+aml deploy:status production
 aml deploy production
 ```
 
@@ -167,6 +175,11 @@ complète est reconstruite sur le serveur depuis la release courante avant le
 basculement atomique : le rollback reste donc disponible sans retransférer tout
 le projet. Avec `public-html` et `sftp-only`, l'ancien manifeste distant permet
 également de supprimer uniquement les fichiers PHPAML devenus obsolètes.
+Utilisez `aml deploy <profil> --dry-run` pour construire et comparer les
+manifestes sans modifier le serveur. `aml deploy:status <profil>` effectue la
+même comparaison en lecture seule et indique si le projet local et la
+production sont synchronisés. Les deux commandes listent les chemins ajoutés
+(`+`), modifiés (`~`) et supprimés (`-`).
 Le dossier temporaire SFTP local est supprimé après un succès comme un échec.
 Le checksum du build est vérifié avant chaque transfert, même avec
 `--skip-build`. La CI démarre désormais un vrai serveur SSH/SFTP isolé et valide

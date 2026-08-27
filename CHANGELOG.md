@@ -1,5 +1,12 @@
 # Changelog
 
+## Non publié
+
+- ajoute `aml deploy <profil> --dry-run` pour afficher précisément les fichiers
+  ajoutés, modifiés et supprimés sans modifier la production ;
+- ajoute `aml deploy:status <profil>` pour comparer en lecture seule le projet
+  local et le manifeste distant, avec prise en charge de SSH et SFTP.
+
 ## 1.7.0-beta.20 — 2026-08-26
 
 - transforme `aml deploy` en déploiement différentiel fondé sur les empreintes

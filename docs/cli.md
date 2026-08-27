@@ -78,6 +78,8 @@ aml deploy:configure production --host example.com --user deploy \
 aml deploy:check production
 aml ssh production
 aml sftp production
+aml deploy production --dry-run
+aml deploy:status production
 aml deploy production
 aml deploy:rollback production
 aml deploy:prune production --keep 5

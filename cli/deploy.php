@@ -311,13 +311,31 @@ function deployCapture(array $command): array
 }
 
 /** @param array{added: list<string>, modified: list<string>, removed: list<string>, unchanged: list<string>, transfer: list<string>} $changes */
-function deployOutputChanges(array $changes): void
+function deployOutputChanges(array $changes, bool $details = false): void
 {
     output(sprintf(
         'Δ Déploiement : %d ajouté(s), %d modifié(s), %d supprimé(s), %d inchangé(s).',
         count($changes['added']), count($changes['modified']), count($changes['removed']), count($changes['unchanged'])
     ));
+    if ($details) {
+        foreach ($changes['added'] as $file) output("  + {$file}");
+        foreach ($changes['modified'] as $file) output("  ~ {$file}");
+        foreach ($changes['removed'] as $file) output("  - {$file}");
+    }
     if ($changes['transfer'] === [] && $changes['removed'] === []) output('✓ Aucun fichier à transférer.');
+}
+
+/** @param array{added: list<string>, modified: list<string>, removed: list<string>, unchanged: list<string>, transfer: list<string>} $changes */
+function deployOutputPreview(string $name, array $changes, bool $statusOnly): void
+{
+    deployOutputChanges($changes, true);
+    if ($statusOnly) {
+        output($changes['transfer'] === [] && $changes['removed'] === []
+            ? "✓ Le projet local et la production sont synchronisés : {$name}"
+            : "ℹ La production diffère du projet local : {$name}");
+    } else {
+        output("✓ Prévisualisation terminée : aucun fichier distant n'a été modifié.");
+    }
 }
 
 /** @return array{files: list<string>, hashes: array<string, string>} */
@@ -409,7 +427,7 @@ function deployShell(string $name, bool $sftp = false): never
     exit(deployRun($command));
 }
 
-function deployProject(string $name, bool $skipBuild = false): never
+function deployProject(string $name, bool $skipBuild = false, bool $dryRun = false, bool $statusOnly = false): never
 {
     $root = projectRoot();
     if (!$skipBuild || !is_file($root . '/output/phpaml-build.zip')) {
@@ -424,7 +442,7 @@ function deployProject(string $name, bool $skipBuild = false): never
     }
     $profile = deployProfile($name);
     if (($profile['strategy'] ?? 'releases') === 'sftp-only') {
-        deploySftpOnly($root, $name, $profile);
+        deploySftpOnly($root, $name, $profile, $dryRun || $statusOnly, $statusOnly);
     }
     $staging = null;
     try {
@@ -436,6 +454,11 @@ function deployProject(string $name, bool $skipBuild = false): never
             : rtrim((string) $profile['path'], '/') . '/current/build-manifest.json';
         $previousManifest = deployRemoteManifest($profile, $remoteManifestPath);
         $changes = deployManifestChanges($manifest, $previousManifest);
+        if ($dryRun || $statusOnly) {
+            deployOutputPreview($name, $changes, $statusOnly);
+            deployRemoveDirectory($staging); $staging = null;
+            exit(0);
+        }
         deployOutputChanges($changes);
 
         if ($changes['transfer'] === [] && $changes['removed'] === []) {
@@ -490,7 +513,7 @@ function deployProject(string $name, bool $skipBuild = false): never
     }
 }
 
-function deploySftpOnly(string $root, string $name, array $profile): never
+function deploySftpOnly(string $root, string $name, array $profile, bool $preview = false, bool $statusOnly = false): never
 {
     $staging = sys_get_temp_dir() . '/phpaml-sftp-' . bin2hex(random_bytes(5));
     $error = null;
@@ -508,6 +531,11 @@ function deploySftpOnly(string $root, string $name, array $profile): never
         deployRun(['sftp', '-b', $fetchBatch, ...$connection]);
         $previousManifest = is_file($oldManifest) ? deployManifest($oldManifest) : [];
         $changes = deployManifestChanges(deployManifest($staging . '/build-manifest.json'), $previousManifest);
+        if ($preview) {
+            deployRemoveDirectory($staging);
+            deployOutputPreview($name, $changes, $statusOnly);
+            exit(0);
+        }
         deployOutputChanges($changes);
         $batch = $staging . '/deploy.sftp';
         file_put_contents($batch, implode("\n", deploySftpCommands($staging, $profile, $previousManifest)) . "\n");
