@@ -92,9 +92,12 @@ Stratégies disponibles :
 ```
 
 Les profils sont privés dans `~/.phpaml/deploy.json` et ne contiennent aucun
-mot de passe. `aml deploy` construit l’application, transfère l’archive dans
-`releases/`, puis active atomiquement le lien `current`. Configurez la racine
-du domaine sur `<chemin>/current/public`.
+mot de passe. Au premier lancement, `aml deploy` transfère tous les fichiers du
+build. Ensuite, il compare les empreintes du manifeste distant et n'envoie que
+les fichiers ajoutés ou modifiés ; il retire aussi les fichiers supprimés du
+projet. Avec `releases`, AML reconstruit la nouvelle release sur le serveur,
+vérifie ses empreintes, puis active atomiquement le lien `current`. Configurez
+la racine du domaine sur `<chemin>/current/public`.
 
 Pour `public-html` et `sftp-only`, `--public-path` peut être extérieur à
 `--path`, notamment pour un sous-domaine Hostinger. Lors d’une première

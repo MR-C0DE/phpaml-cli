@@ -70,6 +70,12 @@ jobs:
             (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy "ssh-$kind")
             ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
               "test -f /home/aml-deploy/ssh-$kind/current/public/index.php"
+            printf '%s\n' "<?php \$root = dirname(__DIR__); echo \"PHPAML-$kind-UPDATED\";" > "$project/public/index.php"
+            printf '%s\n' 'incremental' > "$project/public/version.txt"
+            (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy "ssh-$kind") | tee "$RUNNER_TEMP/ssh-$kind-delta.log"
+            grep -q '1 ajouté(s), 1 modifié(s)' "$RUNNER_TEMP/ssh-$kind-delta.log"
+            ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
+              "grep -q UPDATED /home/aml-deploy/ssh-$kind/current/public/index.php && test -f /home/aml-deploy/ssh-$kind/current/public/version.txt"
 
             HOME="$RUNNER_TEMP/home-$kind" php "$cli" deploy:configure "sftp-$kind" \
               --host 127.0.0.1 --port 2222 --user aml-deploy \
@@ -80,4 +86,9 @@ jobs:
             (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy "sftp-$kind")
             ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
               "test -f /home/aml-deploy/sftp-$kind/public/index.php"
+            printf '%s\n' 'sftp-delta' > "$project/public/sftp.txt"
+            (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy "sftp-$kind") | tee "$RUNNER_TEMP/sftp-$kind-delta.log"
+            grep -q '1 ajouté(s), 0 modifié(s)' "$RUNNER_TEMP/sftp-$kind-delta.log"
+            ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
+              "test -f /home/aml-deploy/sftp-$kind/public/sftp.txt"
           done

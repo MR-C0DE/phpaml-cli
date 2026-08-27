@@ -44,6 +44,9 @@ PHP
 listing="$(unzip -l "$fixture/project/output/phpaml-build.zip")"
 grep -q 'public/index.php' <<<"$listing"
 grep -q 'runtime/phpaml/view/src/View.php' <<<"$listing"
+manifest="$(unzip -p "$fixture/project/output/phpaml-build.zip" build-manifest.json)"
+grep -q '"hashes"' <<<"$manifest"
+grep -q '"public/index.php": "[a-f0-9]\{64\}"' <<<"$manifest"
 if grep -qE '(^|/)(\.env|\.github/|tests/|docs/|examples/|deliverables/|runtime/phpstan/)|runtime/phpaml/view/README\.md' <<<"$listing"; then
   echo 'The production build contains forbidden files.' >&2
   exit 1
@@ -94,6 +97,18 @@ file_put_contents($integrityChecksum, hash_file('sha256', $integrityArchive) . "
 deployVerifyBuildIntegrity($integrityArchive, $integrityChecksum);
 file_put_contents($integrityArchive, 'tampered-build');
 try { deployVerifyBuildIntegrity($integrityArchive, $integrityChecksum); exit(20); } catch (RuntimeException) {}
+$verifiedRelease = $root . '/verified-release';
+mkdir($verifiedRelease, 0777, true);
+file_put_contents($verifiedRelease . '/app.php', 'verified');
+file_put_contents($verifiedRelease . '/build-manifest.json', json_encode([
+    'files' => ['app.php'],
+    'hashes' => ['app.php' => hash_file('sha256', $verifiedRelease . '/app.php')],
+]));
+passthru(deployVerifyReleaseCommand($verifiedRelease), $verifyStatus);
+if ($verifyStatus !== 0) exit(21);
+file_put_contents($verifiedRelease . '/app.php', 'tampered');
+passthru(deployVerifyReleaseCommand($verifiedRelease), $tamperedStatus);
+if ($tamperedStatus === 0) exit(22);
 $release = '20260812-190000';
 $directory = $root . '/releases/' . $release;
 mkdir($directory, 0777, true);
@@ -128,14 +143,22 @@ foreach (['mvc' => 'app/Controllers/HomeController.php', 'view' => 'src/views/pa
     mkdir(dirname($build . '/' . $sourceFile), 0777, true);
     file_put_contents($build . '/' . $sourceFile, $kind);
     file_put_contents($build . '/public/index.php', "<?php\n\$root = dirname(__DIR__);\n");
-    file_put_contents($build . '/build-manifest.json', json_encode(['files' => [$sourceFile, 'public/index.php']]));
-    $partition = deployPartitionFiles(deployManifestFiles($build . '/build-manifest.json'));
+    $hashes = [
+        $sourceFile => hash_file('sha256', $build . '/' . $sourceFile),
+        'public/index.php' => hash_file('sha256', $build . '/public/index.php'),
+    ];
+    file_put_contents($build . '/build-manifest.json', json_encode(['files' => [$sourceFile, 'public/index.php'], 'hashes' => $hashes]));
+    $newManifest = deployManifest($build . '/build-manifest.json');
+    $partition = deployPartitionFiles($newManifest['files']);
     if (!in_array($sourceFile, $partition['private'], true) || !in_array('public/index.php', $partition['public'], true)) exit(8);
-    $commands = deploySftpCommands($build, ['path' => '/remote/private', 'public_path' => '/remote/public'], ['public/debug.php']);
+    $previousManifest = ['files' => [$sourceFile, 'public/index.php', 'public/debug.php'], 'hashes' => [$sourceFile => $hashes[$sourceFile], 'public/index.php' => str_repeat('0', 64)]];
+    $changes = deployManifestChanges($newManifest, $previousManifest);
+    if ($changes['added'] !== [] || $changes['modified'] !== ['public/index.php'] || $changes['removed'] !== ['public/debug.php'] || $changes['unchanged'] !== [$sourceFile]) exit(15);
+    $commands = deploySftpCommands($build, ['path' => '/remote/private', 'public_path' => '/remote/public'], $previousManifest);
     $batch = implode("\n", $commands);
-    if (!str_contains($batch, $sourceFile) || !str_contains($batch, '-rm "/remote/public/debug.php"')) exit(9);
+    if (str_contains($batch, 'put "' . $build . '/' . $sourceFile . '"') || !str_contains($batch, 'put "' . $build . '/public/index.php"') || !str_contains($batch, '-rm "/remote/public/debug.php"')) exit(9);
     if (!str_contains($batch, '-mkdir "/remote"') || !str_contains($batch, '-mkdir "/remote/private"')) exit(14);
-    $putPosition = strpos($batch, 'put "' . $build . '/' . $sourceFile . '"');
+    $putPosition = strpos($batch, 'put "' . $build . '/public/index.php"');
     $removePosition = strpos($batch, '-rm "/remote/public/debug.php"');
     $renamePosition = strpos($batch, 'rename "/remote/private/.phpaml-deploy-manifest.next.json"');
     if (!is_int($putPosition) || !is_int($removePosition) || !is_int($renamePosition) || !($putPosition < $removePosition && $removePosition < $renamePosition)) exit(12);

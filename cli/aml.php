@@ -736,6 +736,7 @@ function createProject(
     }
 
     $files = [];
+    $hashes = [];
     for ($index = 0; $index < $zip->numFiles; $index++) {
         $entry = str_replace('\\', '/', (string) $zip->getNameIndex($index));
         $parts = explode('/', $entry, 2);
@@ -1155,12 +1156,19 @@ function buildProject(bool $skipTests = false): never
         ], true)) {
             $contents = productionComposerAutoload((string) file_get_contents($file->getPathname()));
             $zip->addFromString($relative, $contents);
+            $hashes[$relative] = hash('sha256', $contents);
         } else {
             $zip->addFile($file->getPathname(), $relative);
+            $fileHash = hash_file('sha256', $file->getPathname());
+            if (!is_string($fileHash)) {
+                fail("Impossible de calculer l'empreinte de {$relative}.");
+            }
+            $hashes[$relative] = $fileHash;
         }
         $files[] = $relative;
     }
     sort($files);
+    ksort($hashes);
     $manifest = [
         'built_at' => date(DATE_ATOM),
         'aml_version' => projectInfo(PHPAML_FRAMEWORK_ROOT)['version'] ?? null,
@@ -1169,6 +1177,7 @@ function buildProject(bool $skipTests = false): never
         'document_root' => 'public',
         'clean_urls' => true,
         'files' => $files,
+        'hashes' => $hashes,
     ];
     $zip->addFromString('build-manifest.json', (string) json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
     if (!$zip->close() || !is_file($archive) || filesize($archive) === 0) {

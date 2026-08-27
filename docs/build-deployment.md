@@ -54,8 +54,14 @@ Available strategies:
 - `sftp-only`: hosts that provide SFTP but no remote shell.
 
 All strategies use `build-manifest.json`; there is no hard-coded `app/` or
-`src/` directory list. For `public-html` and `sftp-only`, the previous remote
-manifest is used to remove only obsolete files previously owned by PHPAML.
+`src/` directory list. Every file has its own SHA-256 fingerprint. After the
+first deployment, AML compares the local and remote manifests, transfers only
+added or modified files, removes files deleted from the project, and leaves
+unchanged files untouched. For `releases`, the complete next release is rebuilt
+on the server from the current release before the atomic symlink switch, so the
+rollback remains available without uploading the whole project again. For
+`public-html` and `sftp-only`, the previous remote manifest is also used to
+remove only obsolete files previously owned by PHPAML.
 Local SFTP staging data is removed after both successful and failed transfers.
 The build checksum is verified before every transfer, including `--skip-build`.
 The CLI test suite starts an isolated SSH/SFTP server and validates real
@@ -153,8 +159,14 @@ Stratégies disponibles :
 - `sftp-only` : hébergeur offrant SFTP sans terminal SSH.
 
 Toutes les stratégies utilisent `build-manifest.json`, sans liste codée en dur
-pour `app/` ou `src/`. Avec `public-html` et `sftp-only`, l’ancien manifeste
-distant permet de supprimer uniquement les fichiers PHPAML devenus obsolètes.
+pour `app/` ou `src/`. Chaque fichier possède sa propre empreinte SHA-256. Après
+le premier déploiement, AML compare les manifestes local et distant, transfère
+uniquement les fichiers ajoutés ou modifiés, supprime ceux retirés du projet et
+ne renvoie pas les fichiers inchangés. Avec `releases`, la prochaine release
+complète est reconstruite sur le serveur depuis la release courante avant le
+basculement atomique : le rollback reste donc disponible sans retransférer tout
+le projet. Avec `public-html` et `sftp-only`, l'ancien manifeste distant permet
+également de supprimer uniquement les fichiers PHPAML devenus obsolètes.
 Le dossier temporaire SFTP local est supprimé après un succès comme un échec.
 Le checksum du build est vérifié avant chaque transfert, même avec
 `--skip-build`. La CI démarre désormais un vrai serveur SSH/SFTP isolé et valide

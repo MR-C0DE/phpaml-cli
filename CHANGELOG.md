@@ -1,5 +1,15 @@
 # Changelog
 
+## Non publié
+
+- transforme `aml deploy` en déploiement différentiel fondé sur les empreintes
+  SHA-256 individuelles du manifeste de build ;
+- transfère uniquement les fichiers ajoutés ou modifiés et retire les fichiers
+  supprimés, sans renvoyer les fichiers inchangés ;
+- reconstruit les releases atomiques côté serveur depuis la version courante,
+  vérifie toutes leurs empreintes, puis conserve le rollback existant ;
+- applique la même comparaison aux stratégies `public-html` et `sftp-only`.
+
 ## 1.7.0-beta.19 — 2026-08-26
 
 - normalise réellement `src/Controllers`, `src/Models`, `src/Middleware` et
