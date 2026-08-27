@@ -44,6 +44,7 @@ jobs:
             cp phpaml.json "$project/phpaml.json"
             printf '%s\n' '<?php $root = dirname(__DIR__); echo "PHPAML-'"$kind"'";' > "$project/public/index.php"
             printf '%s\n' 'RewriteEngine On' 'RewriteCond %{REQUEST_FILENAME} !-f' 'RewriteCond %{REQUEST_FILENAME} !-d' 'RewriteRule ^ index.php [QSA,L]' > "$project/public/.htaccess"
+            printf '%s\n' 'remove-me-after-first-deploy' > "$project/public/obsolete.txt"
             printf '%s\n' '<?php exit(0);' > "$project/tests/run.php"
             printf '%s\n' '{}' > "$project/composer.json"
             if [ "$kind" = mvc ]; then
@@ -72,10 +73,25 @@ jobs:
               "test -f /home/aml-deploy/ssh-$kind/current/public/index.php"
             printf '%s\n' "<?php \$root = dirname(__DIR__); echo \"PHPAML-$kind-UPDATED\";" > "$project/public/index.php"
             printf '%s\n' 'incremental' > "$project/public/version.txt"
+            if [ "$kind" = mvc ]; then
+              printf '%s\n' '<?php // incrementally updated controller' > "$project/app/Controllers/HomeController.php"
+            else
+              printf '%s\n' '<?php // incrementally updated page' > "$project/src/views/pages/home/page.php"
+            fi
+            rm "$project/public/obsolete.txt"
             (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy "ssh-$kind") | tee "$RUNNER_TEMP/ssh-$kind-delta.log"
-            grep -q '1 ajouté(s), 1 modifié(s)' "$RUNNER_TEMP/ssh-$kind-delta.log"
+            grep -q '1 ajouté(s), 2 modifié(s), 1 supprimé(s)' "$RUNNER_TEMP/ssh-$kind-delta.log"
             ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
-              "grep -q UPDATED /home/aml-deploy/ssh-$kind/current/public/index.php && test -f /home/aml-deploy/ssh-$kind/current/public/version.txt"
+              "grep -q UPDATED /home/aml-deploy/ssh-$kind/current/public/index.php && test -f /home/aml-deploy/ssh-$kind/current/public/version.txt && test ! -e /home/aml-deploy/ssh-$kind/current/public/obsolete.txt"
+
+            (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy:rollback "ssh-$kind")
+            ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
+              "grep -q 'PHPAML-$kind' /home/aml-deploy/ssh-$kind/current/public/index.php && ! grep -q UPDATED /home/aml-deploy/ssh-$kind/current/public/index.php && test -f /home/aml-deploy/ssh-$kind/current/public/obsolete.txt && test ! -e /home/aml-deploy/ssh-$kind/current/public/version.txt"
+
+            (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy "ssh-$kind")
+            (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy:prune "ssh-$kind" --keep 2)
+            ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
+              "test \"\$(find /home/aml-deploy/ssh-$kind/releases -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')\" -le 2"
 
             HOME="$RUNNER_TEMP/home-$kind" php "$cli" deploy:configure "sftp-$kind" \
               --host 127.0.0.1 --port 2222 --user aml-deploy \
