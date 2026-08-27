@@ -1,6 +1,6 @@
 # Changelog
 
-## Non publié
+## 1.7.0-beta.20 — 2026-08-26
 
 - transforme `aml deploy` en déploiement différentiel fondé sur les empreintes
   SHA-256 individuelles du manifeste de build ;
