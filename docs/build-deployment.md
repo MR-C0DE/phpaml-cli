@@ -68,6 +68,18 @@ Use `aml deploy <profile> --dry-run` to build and compare manifests while
 leaving the server untouched. `aml deploy:status <profile>` performs the same
 read-only comparison and reports whether local and production are synchronized.
 Both commands list added (`+`), modified (`~`), and removed (`-`) paths.
+Real deployments show the transferred size, the full-build equivalent, the
+bytes and percentage saved, and milestone progress from build verification to
+remote activation. Successful, synchronized, and failed attempts are retained
+locally (up to 100 entries) without hostnames, paths, users, or secrets:
+
+```bash
+aml deploy:history
+aml deploy:history production
+```
+
+The private history is stored in `~/.phpaml/deploy-history.json` with mode
+`600` and displays the 20 most recent matching entries.
 Local SFTP staging data is removed after both successful and failed transfers.
 The build checksum is verified before every transfer, including `--skip-build`.
 The CLI test suite starts an isolated SSH/SFTP server and validates real
@@ -180,6 +192,20 @@ manifestes sans modifier le serveur. `aml deploy:status <profil>` effectue la
 même comparaison en lecture seule et indique si le projet local et la
 production sont synchronisés. Les deux commandes listent les chemins ajoutés
 (`+`), modifiés (`~`) et supprimés (`-`).
+Les déploiements réels affichent le volume transféré, l’équivalent du build
+complet, les octets et le pourcentage économisés, ainsi qu’une progression par
+étapes jusqu’à l’activation distante. Les tentatives réussies, déjà
+synchronisées ou échouées sont conservées localement (100 entrées maximum),
+sans serveur, chemin, utilisateur ni secret :
+
+```bash
+aml deploy:history
+aml deploy:history production
+```
+
+Cet historique privé se trouve dans `~/.phpaml/deploy-history.json` avec les
+permissions `600`; la commande affiche les 20 entrées correspondantes les plus
+récentes.
 Le dossier temporaire SFTP local est supprimé après un succès comme un échec.
 Le checksum du build est vérifié avant chaque transfert, même avec
 `--skip-build`. La CI démarre désormais un vrai serveur SSH/SFTP isolé et valide

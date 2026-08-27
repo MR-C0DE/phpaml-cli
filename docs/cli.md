@@ -81,6 +81,7 @@ aml sftp production
 aml deploy production --dry-run
 aml deploy:status production
 aml deploy production
+aml deploy:history production
 aml deploy:rollback production
 aml deploy:prune production --keep 5
 ```
@@ -100,6 +101,11 @@ les fichiers ajoutés ou modifiés ; il retire aussi les fichiers supprimés du
 projet. Avec `releases`, AML reconstruit la nouvelle release sur le serveur,
 vérifie ses empreintes, puis active atomiquement le lien `current`. Configurez
 la racine du domaine sur `<chemin>/current/public`.
+
+Chaque déploiement affiche sa progression, le volume réellement nécessaire et
+l’économie par rapport au build complet. `aml deploy:history [profil]` affiche
+les 20 opérations locales les plus récentes. Le fichier privé conserve au plus
+100 entrées et n’enregistre aucun hôte, chemin, utilisateur ou secret.
 
 Pour `public-html` et `sftp-only`, `--public-path` peut être extérieur à
 `--path`, notamment pour un sous-domaine Hostinger. Lors d’une première

@@ -252,6 +252,7 @@ function showHelp(): void
             '  build [options]          Create a production deployment archive',
             '  deploy <profile>         Build and deploy through SSH/SFTP (--dry-run to preview)',
             '  deploy:status <name>     Compare the local project with production',
+            '  deploy:history [name]    Show the private local deployment history',
             '  deploy:configure <name>  Configure a deployment profile',
             '  deploy:check <name>      Test an SSH connection',
             '  deploy:rollback <name>   Activate the previous release',
@@ -341,6 +342,7 @@ function showHelp(): void
     output('  build [options]           Crée une archive de déploiement production');
     output('  deploy <profil>           Construit et déploie par SSH/SFTP (--dry-run pour prévisualiser)');
     output('  deploy:status <nom>       Compare le projet local à la production');
+    output('  deploy:history [nom]      Affiche l’historique local privé des déploiements');
     output('  deploy:configure <nom>    Configure un serveur de déploiement');
     output('  deploy:check <nom>        Teste la connexion SSH');
     output('  deploy:rollback <nom>     Réactive la release précédente');
@@ -4470,6 +4472,8 @@ switch ($command) {
             true,
             true
         ) : fail('Indiquez le nom du profil.');
+    case 'deploy:history':
+        deployShowHistory(isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : null);
     case 'deploy:rollback':
         isset($arguments[1]) ? deployRollback($arguments[1]) : fail('Indiquez le nom du profil.');
     case 'deploy:prune':

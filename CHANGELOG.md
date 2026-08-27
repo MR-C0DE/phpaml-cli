@@ -5,7 +5,11 @@
 - ajoute `aml deploy <profil> --dry-run` pour afficher précisément les fichiers
   ajoutés, modifiés et supprimés sans modifier la production ;
 - ajoute `aml deploy:status <profil>` pour comparer en lecture seule le projet
-  local et le manifeste distant, avec prise en charge de SSH et SFTP.
+  local et le manifeste distant, avec prise en charge de SSH et SFTP ;
+- affiche le volume transféré, l’économie obtenue face à un build complet et
+  une progression par étapes pendant les opérations distantes ;
+- conserve jusqu’à 100 résultats dans un historique local privé, sans données
+  de connexion, consultable avec `aml deploy:history [profil]`.
 
 ## 1.7.0-beta.20 — 2026-08-26
 

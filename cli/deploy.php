@@ -8,6 +8,73 @@ function deployConfigPath(): string
     return rtrim((string) ($base ?: sys_get_temp_dir()), '/\\') . '/.phpaml/deploy.json';
 }
 
+function deployHistoryPath(): string
+{
+    return dirname(deployConfigPath()) . '/deploy-history.json';
+}
+
+/** @return list<array<string, mixed>> */
+function deployHistoryEntries(): array
+{
+    $entries = is_file(deployHistoryPath()) ? json_decode((string) file_get_contents(deployHistoryPath()), true) : [];
+    return is_array($entries) ? array_values(array_filter($entries, 'is_array')) : [];
+}
+
+/**
+ * @param array{added: list<string>, modified: list<string>, removed: list<string>, unchanged: list<string>, transfer: list<string>} $changes
+ * @param array{transfer_bytes: int, total_bytes: int, saved_bytes: int, saved_percent: float} $stats
+ */
+function deployRecordHistory(string $name, array $profile, string $status, array $changes, array $stats, ?string $release, float $startedAt): void
+{
+    $entries = deployHistoryEntries();
+    array_unshift($entries, [
+        'timestamp' => gmdate(DATE_ATOM),
+        'profile' => $name,
+        'strategy' => (string) ($profile['strategy'] ?? 'releases'),
+        'status' => $status,
+        'release' => $release,
+        'added' => count($changes['added']),
+        'modified' => count($changes['modified']),
+        'removed' => count($changes['removed']),
+        'unchanged' => count($changes['unchanged']),
+        'transferred_bytes' => $stats['transfer_bytes'],
+        'total_bytes' => $stats['total_bytes'],
+        'saved_bytes' => $stats['saved_bytes'],
+        'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+    ]);
+    $path = deployHistoryPath();
+    if (!is_dir(dirname($path))) mkdir(dirname($path), 0700, true);
+    file_put_contents($path, json_encode(array_slice($entries, 0, 100), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL, LOCK_EX);
+    @chmod($path, 0600);
+}
+
+function deployShowHistory(?string $profile = null): never
+{
+    $entries = array_values(array_filter(
+        deployHistoryEntries(),
+        static fn (array $entry): bool => $profile === null || ($entry['profile'] ?? null) === $profile
+    ));
+    if ($entries === []) {
+        output($profile === null ? 'Aucun déploiement enregistré.' : "Aucun déploiement enregistré pour {$profile}.");
+        exit(0);
+    }
+    output('Historique des déploiements');
+    output(str_repeat('─', 88));
+    foreach (array_slice($entries, 0, 20) as $entry) {
+        $counts = sprintf('+%d ~%d -%d', $entry['added'] ?? 0, $entry['modified'] ?? 0, $entry['removed'] ?? 0);
+        output(sprintf(
+            '%s  %-14s %-12s %-12s %s  %s',
+            substr((string) ($entry['timestamp'] ?? ''), 0, 19) . 'Z',
+            (string) ($entry['profile'] ?? '?'),
+            (string) ($entry['strategy'] ?? '?'),
+            (string) ($entry['status'] ?? '?'),
+            $counts,
+            deployFormatBytes((int) ($entry['transferred_bytes'] ?? 0))
+        ));
+    }
+    exit(0);
+}
+
 /** @return array<string, array<string, mixed>> */
 function deployProfiles(): array
 {
@@ -310,6 +377,60 @@ function deployCapture(array $command): array
     return ['code' => $code, 'output' => (string) $output . (string) $error];
 }
 
+function deployFormatBytes(int $bytes): string
+{
+    $units = ['B', 'KB', 'MB', 'GB'];
+    $value = max(0, $bytes);
+    $unit = 0;
+    while ($value >= 1024 && $unit < count($units) - 1) {
+        $value /= 1024;
+        $unit++;
+    }
+    return ($unit === 0 ? (string) $value : number_format($value, $value >= 10 ? 1 : 2, '.', '')) . ' ' . $units[$unit];
+}
+
+/**
+ * @param array{files: list<string>, hashes: array<string, string>} $manifest
+ * @param array{added: list<string>, modified: list<string>, removed: list<string>, unchanged: list<string>, transfer: list<string>} $changes
+ * @return array{transfer_bytes: int, total_bytes: int, saved_bytes: int, saved_percent: float}
+ */
+function deployTransferStats(string $staging, array $manifest, array $changes): array
+{
+    $manifestBytes = (int) (@filesize($staging . '/build-manifest.json') ?: 0);
+    $sum = static function (array $files) use ($staging): int {
+        $bytes = 0;
+        foreach ($files as $file) $bytes += (int) (@filesize($staging . '/' . $file) ?: 0);
+        return $bytes;
+    };
+    $total = $sum($manifest['files']) + $manifestBytes;
+    $hasDeployment = $changes['transfer'] !== [] || $changes['removed'] !== [];
+    $transfer = $hasDeployment ? $sum($changes['transfer']) + $manifestBytes : 0;
+    $saved = max(0, $total - $transfer);
+    return [
+        'transfer_bytes' => $transfer,
+        'total_bytes' => $total,
+        'saved_bytes' => $saved,
+        'saved_percent' => $total > 0 ? round(($saved / $total) * 100, 1) : 0.0,
+    ];
+}
+
+/** @param array{transfer_bytes: int, total_bytes: int, saved_bytes: int, saved_percent: float} $stats */
+function deployOutputTransferStats(array $stats): void
+{
+    output(sprintf(
+        '↕ Transfert : %s sur %s — économie %s (%s%%).',
+        deployFormatBytes($stats['transfer_bytes']),
+        deployFormatBytes($stats['total_bytes']),
+        deployFormatBytes($stats['saved_bytes']),
+        number_format($stats['saved_percent'], 1, '.', '')
+    ));
+}
+
+function deployProgress(int $percent, string $message): void
+{
+    output(sprintf('[%3d%%] %s', max(0, min(100, $percent)), $message));
+}
+
 /** @param array{added: list<string>, modified: list<string>, removed: list<string>, unchanged: list<string>, transfer: list<string>} $changes */
 function deployOutputChanges(array $changes, bool $details = false): void
 {
@@ -326,9 +447,10 @@ function deployOutputChanges(array $changes, bool $details = false): void
 }
 
 /** @param array{added: list<string>, modified: list<string>, removed: list<string>, unchanged: list<string>, transfer: list<string>} $changes */
-function deployOutputPreview(string $name, array $changes, bool $statusOnly): void
+function deployOutputPreview(string $name, array $changes, array $stats, bool $statusOnly): void
 {
     deployOutputChanges($changes, true);
+    deployOutputTransferStats($stats);
     if ($statusOnly) {
         output($changes['transfer'] === [] && $changes['removed'] === []
             ? "✓ Le projet local et la production sont synchronisés : {$name}"
@@ -429,6 +551,7 @@ function deployShell(string $name, bool $sftp = false): never
 
 function deployProject(string $name, bool $skipBuild = false, bool $dryRun = false, bool $statusOnly = false): never
 {
+    $startedAt = microtime(true);
     $root = projectRoot();
     if (!$skipBuild || !is_file($root . '/output/phpaml-build.zip')) {
         $command = [PHP_BINARY, PHPAML_FRAMEWORK_ROOT . '/runtime/bin/aml.php', 'build'];
@@ -445,7 +568,10 @@ function deployProject(string $name, bool $skipBuild = false, bool $dryRun = fal
         deploySftpOnly($root, $name, $profile, $dryRun || $statusOnly, $statusOnly);
     }
     $staging = null;
+    $changes = null;
+    $stats = null;
     try {
+        if (!$dryRun && !$statusOnly) deployProgress(10, 'Build vérifié.');
         $staging = deployExtractBuild($root . '/output/phpaml-build.zip');
         $manifest = deployManifest($staging . '/build-manifest.json');
         $strategy = (string) ($profile['strategy'] ?? 'releases');
@@ -454,14 +580,19 @@ function deployProject(string $name, bool $skipBuild = false, bool $dryRun = fal
             : rtrim((string) $profile['path'], '/') . '/current/build-manifest.json';
         $previousManifest = deployRemoteManifest($profile, $remoteManifestPath);
         $changes = deployManifestChanges($manifest, $previousManifest);
+        $stats = deployTransferStats($staging, $manifest, $changes);
         if ($dryRun || $statusOnly) {
-            deployOutputPreview($name, $changes, $statusOnly);
+            deployOutputPreview($name, $changes, $stats, $statusOnly);
             deployRemoveDirectory($staging); $staging = null;
             exit(0);
         }
+        deployProgress(25, 'Comparaison locale/distante terminée.');
         deployOutputChanges($changes);
+        deployOutputTransferStats($stats);
 
         if ($changes['transfer'] === [] && $changes['removed'] === []) {
+            deployRecordHistory($name, $profile, 'synchronized', $changes, $stats, null, $startedAt);
+            deployProgress(100, 'Production déjà synchronisée.');
             output("✓ Production déjà à jour : {$name}");
             deployRemoveDirectory($staging); $staging = null;
             exit(0);
@@ -474,6 +605,7 @@ function deployProject(string $name, bool $skipBuild = false, bool $dryRun = fal
         $deltaArchive = $staging . '/.phpaml-delta.zip';
         deployCreateDeltaArchive($staging, $changes['transfer'], $deltaArchive);
 
+        deployProgress(40, 'Release distante préparée.');
         $prepare = 'mkdir -p ' . escapeshellarg($releasesRoot);
         if ($strategy === 'releases' && $previousManifest !== []) {
             $prepare .= ' && mkdir -p ' . escapeshellarg($directory)
@@ -484,8 +616,10 @@ function deployProject(string $name, bool $skipBuild = false, bool $dryRun = fal
         if (deployRun([...deploySshArguments($profile, true), $prepare]) !== 0) throw new RuntimeException('Préparation distante impossible.');
 
         $scp = ['scp', '-P', (string) $profile['port'], ...(($profile['key'] ?? '') !== '' ? ['-i', $profile['key']] : []), $deltaArchive, $profile['user'] . '@' . $profile['host'] . ':' . $remoteArchive];
+        deployProgress(60, 'Transfert différentiel en cours…');
         if (deployRun($scp) !== 0) throw new RuntimeException('Transfert différentiel SCP impossible.');
 
+        deployProgress(80, 'Vérification et activation distantes…');
         $activate = 'unzip -q -o ' . escapeshellarg($remoteArchive) . ' -d ' . escapeshellarg($directory);
         if ($strategy === 'public-html') {
             $public = (string) $profile['public_path'];
@@ -501,11 +635,14 @@ function deployProject(string $name, bool $skipBuild = false, bool $dryRun = fal
         }
         $activate .= ' && rm -f ' . escapeshellarg($remoteArchive);
         if (deployRun([...deploySshArguments($profile, true), $activate]) !== 0) throw new RuntimeException('Activation distante impossible.');
+        deployRecordHistory($name, $profile, 'deployed', $changes, $stats, $release, $startedAt);
+        deployProgress(100, 'Déploiement terminé.');
         output("✓ Release différentielle déployée : {$release}");
         output('Document root distant : ' . ($strategy === 'public-html' ? $profile['public_path'] : $profile['path'] . '/current/public'));
         deployRemoveDirectory($staging); $staging = null;
         exit(0);
     } catch (Throwable $error) {
+        if (is_array($changes) && is_array($stats)) deployRecordHistory($name, $profile, 'failed', $changes, $stats, null, $startedAt);
         if (is_string($staging)) deployRemoveDirectory($staging);
         fail($error->getMessage());
     } finally {
@@ -515,9 +652,13 @@ function deployProject(string $name, bool $skipBuild = false, bool $dryRun = fal
 
 function deploySftpOnly(string $root, string $name, array $profile, bool $preview = false, bool $statusOnly = false): never
 {
+    $startedAt = microtime(true);
     $staging = sys_get_temp_dir() . '/phpaml-sftp-' . bin2hex(random_bytes(5));
     $error = null;
+    $changes = null;
+    $stats = null;
     try {
+        if (!$preview) deployProgress(10, 'Build vérifié.');
         if (!mkdir($staging, 0700, true) && !is_dir($staging)) throw new RuntimeException('Impossible de créer le dossier temporaire SFTP.');
         $zip = new ZipArchive();
         if ($zip->open($root . '/output/phpaml-build.zip') !== true || !$zip->extractTo($staging)) throw new RuntimeException('Impossible de préparer le transfert SFTP.');
@@ -530,17 +671,32 @@ function deploySftpOnly(string $root, string $name, array $profile, bool $previe
         file_put_contents($fetchBatch, '-get ' . deploySftpQuote($profile['path'] . '/.phpaml-deploy-manifest.json') . ' ' . deploySftpQuote($oldManifest) . "\nquit\n");
         deployRun(['sftp', '-b', $fetchBatch, ...$connection]);
         $previousManifest = is_file($oldManifest) ? deployManifest($oldManifest) : [];
-        $changes = deployManifestChanges(deployManifest($staging . '/build-manifest.json'), $previousManifest);
+        $manifest = deployManifest($staging . '/build-manifest.json');
+        $changes = deployManifestChanges($manifest, $previousManifest);
+        $stats = deployTransferStats($staging, $manifest, $changes);
         if ($preview) {
             deployRemoveDirectory($staging);
-            deployOutputPreview($name, $changes, $statusOnly);
+            deployOutputPreview($name, $changes, $stats, $statusOnly);
             exit(0);
         }
+        deployProgress(30, 'Comparaison locale/distante terminée.');
         deployOutputChanges($changes);
+        deployOutputTransferStats($stats);
+        if ($changes['transfer'] === [] && $changes['removed'] === []) {
+            deployRecordHistory($name, $profile, 'synchronized', $changes, $stats, null, $startedAt);
+            deployProgress(100, 'Production déjà synchronisée.');
+            deployRemoveDirectory($staging);
+            output("✓ Production déjà à jour : {$name}");
+            exit(0);
+        }
         $batch = $staging . '/deploy.sftp';
         file_put_contents($batch, implode("\n", deploySftpCommands($staging, $profile, $previousManifest)) . "\n");
+        deployProgress(60, 'Transfert SFTP en cours…');
         if (deployRun(['sftp', '-b', $batch, ...$connection]) !== 0) throw new RuntimeException('Déploiement SFTP impossible.');
+        deployRecordHistory($name, $profile, 'deployed', $changes, $stats, null, $startedAt);
+        deployProgress(100, 'Déploiement terminé.');
     } catch (Throwable $exception) {
+        if (is_array($changes) && is_array($stats)) deployRecordHistory($name, $profile, 'failed', $changes, $stats, null, $startedAt);
         $error = $exception;
     } finally {
         deployRemoveDirectory($staging);

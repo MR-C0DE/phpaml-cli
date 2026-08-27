@@ -154,6 +154,9 @@ foreach (['mvc' => 'app/Controllers/HomeController.php', 'view' => 'src/views/pa
     $previousManifest = ['files' => [$sourceFile, 'public/index.php', 'public/debug.php'], 'hashes' => [$sourceFile => $hashes[$sourceFile], 'public/index.php' => str_repeat('0', 64)]];
     $changes = deployManifestChanges($newManifest, $previousManifest);
     if ($changes['added'] !== [] || $changes['modified'] !== ['public/index.php'] || $changes['removed'] !== ['public/debug.php'] || $changes['unchanged'] !== [$sourceFile]) exit(15);
+    $stats = deployTransferStats($build, $newManifest, $changes);
+    if ($stats['transfer_bytes'] <= 0 || $stats['total_bytes'] <= $stats['transfer_bytes'] || $stats['saved_bytes'] <= 0 || $stats['saved_percent'] <= 0) exit(16);
+    if (deployFormatBytes(1536) !== '1.50 KB') exit(17);
     $commands = deploySftpCommands($build, ['path' => '/remote/private', 'public_path' => '/remote/public'], $previousManifest);
     $batch = implode("\n", $commands);
     if (str_contains($batch, 'put "' . $build . '/' . $sourceFile . '"') || !str_contains($batch, 'put "' . $build . '/public/index.php"') || !str_contains($batch, '-rm "/remote/public/debug.php"')) exit(9);
@@ -173,6 +176,15 @@ $temporary = $root . '/phpaml-sftp-cleanup';
 mkdir($temporary . '/nested', 0777, true); file_put_contents($temporary . '/nested/source.php', '<?php');
 deployRemoveDirectory($temporary);
 if (is_dir($temporary)) exit(11);
+
+$historyHome = $root . '/history-home';
+mkdir($historyHome, 0700, true);
+putenv('HOME=' . $historyHome);
+$historyChanges = ['added' => ['new.php'], 'modified' => ['app.php'], 'removed' => [], 'unchanged' => [], 'transfer' => ['new.php', 'app.php']];
+$historyStats = ['transfer_bytes' => 1200, 'total_bytes' => 4800, 'saved_bytes' => 3600, 'saved_percent' => 75.0];
+deployRecordHistory('production', ['strategy' => 'releases', 'host' => 'secret.example', 'path' => '/secret/path'], 'deployed', $historyChanges, $historyStats, '20260827-120000', microtime(true));
+$history = json_decode((string) file_get_contents(deployHistoryPath()), true);
+if (($history[0]['profile'] ?? null) !== 'production' || ($history[0]['transferred_bytes'] ?? null) !== 1200 || str_contains((string) file_get_contents(deployHistoryPath()), 'secret.example') || str_contains((string) file_get_contents(deployHistoryPath()), '/secret/path')) exit(18);
 
 mkdir($root . '/releases/20260810-000000', 0777, true);
 mkdir($root . '/releases/20260811-000000', 0777, true);

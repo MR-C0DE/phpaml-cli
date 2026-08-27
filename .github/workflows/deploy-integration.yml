@@ -88,6 +88,11 @@ jobs:
               "! grep -q UPDATED /home/aml-deploy/ssh-$kind/current/public/index.php && test -f /home/aml-deploy/ssh-$kind/current/public/obsolete.txt && test ! -e /home/aml-deploy/ssh-$kind/current/public/version.txt"
             (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy "ssh-$kind") | tee "$RUNNER_TEMP/ssh-$kind-delta.log"
             grep -q '1 ajouté(s), 2 modifié(s), 1 supprimé(s)' "$RUNNER_TEMP/ssh-$kind-delta.log"
+            grep -q 'Transfert :' "$RUNNER_TEMP/ssh-$kind-delta.log"
+            grep -q '\[100%\] Déploiement terminé' "$RUNNER_TEMP/ssh-$kind-delta.log"
+            HOME="$RUNNER_TEMP/home-$kind" php "$cli" deploy:history "ssh-$kind" | tee "$RUNNER_TEMP/ssh-$kind-history.log"
+            grep -q 'ssh-'"$kind"'.*deployed' "$RUNNER_TEMP/ssh-$kind-history.log"
+            test "$(stat -c '%a' "$RUNNER_TEMP/home-$kind/.phpaml/deploy-history.json")" = 600
             ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
               "grep -q UPDATED /home/aml-deploy/ssh-$kind/current/public/index.php && test -f /home/aml-deploy/ssh-$kind/current/public/version.txt && test ! -e /home/aml-deploy/ssh-$kind/current/public/obsolete.txt"
 
@@ -118,6 +123,10 @@ jobs:
               "test ! -e /home/aml-deploy/sftp-$kind/public/sftp.txt"
             (cd "$project" && HOME="$RUNNER_TEMP/home-$kind" php runtime/bin/aml.php deploy "sftp-$kind") | tee "$RUNNER_TEMP/sftp-$kind-delta.log"
             grep -q '1 ajouté(s), 0 modifié(s)' "$RUNNER_TEMP/sftp-$kind-delta.log"
+            grep -q 'Transfert :' "$RUNNER_TEMP/sftp-$kind-delta.log"
+            grep -q '\[100%\] Déploiement terminé' "$RUNNER_TEMP/sftp-$kind-delta.log"
+            HOME="$RUNNER_TEMP/home-$kind" php "$cli" deploy:history "sftp-$kind" | tee "$RUNNER_TEMP/sftp-$kind-history.log"
+            grep -q 'sftp-'"$kind"'.*deployed' "$RUNNER_TEMP/sftp-$kind-history.log"
             ssh -i "$key" -p 2222 aml-deploy@127.0.0.1 \
               "test -f /home/aml-deploy/sftp-$kind/public/sftp.txt"
           done
