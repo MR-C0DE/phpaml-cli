@@ -9,7 +9,13 @@
 - affiche le volume transféré, l’économie obtenue face à un build complet et
   une progression par étapes pendant les opérations distantes ;
 - conserve jusqu’à 100 résultats dans un historique local privé, sans données
-  de connexion, consultable avec `aml deploy:history [profil]`.
+  de connexion, consultable avec `aml deploy:history [profil]` ;
+- sécurise l’extraction des archives différentielles contre les chemins
+  traversants, écrit l’historique de manière atomique sans suivre les liens
+  symboliques et refuse les aperçus lorsque le manifeste distant est
+  inaccessible ;
+- rend chaque identifiant de release unique même lors de déploiements lancés
+  pendant la même seconde.
 
 ## 1.7.0-beta.20 — 2026-08-26
 

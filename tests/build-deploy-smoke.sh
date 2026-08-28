@@ -177,6 +177,16 @@ mkdir($temporary . '/nested', 0777, true); file_put_contents($temporary . '/nest
 deployRemoveDirectory($temporary);
 if (is_dir($temporary)) exit(11);
 
+$unsafeArchive = $root . '/unsafe.zip';
+$unsafeZip = new ZipArchive();
+$unsafeZip->open($unsafeArchive, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+$unsafeZip->addFromString('../escape.php', '<?php');
+$unsafeZip->close();
+$unsafeDestination = $root . '/unsafe-extract';
+mkdir($unsafeDestination, 0700, true);
+try { deployExtractArchiveSecurely($unsafeArchive, $unsafeDestination); exit(19); } catch (RuntimeException) {}
+if (is_file($root . '/escape.php')) exit(20);
+
 $historyHome = $root . '/history-home';
 mkdir($historyHome, 0700, true);
 putenv('HOME=' . $historyHome);
@@ -185,6 +195,12 @@ $historyStats = ['transfer_bytes' => 1200, 'total_bytes' => 4800, 'saved_bytes' 
 deployRecordHistory('production', ['strategy' => 'releases', 'host' => 'secret.example', 'path' => '/secret/path'], 'deployed', $historyChanges, $historyStats, '20260827-120000', microtime(true));
 $history = json_decode((string) file_get_contents(deployHistoryPath()), true);
 if (($history[0]['profile'] ?? null) !== 'production' || ($history[0]['transferred_bytes'] ?? null) !== 1200 || str_contains((string) file_get_contents(deployHistoryPath()), 'secret.example') || str_contains((string) file_get_contents(deployHistoryPath()), '/secret/path')) exit(18);
+$historyTarget = $root . '/history-target.json';
+file_put_contents($historyTarget, 'do-not-overwrite');
+unlink(deployHistoryPath());
+symlink($historyTarget, deployHistoryPath());
+deployRecordHistory('production', ['strategy' => 'releases'], 'deployed', $historyChanges, $historyStats, null, microtime(true));
+if (file_get_contents($historyTarget) !== 'do-not-overwrite') exit(21);
 
 mkdir($root . '/releases/20260810-000000', 0777, true);
 mkdir($root . '/releases/20260811-000000', 0777, true);

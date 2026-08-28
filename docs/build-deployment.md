@@ -80,6 +80,10 @@ aml deploy:history production
 
 The private history is stored in `~/.phpaml/deploy-history.json` with mode
 `600` and displays the 20 most recent matching entries.
+History updates are atomic and refuse symbolic-link destinations. Deployment
+archives are validated before extraction, and read-only comparisons fail
+clearly when the remote manifest cannot be reached instead of reporting a
+misleading first deployment.
 Local SFTP staging data is removed after both successful and failed transfers.
 The build checksum is verified before every transfer, including `--skip-build`.
 The CLI test suite starts an isolated SSH/SFTP server and validates real
@@ -206,6 +210,10 @@ aml deploy:history production
 Cet historique privé se trouve dans `~/.phpaml/deploy-history.json` avec les
 permissions `600`; la commande affiche les 20 entrées correspondantes les plus
 récentes.
+Les mises à jour de l’historique sont atomiques et refusent une destination qui
+est un lien symbolique. Les archives sont contrôlées avant extraction, et une
+comparaison en lecture seule échoue clairement lorsque le manifeste distant est
+inaccessible au lieu d’annoncer à tort un premier déploiement.
 Le dossier temporaire SFTP local est supprimé après un succès comme un échec.
 Le checksum du build est vérifié avant chaque transfert, même avec
 `--skip-build`. La CI démarre désormais un vrai serveur SSH/SFTP isolé et valide

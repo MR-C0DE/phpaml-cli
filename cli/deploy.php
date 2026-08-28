@@ -16,6 +16,7 @@ function deployHistoryPath(): string
 /** @return list<array<string, mixed>> */
 function deployHistoryEntries(): array
 {
+    if (is_link(deployHistoryPath())) return [];
     $entries = is_file(deployHistoryPath()) ? json_decode((string) file_get_contents(deployHistoryPath()), true) : [];
     return is_array($entries) ? array_values(array_filter($entries, 'is_array')) : [];
 }
@@ -44,7 +45,16 @@ function deployRecordHistory(string $name, array $profile, string $status, array
     ]);
     $path = deployHistoryPath();
     if (!is_dir(dirname($path))) mkdir(dirname($path), 0700, true);
-    file_put_contents($path, json_encode(array_slice($entries, 0, 100), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL, LOCK_EX);
+    @chmod(dirname($path), 0700);
+    if (is_link($path)) return;
+    $temporary = tempnam(dirname($path), '.deploy-history-');
+    if (!is_string($temporary)) return;
+    @chmod($temporary, 0600);
+    $encoded = json_encode(array_slice($entries, 0, 100), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    if (!is_string($encoded) || file_put_contents($temporary, $encoded . PHP_EOL, LOCK_EX) === false || !rename($temporary, $path)) {
+        @unlink($temporary);
+        return;
+    }
     @chmod($path, 0600);
 }
 
@@ -78,6 +88,7 @@ function deployShowHistory(?string $profile = null): never
 /** @return array<string, array<string, mixed>> */
 function deployProfiles(): array
 {
+    if (is_link(deployConfigPath())) fail('Le fichier des profils de déploiement ne peut pas être un lien symbolique.');
     $data = is_file(deployConfigPath()) ? json_decode((string) file_get_contents(deployConfigPath()), true) : [];
     return is_array($data) ? $data : [];
 }
@@ -111,7 +122,16 @@ function deployConfigure(string $name, array $arguments): void
     $profiles[$name] = ['host' => $host, 'user' => $user, 'path' => rtrim($path, '/'), 'public_path' => $publicPath ? rtrim($publicPath, '/') : null, 'strategy' => $strategy, 'port' => (int) $port, 'key' => $key];
     $config = deployConfigPath();
     if (!is_dir(dirname($config))) mkdir(dirname($config), 0700, true);
-    file_put_contents($config, json_encode($profiles, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL, LOCK_EX);
+    @chmod(dirname($config), 0700);
+    if (is_link($config)) fail('Le fichier des profils de déploiement ne peut pas être un lien symbolique.');
+    $temporary = tempnam(dirname($config), '.deploy-config-');
+    if (!is_string($temporary)) fail('Impossible de préparer le fichier des profils de déploiement.');
+    @chmod($temporary, 0600);
+    $encoded = json_encode($profiles, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    if (!is_string($encoded) || file_put_contents($temporary, $encoded . PHP_EOL, LOCK_EX) === false || !rename($temporary, $config)) {
+        @unlink($temporary);
+        fail('Impossible d’enregistrer les profils de déploiement.');
+    }
     @chmod($config, 0600);
     output("✓ Profil de déploiement configuré : {$name}");
 }
@@ -464,7 +484,8 @@ function deployOutputPreview(string $name, array $changes, array $stats, bool $s
 function deployRemoteManifest(array $profile, string $path): array
 {
     $capture = deployCapture([...deploySshArguments($profile, true), 'cat ' . escapeshellarg($path) . ' 2>/dev/null || true']);
-    if ($capture['code'] !== 0 || trim($capture['output']) === '') return [];
+    if ($capture['code'] !== 0) throw new RuntimeException('Impossible de lire le manifeste distant par SSH.');
+    if (trim($capture['output']) === '') return [];
     $temporary = tempnam(sys_get_temp_dir(), 'aml-deploy-manifest-');
     if (!is_string($temporary)) return [];
     try {
@@ -481,13 +502,42 @@ function deployExtractBuild(string $archive): string
 {
     $staging = sys_get_temp_dir() . '/phpaml-deploy-' . bin2hex(random_bytes(5));
     if (!mkdir($staging, 0700, true) && !is_dir($staging)) throw new RuntimeException('Impossible de préparer le build différentiel.');
-    $zip = new ZipArchive();
-    if ($zip->open($archive) !== true || !$zip->extractTo($staging)) {
-        $zip->close(); deployRemoveDirectory($staging);
-        throw new RuntimeException('Impossible d’extraire le build différentiel.');
+    try {
+        deployExtractArchiveSecurely($archive, $staging);
+    } catch (Throwable $error) {
+        deployRemoveDirectory($staging);
+        throw $error;
     }
-    $zip->close();
     return $staging;
+}
+
+function deployExtractArchiveSecurely(string $archive, string $destination): void
+{
+    $zip = new ZipArchive();
+    if ($zip->open($archive) !== true) throw new RuntimeException('Impossible d’ouvrir le build différentiel.');
+    try {
+        $seen = [];
+        for ($index = 0; $index < $zip->numFiles; $index++) {
+            $name = $zip->getNameIndex($index);
+            $normalized = is_string($name) ? str_replace('\\', '/', $name) : '';
+            $parts = explode('/', $normalized);
+            $key = PHP_OS_FAMILY === 'Windows' ? strtolower($normalized) : $normalized;
+            $attributes = 0;
+            $opsys = 0;
+            $hasAttributes = method_exists($zip, 'getExternalAttributesIndex')
+                && $zip->getExternalAttributesIndex($index, $opsys, $attributes);
+            $fileType = $hasAttributes ? (($attributes >> 16) & 0170000) : 0;
+            if (!is_string($name) || $normalized === '' || str_starts_with($normalized, '/') || preg_match('/^[A-Za-z]:/', $normalized) === 1
+                || in_array('..', $parts, true) || preg_match('/[\x00-\x1F\x7F]/', $normalized) === 1
+                || isset($seen[$key]) || $fileType === 0120000) {
+                throw new RuntimeException('Le build contient un chemin d’archive non sécurisé.');
+            }
+            $seen[$key] = true;
+        }
+        if (!$zip->extractTo($destination)) throw new RuntimeException('Impossible d’extraire le build différentiel.');
+    } finally {
+        $zip->close();
+    }
 }
 
 /** @param list<string> $files */
@@ -598,7 +648,7 @@ function deployProject(string $name, bool $skipBuild = false, bool $dryRun = fal
             exit(0);
         }
 
-        $release = gmdate('Ymd-His');
+        $release = gmdate('Ymd-His') . '-' . bin2hex(random_bytes(3));
         $releasesRoot = rtrim((string) $profile['path'], '/') . '/releases';
         $directory = $releasesRoot . '/' . $release;
         $remoteArchive = $releasesRoot . '/' . $release . '.delta.zip';
@@ -660,16 +710,14 @@ function deploySftpOnly(string $root, string $name, array $profile, bool $previe
     try {
         if (!$preview) deployProgress(10, 'Build vérifié.');
         if (!mkdir($staging, 0700, true) && !is_dir($staging)) throw new RuntimeException('Impossible de créer le dossier temporaire SFTP.');
-        $zip = new ZipArchive();
-        if ($zip->open($root . '/output/phpaml-build.zip') !== true || !$zip->extractTo($staging)) throw new RuntimeException('Impossible de préparer le transfert SFTP.');
-        $zip->close();
+        deployExtractArchiveSecurely($root . '/output/phpaml-build.zip', $staging);
         if (!deployRewritePublicRoot($staging . '/public/index.php', (string) $profile['path'])) throw new RuntimeException('Impossible d’adapter public/index.php au chemin distant.');
         $target = $profile['user'] . '@' . $profile['host'];
         $connection = ['-P', (string) $profile['port'], ...(($profile['key'] ?? '') !== '' ? ['-i', $profile['key']] : []), $target];
         $oldManifest = $staging . '/old-manifest.json';
         $fetchBatch = $staging . '/fetch.sftp';
         file_put_contents($fetchBatch, '-get ' . deploySftpQuote($profile['path'] . '/.phpaml-deploy-manifest.json') . ' ' . deploySftpQuote($oldManifest) . "\nquit\n");
-        deployRun(['sftp', '-b', $fetchBatch, ...$connection]);
+        if (deployRun(['sftp', '-b', $fetchBatch, ...$connection]) !== 0) throw new RuntimeException('Impossible de lire le manifeste distant par SFTP.');
         $previousManifest = is_file($oldManifest) ? deployManifest($oldManifest) : [];
         $manifest = deployManifest($staging . '/build-manifest.json');
         $changes = deployManifestChanges($manifest, $previousManifest);
