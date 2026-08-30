@@ -1,6 +1,6 @@
 {
   "name": "phpaml",
-  "version": "1.7.0-beta.21",
+  "version": "1.7.0-beta.22",
   "description": "Plateforme PHP autonome pour applications Web structurées, interfaces déclaratives et API",
   "runtime": {
     "directory": "runtime"
