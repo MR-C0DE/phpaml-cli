@@ -2,6 +2,8 @@
 
 ## Non publié
 
+## 1.7.0-beta.21 — 2026-08-29
+
 - ajoute `aml deploy <profil> --dry-run` pour afficher précisément les fichiers
   ajoutés, modifiés et supprimés sans modifier la production ;
 - ajoute `aml deploy:status <profil>` pour comparer en lecture seule le projet
