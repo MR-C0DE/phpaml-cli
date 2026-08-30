@@ -7,6 +7,8 @@ trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 mkdir -p "$fixture/project/public" "$fixture/project/app" "$fixture/project/configs" \
   "$fixture/project/runtime/bin" "$fixture/project/runtime/phpstan/phpstan" \
   "$fixture/project/runtime/composer" \
+  "$fixture/project/runtime/storage/rate-limits" "$fixture/project/runtime/storage/sessions" \
+  "$fixture/project/runtime/storage/cache" \
   "$fixture/project/runtime/phpaml/view/src" "$fixture/project/runtime/phpaml/view/tests" \
   "$fixture/project/runtime/phpaml/engine/examples" "$fixture/project/tests" \
   "$fixture/project/deliverables" "$fixture/project/.github/workflows" "$fixture/home"
@@ -23,6 +25,9 @@ printf '%s\n' '<?php' > "$fixture/project/runtime/phpaml/view/tests/run.php"
 printf '%s\n' 'example' > "$fixture/project/runtime/phpaml/engine/examples/demo.php"
 printf '%s\n' 'docs' > "$fixture/project/runtime/phpaml/view/README.md"
 printf '%s\n' 'workflow' > "$fixture/project/.github/workflows/test.yml"
+printf '%s\n' '{"count": 9}' > "$fixture/project/runtime/storage/rate-limits/client.json"
+printf '%s\n' 'session' > "$fixture/project/runtime/storage/sessions/client.session"
+printf '%s\n' 'cache' > "$fixture/project/runtime/storage/cache/page.cache"
 cat > "$fixture/project/runtime/composer/autoload_files.php" <<'PHP'
 <?php
 return [
@@ -47,7 +52,7 @@ grep -q 'runtime/phpaml/view/src/View.php' <<<"$listing"
 manifest="$(unzip -p "$fixture/project/output/phpaml-build.zip" build-manifest.json)"
 grep -q '"hashes"' <<<"$manifest"
 grep -q '"public/index.php": "[a-f0-9]\{64\}"' <<<"$manifest"
-if grep -qE '(^|/)(\.env|\.github/|tests/|docs/|examples/|deliverables/|runtime/phpstan/)|runtime/phpaml/view/README\.md' <<<"$listing"; then
+if grep -qE '(^|/)(\.env|\.github/|tests/|docs/|examples/|deliverables/|runtime/phpstan/)|runtime/phpaml/view/README\.md|runtime/storage/(rate-limits|sessions|cache)/' <<<"$listing"; then
   echo 'The production build contains forbidden files.' >&2
   exit 1
 fi
@@ -90,6 +95,10 @@ function output(?string $message = null): void {}
 require $argv[1];
 $root = $argv[2];
 if (!is_dir($root)) mkdir($root, 0777, true);
+$blockedTemporaryRoot = $root . '/blocked-temporary-root';
+file_put_contents($blockedTemporaryRoot, 'not-a-directory');
+$temporaryRoot = deployTemporaryRoot($blockedTemporaryRoot);
+if (!is_dir($temporaryRoot) || !is_writable($temporaryRoot) || $temporaryRoot === $blockedTemporaryRoot) exit(19);
 $integrityArchive = $root . '/integrity.zip';
 $integrityChecksum = $integrityArchive . '.sha256';
 file_put_contents($integrityArchive, 'valid-build');

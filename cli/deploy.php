@@ -2,6 +2,22 @@
 
 declare(strict_types=1);
 
+function deployTemporaryRoot(?string $preferred = null): string
+{
+    $candidates = [$preferred, getenv('AML_TMPDIR'), getenv('TMPDIR'), sys_get_temp_dir()];
+    if (PHP_OS_FAMILY !== 'Windows') $candidates[] = '/tmp';
+    foreach ($candidates as $candidate) {
+        if (!is_string($candidate) || trim($candidate) === '') continue;
+        $candidate = rtrim($candidate, '/\\');
+        if ((!is_dir($candidate) && !@mkdir($candidate, 0700, true)) || !is_writable($candidate)) continue;
+        $probe = @tempnam($candidate, 'aml-write-');
+        if (!is_string($probe)) continue;
+        @unlink($probe);
+        return $candidate;
+    }
+    throw new RuntimeException('Aucun dossier temporaire inscriptible n’est disponible pour le déploiement.');
+}
+
 function deployConfigPath(): string
 {
     $base = PHP_OS_FAMILY === 'Windows' ? (getenv('APPDATA') ?: getenv('USERPROFILE')) : getenv('HOME');
@@ -486,7 +502,7 @@ function deployRemoteManifest(array $profile, string $path): array
     $capture = deployCapture([...deploySshArguments($profile, true), 'cat ' . escapeshellarg($path) . ' 2>/dev/null || true']);
     if ($capture['code'] !== 0) throw new RuntimeException('Impossible de lire le manifeste distant par SSH.');
     if (trim($capture['output']) === '') return [];
-    $temporary = tempnam(sys_get_temp_dir(), 'aml-deploy-manifest-');
+    $temporary = tempnam(deployTemporaryRoot(), 'aml-deploy-manifest-');
     if (!is_string($temporary)) return [];
     try {
         file_put_contents($temporary, $capture['output'], LOCK_EX);
@@ -500,7 +516,7 @@ function deployRemoteManifest(array $profile, string $path): array
 
 function deployExtractBuild(string $archive): string
 {
-    $staging = sys_get_temp_dir() . '/phpaml-deploy-' . bin2hex(random_bytes(5));
+    $staging = deployTemporaryRoot() . '/phpaml-deploy-' . bin2hex(random_bytes(5));
     if (!mkdir($staging, 0700, true) && !is_dir($staging)) throw new RuntimeException('Impossible de préparer le build différentiel.');
     try {
         deployExtractArchiveSecurely($archive, $staging);
@@ -576,7 +592,7 @@ function deployCheck(string $name): never
 {
     $profile = deployProfile($name);
     if (($profile['strategy'] ?? 'releases') === 'sftp-only') {
-        $batch = tempnam(sys_get_temp_dir(), 'aml-sftp-check-');
+        $batch = tempnam(deployTemporaryRoot(), 'aml-sftp-check-');
         file_put_contents($batch, "pwd\nquit\n");
         $command = ['sftp', '-b', $batch, '-P', (string) $profile['port'], ...(($profile['key'] ?? '') !== '' ? ['-i', $profile['key']] : []), $profile['user'] . '@' . $profile['host']];
         $code = deployRun($command); @unlink($batch);
@@ -703,7 +719,7 @@ function deployProject(string $name, bool $skipBuild = false, bool $dryRun = fal
 function deploySftpOnly(string $root, string $name, array $profile, bool $preview = false, bool $statusOnly = false): never
 {
     $startedAt = microtime(true);
-    $staging = sys_get_temp_dir() . '/phpaml-sftp-' . bin2hex(random_bytes(5));
+    $staging = deployTemporaryRoot() . '/phpaml-sftp-' . bin2hex(random_bytes(5));
     $error = null;
     $changes = null;
     $stats = null;

@@ -10,6 +10,22 @@ function amlCacheRoot(): string
     return rtrim((string) (getenv('AML_CACHE_HOME') ?: PHPAML_FRAMEWORK_ROOT . '/runtime/cache'), '/\\');
 }
 
+function amlWritableTemporaryRoot(): string
+{
+    $candidates = [getenv('AML_TMPDIR'), getenv('TMPDIR'), sys_get_temp_dir()];
+    if (PHP_OS_FAMILY !== 'Windows') $candidates[] = '/tmp';
+    foreach ($candidates as $candidate) {
+        if (!is_string($candidate) || trim($candidate) === '') continue;
+        $candidate = rtrim($candidate, '/\\');
+        if ((!is_dir($candidate) && !@mkdir($candidate, 0700, true)) || !is_writable($candidate)) continue;
+        $probe = @tempnam($candidate, 'aml-write-');
+        if (!is_string($probe)) continue;
+        @unlink($probe);
+        return $candidate;
+    }
+    throw new RuntimeException('Aucun dossier temporaire inscriptible n’est disponible.');
+}
+
 function languageFile(): string
 {
     $base = PHP_OS_FAMILY === 'Windows'
@@ -1153,6 +1169,9 @@ function buildProject(bool $skipTests = false): never
             || productionBuildDevelopmentFile($relative)
             || str_starts_with($relative, 'runtime/storage/debug-')
             || str_starts_with($relative, 'runtime/storage/log')
+            || str_starts_with($relative, 'runtime/storage/rate-limits/')
+            || str_starts_with($relative, 'runtime/storage/sessions/')
+            || str_starts_with($relative, 'runtime/storage/cache/')
             || in_array(strtolower($file->getExtension()), $excludedExtensions, true)) continue;
         if (in_array($relative, [
             'runtime/composer/autoload_files.php',
@@ -3513,7 +3532,16 @@ function executeProjectTests(string $root): int
             output("Suite de tests absente : {$suite}");
             return 1;
         }
-        passthru(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($suite), $exitCode);
+        try {
+            $temporaryRoot = amlWritableTemporaryRoot();
+        } catch (RuntimeException $error) {
+            output($error->getMessage());
+            return 1;
+        }
+        $command = escapeshellarg(PHP_BINARY)
+            . ' -d ' . escapeshellarg('session.save_path=' . $temporaryRoot)
+            . ' ' . escapeshellarg($suite);
+        passthru($command, $exitCode);
         if ($exitCode !== 0) {
             return $exitCode;
         }
