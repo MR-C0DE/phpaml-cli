@@ -1,6 +1,12 @@
 # Changelog
 
-## Non publié
+## 1.7.0-beta.23 — 2026-09-12
+
+- distribue Template `0.5.0-beta.4` et Framework `0.3.0-beta.4`, avec
+  idempotence isolée par utilisateur et gestion atomique des jetons API ;
+- protège les nouveaux projets contre les traversées de chemin HTTP encodées ;
+- ajoute les validations de concurrence, de synchronisation du framework et
+  de création d’un projet neuf avant publication.
 
 ## 1.7.0-beta.21 — 2026-08-29
 
