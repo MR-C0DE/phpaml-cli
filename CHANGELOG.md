@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.0-beta.25 — 2026-09-12
+
+- distribue Template `0.5.0-beta.6`, dont les tests reconnaissent correctement
+  le point d’entrée JSON conservé derrière une application AML View.
+
 ## 1.7.0-beta.24 — 2026-09-12
 
 - distribue Template `0.5.0-beta.5` ;
