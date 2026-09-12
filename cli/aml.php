@@ -1561,6 +1561,17 @@ function installView(?string $version = null, bool $offline = false): never
         file_put_contents($configPath, $configContent, LOCK_EX);
     }
 
+    $webRoutesPath = $root . '/routes/WebApp.php';
+    if (is_file($webRoutesPath)) {
+        $webRoutes = (string) file_get_contents($webRoutesPath);
+        $webRoutes = str_replace(
+            "\$this->get('/', [HomeController::class, 'index']);",
+            "\$this->get('/api/health', [HomeController::class, 'index']);",
+            $webRoutes,
+        );
+        file_put_contents($webRoutesPath, $webRoutes, LOCK_EX);
+    }
+
     $composerPath = $root . '/composer.json';
     $composer = json_decode((string) file_get_contents($composerPath), true, 512, JSON_THROW_ON_ERROR);
     $composer['autoload'] = is_array($composer['autoload'] ?? null) ? $composer['autoload'] : [];

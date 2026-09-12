@@ -7,7 +7,7 @@ php_bin="${PHP_BINARY:-php}"
 trap 'rm -rf "$fixture"' EXIT
 
 template="$fixture/template/phpaml-template-0.0.0"
-mkdir -p "$template/public/img" "$template/public/css" "$template/public/js" "$template/app/views" "$template/app/Controllers" "$template/app/Models" "$template/configs" "$template/runtime/framework"
+mkdir -p "$template/public/img" "$template/public/css" "$template/public/js" "$template/app/views" "$template/app/Controllers" "$template/app/Models" "$template/configs" "$template/routes" "$template/runtime/framework"
 touch "$template/public/img/favicon.svg" "$template/public/css/index.css" "$template/public/js/main.js"
 touch "$template/app/views/.gitkeep"
 cat > "$template/app/Controllers/HomeController.php" <<'PHP'
@@ -42,6 +42,15 @@ return [
         'GET /' => ['handler' => [HomeController::class, 'index'], 'name' => 'home'],
     ],
 ];
+PHP
+cat > "$template/routes/WebApp.php" <<'PHP'
+<?php
+namespace App\Routes;
+use App\Controllers\HomeController;
+use PHPAML\Routing\Route;
+final class WebApp extends Route {
+    protected function routes(): void { $this->get('/', [HomeController::class, 'index']); }
+}
 PHP
 cat > "$template/public/index.php" <<'PHP'
 <?php
@@ -234,6 +243,8 @@ grep -q '"App\\\\Services\\\\": "src/services/"' composer.json
 grep -q 'App\\Controllers' configs/app.php
 ! grep -q 'views_path' configs/app.php
 grep -q 'GET /api/health' configs/app.php
+grep -Fq "\$this->get('/api/health', [HomeController::class, 'index']);" routes/WebApp.php
+! grep -Fq "\$this->get('/', [HomeController::class, 'index']);" routes/WebApp.php
 grep -q '\$this->json' src/controllers/HomeController.php
 ! grep -q '\$this->view' src/controllers/HomeController.php
 "$php_bin" -r '$m=json_decode(file_get_contents("phpaml.json"),true,512,JSON_THROW_ON_ERROR); if (($m["modules"]["view"]["package"] ?? null) !== "phpaml/view") exit(1);'

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0-beta.27 — 2026-09-12
+
+- migre la route classique `GET /` de `routes/WebApp.php` vers
+  `GET /api/health` lors de `create-view-app`, afin que le bouton « Check API »
+  du projet généré appelle réellement une route disponible ;
+- ajoute une non-régression dédiée au format de routage moderne du Template.
+
 ## 1.7.0-beta.26 — 2026-09-12
 
 - retire du point d’entrée AML View les contrôles de compatibilité devenus
