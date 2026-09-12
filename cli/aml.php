@@ -1584,6 +1584,17 @@ function installView(?string $version = null, bool $offline = false): never
         LOCK_EX,
     );
 
+    $phpstanPath = $root . '/phpstan.neon';
+    if (is_file($phpstanPath)) {
+        $phpstan = (string) file_get_contents($phpstanPath);
+        $phpstan = str_replace(
+            ['app/Controllers', 'app/Models'],
+            ['src/controllers', 'src/models'],
+            $phpstan,
+        );
+        file_put_contents($phpstanPath, $phpstan, LOCK_EX);
+    }
+
     $publicIndexPath = $root . '/public/index.php';
     if (is_file($publicIndexPath)) {
         $publicIndex = (string) file_get_contents($publicIndexPath);

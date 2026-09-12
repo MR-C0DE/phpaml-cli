@@ -25,6 +25,13 @@ JSON
 cat > "$template/composer.json" <<'JSON'
 {"name":"phpaml/view-test","require":{"php":"^8.2"},"autoload":{"psr-4":{"App\\":"app/"}},"config":{"vendor-dir":"runtime"}}
 JSON
+cat > "$template/phpstan.neon" <<'NEON'
+parameters:
+    paths:
+        - app/Controllers
+        - app/Models
+        - public/index.php
+NEON
 printf 'APP_ENV=local\n' > "$template/.env.example"
 cat > "$template/configs/app.php" <<'PHP'
 <?php
@@ -149,6 +156,10 @@ find src -type d -print | grep -q '^src/controllers$'
 find src -type d -print | grep -q '^src/models$'
 ! find src -type d -print | grep -q '^src/Controllers$'
 ! find src -type d -print | grep -q '^src/Models$'
+grep -q 'src/controllers' phpstan.neon
+grep -q 'src/models' phpstan.neon
+! grep -q 'app/Controllers' phpstan.neon
+! grep -q 'app/Models' phpstan.neon
 test -d src/views
 test ! -f src/ViewRegistry.php
 test -f src/views/stylesheets/base.css

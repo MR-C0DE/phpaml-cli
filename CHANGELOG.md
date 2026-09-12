@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0-beta.24 — 2026-09-12
+
+- distribue Template `0.5.0-beta.5` ;
+- adapte automatiquement la configuration PHPStan à `src/controllers` et
+  `src/models` lors de la création d’une application AML View ;
+- conserve un test d’accueil valable après la conversion du projet en AML View.
+
 ## 1.7.0-beta.23 — 2026-09-12
 
 - distribue Template `0.5.0-beta.4` et Framework `0.3.0-beta.4`, avec
