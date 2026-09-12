@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.0-beta.26 — 2026-09-12
+
+- retire du point d’entrée AML View les contrôles de compatibilité devenus
+  redondants avec la version minimale d’Engine, afin que l’analyse PHPStan
+  d’un projet neuf soit entièrement verte.
+
 ## 1.7.0-beta.25 — 2026-09-12
 
 - distribue Template `0.5.0-beta.6`, dont les tests reconnaissent correctement

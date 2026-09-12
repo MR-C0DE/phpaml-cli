@@ -184,13 +184,12 @@ grep -q '\$viewApp->mount(\$requestPath)' public/index.php
 grep -q '\$application->handle(\$request' public/index.php
 grep -q 'use (\$application, \$viewApp, \$requestPath)' public/index.php
 grep -q '\$session->csrfMeta()' public/index.php
+! grep -q 'method_exists(\\AML\\Engine\\EngineRuntime::class' public/index.php
 grep -q '\\PHPAML\\Http\\Response::html' public/index.php
 grep -q '/_aml/styles.css' public/index.php
 grep -q 'AML\\Engine\\EngineRuntime::externalScript' public/index.php
 grep -q 'EngineRuntime::assetFilename(true)' public/index.php
 grep -q 'EngineRuntime::assetPath(true)' public/index.php
-grep -Fq "method_exists(\\AML\\Engine\\EngineRuntime::class, 'assetFilename')" public/index.php
-grep -Fq 'EngineRuntime::script($cspNonce)' public/index.php
 grep -Fq 'PHPAML\Security\CspNonce::from($viewRequest)' public/index.php
 grep -q "assetPath(true) . '.map'" public/index.php
 grep -q 'application/json; charset=utf-8' public/index.php
