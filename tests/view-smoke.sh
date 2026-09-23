@@ -9,6 +9,12 @@ trap 'rm -rf "$fixture"' EXIT
 template="$fixture/template/phpaml-template-0.0.0"
 mkdir -p "$template/public/img" "$template/public/css" "$template/public/js" "$template/app/views" "$template/app/Controllers" "$template/app/Models" "$template/configs" "$template/routes" "$template/runtime/framework"
 touch "$template/public/img/favicon.svg" "$template/public/css/index.css" "$template/public/js/main.js"
+cat > "$template/public/.htaccess" <<'HTACCESS'
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
+HTACCESS
 touch "$template/app/views/.gitkeep"
 cat > "$template/app/Controllers/HomeController.php" <<'PHP'
 <?php
@@ -278,6 +284,14 @@ test -f src/views/states/dashboard/NotFound.php
 test -f src/controllers/ApiUserController.php
 find src -name '*.php' -print0 | xargs -0 -n1 "$php_bin" -l >/dev/null
 
+AML_LANG=en "$php_bin" "$root/cli/aml.php" build --skip-tests > build.log
+test -f output/phpaml-build.zip
+unzip -p output/phpaml-build.zip public/_aml/styles.css | grep -q '.view-hero'
+unzip -p output/phpaml-build.zip public/_aml/styles.css | grep -q '\[data-theme="light"\]'
+unzip -p output/phpaml-build.zip build-manifest.json > build-manifest.json
+"$php_bin" -r '$m=json_decode(file_get_contents("build-manifest.json"),true,512,JSON_THROW_ON_ERROR); if (($m["generated_assets"] ?? null) !== ["public/_aml/styles.css"] || !isset($m["hashes"]["public/_aml/styles.css"])) exit(1);'
+rm build-manifest.json
+
 AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/composer" \
   "$php_bin" "$root/cli/aml.php" install i18n > i18n-install.log
 grep -q 'require phpaml/i18n:\^0.1@beta' composer-invocations.log
@@ -287,7 +301,7 @@ grep -q '^APP_LOCALE=en$' .env
 grep -q '^APP_FALLBACK_LOCALE=fr$' .env
 grep -q 'PHPAML i18n integration' public/index.php
 grep -q 'I18n::configure' public/index.php
-"$php_bin" -r '$m=json_decode(file_get_contents("phpaml.json"),true,512,JSON_THROW_ON_ERROR); if (($m["modules"]["i18n"]["package"] ?? null) !== "phpaml/i18n") exit(1);'
+"$php_bin" -r '$m=json_decode(file_get_contents("phpaml.json"),true,512,JSON_THROW_ON_ERROR); if (($m["modules"]["i18n"]["package"] ?? null) !== "phpaml/i18n" || ($m["i18n"]["enabled"] ?? null) !== true || ($m["i18n"]["supported"] ?? null) !== ["en", "fr"] || ($m["i18n"]["detection"] ?? null) !== ["route", "cookie", "header"]) exit(1);'
 AML_LANG=en "$php_bin" "$root/cli/aml.php" i18n:check > i18n-check.log
 grep -q 'en.*complete' i18n-check.log
 AML_LANG=en "$php_bin" "$root/cli/aml.php" i18n:list > i18n-list.log

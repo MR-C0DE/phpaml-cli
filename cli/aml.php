@@ -1157,6 +1157,7 @@ function buildProject(bool $skipTests = false): never
     }
     $excludedRoots = ['.git', '.github', '.env', 'tests', 'output', 'tmp', 'tools', 'readme', 'deliverables'];
     $excludedExtensions = ['log', 'sqlite', 'sqlite3', 'bak'];
+    $generatedAssets = buildGeneratedAssets($root);
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
     );
@@ -1164,6 +1165,7 @@ function buildProject(bool $skipTests = false): never
     foreach ($iterator as $file) {
         if (!$file->isFile()) continue;
         $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
+        if (isset($generatedAssets[$relative])) continue;
         $top = explode('/', $relative, 2)[0];
         if (in_array($top, $excludedRoots, true)
             || productionBuildDevelopmentFile($relative)
@@ -1190,15 +1192,23 @@ function buildProject(bool $skipTests = false): never
         }
         $files[] = $relative;
     }
+    foreach ($generatedAssets as $relative => $contents) {
+        $zip->addFromString($relative, $contents);
+        $hashes[$relative] = hash('sha256', $contents);
+        $files[] = $relative;
+    }
     sort($files);
     ksort($hashes);
     $manifest = [
         'built_at' => date(DATE_ATOM),
-        'aml_version' => projectInfo(PHPAML_FRAMEWORK_ROOT)['version'] ?? null,
+        'aml_version' => is_file(PHPAML_FRAMEWORK_ROOT . '/phpaml.json')
+            ? (projectInfo(PHPAML_FRAMEWORK_ROOT)['version'] ?? null)
+            : null,
         'project' => projectInfo($root)['name'] ?? basename($root),
         'entrypoint' => 'public/index.php',
         'document_root' => 'public',
         'clean_urls' => true,
+        'generated_assets' => array_keys($generatedAssets),
         'files' => $files,
         'hashes' => $hashes,
     ];
@@ -1222,6 +1232,43 @@ function buildProject(bool $skipTests = false): never
     output('✓ Checksum : output/phpaml-build.zip.sha256');
     output('Document root: public/ — URL propres activées (/about, sans index.php).');
     exit(0);
+}
+
+/** @return array<string, string> */
+function buildGeneratedAssets(string $root): array
+{
+    $manifest = projectInfo($root);
+    if (($manifest['application']['type'] ?? null) !== 'view') {
+        return [];
+    }
+
+    $source = $root . '/' . trim((string) ($manifest['application']['views'] ?? 'src/views'), '/');
+    $files = [];
+    foreach ([$source . '/stylesheets', $source . '/themes'] as $directory) {
+        if (!is_dir($directory)) continue;
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+        foreach ($iterator as $file) {
+            if ($file->isFile() && strtolower($file->getExtension()) === 'css') {
+                $files[] = $file->getPathname();
+            }
+        }
+    }
+    sort($files);
+    if ($files === []) {
+        return [];
+    }
+
+    $styles = [];
+    foreach ($files as $file) {
+        $contents = file_get_contents($file);
+        if (!is_string($contents)) {
+            fail("Impossible de lire la feuille de style {$file}.");
+        }
+        $relative = ltrim(str_replace('\\', '/', substr($file, strlen($source))), '/');
+        $styles[] = "/* {$relative} */\n" . trim($contents);
+    }
+
+    return ['public/_aml/styles.css' => implode("\n\n", $styles) . "\n"];
 }
 
 function productionBuildDevelopmentFile(string $relative): bool
@@ -2351,6 +2398,15 @@ PHP;
     $manifest = projectInfo($root);
     $manifest['modules'] = is_array($manifest['modules'] ?? null) ? $manifest['modules'] : [];
     $manifest['modules']['i18n'] = ['package' => 'phpaml/i18n', 'version' => $constraint];
+    $manifest['i18n'] = [
+        'enabled' => true,
+        'directory' => 'src/locales',
+        'default' => 'en',
+        'fallback' => 'fr',
+        'supported' => ['en', 'fr'],
+        'detection' => ['route', 'cookie', 'header'],
+        'cookie' => 'phpaml_locale',
+    ];
     writeProjectManifest($root, $manifest);
     output('PHPAML i18n installé avec succès.');
     exit(0);
