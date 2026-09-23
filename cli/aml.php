@@ -2595,6 +2595,7 @@ function installFramework(string $projectRoot, ?string $version, bool $refresh, 
 {
     $framework = acquireFramework($version, $refresh, $offline);
     $destination = $projectRoot . '/runtime/framework';
+    $staging = $projectRoot . '/runtime/.framework-install-' . bin2hex(random_bytes(6));
     $zip = new ZipArchive();
     if ($zip->open($framework['archive']) !== true) {
         fail("Impossible d'ouvrir l'archive du moteur PHPAML.");
@@ -2621,7 +2622,7 @@ function installFramework(string $projectRoot, ?string $version, bool $refresh, 
             $zip->close();
             fail('L’archive du moteur contient un chemin non sécurisé.');
         }
-        $target = $destination . '/' . $relative;
+        $target = $staging . '/' . $relative;
         if (!is_dir(dirname($target))) {
             mkdir(dirname($target), 0755, true);
         }
@@ -2633,6 +2634,23 @@ function installFramework(string $projectRoot, ?string $version, bool $refresh, 
         file_put_contents($target, $content);
     }
     $zip->close();
+    if (!is_file($staging . '/Autoloader.php')) {
+        removeGeneratedPath($staging);
+        fail('L’archive du moteur PHPAML ne contient pas son autoloader.');
+    }
+    $backup = $projectRoot . '/runtime/.framework-previous-' . bin2hex(random_bytes(6));
+    if (is_dir($destination) && !rename($destination, $backup)) {
+        removeGeneratedPath($staging);
+        fail('Impossible de préparer la mise à jour atomique du moteur PHPAML.');
+    }
+    if (!rename($staging, $destination)) {
+        if (is_dir($backup)) {
+            rename($backup, $destination);
+        }
+        removeGeneratedPath($staging);
+        fail('Impossible d’activer le nouveau moteur PHPAML.');
+    }
+    removeGeneratedPath($backup);
     foreach ([$projectRoot . '/runtime/storage', $projectRoot . '/runtime/storage/cache'] as $runtimeDirectory) {
         if (!is_dir($runtimeDirectory)) {
             mkdir($runtimeDirectory, 0755, true);

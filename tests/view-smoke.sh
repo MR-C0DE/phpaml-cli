@@ -9,6 +9,7 @@ trap 'rm -rf "$fixture"' EXIT
 template="$fixture/template/phpaml-template-0.0.0"
 mkdir -p "$template/public/img" "$template/public/css" "$template/public/js" "$template/app/views" "$template/app/Controllers" "$template/app/Models" "$template/configs" "$template/routes" "$template/runtime/framework"
 touch "$template/public/img/favicon.svg" "$template/public/css/index.css" "$template/public/js/main.js"
+printf '%s\n' '<?php // obsolete framework file' > "$template/runtime/framework/Obsolete.php"
 cat > "$template/public/.htaccess" <<'HTACCESS'
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -146,6 +147,7 @@ grep -q 'Ready. Run: cd automatic-project && aml serve' automatic-create.log
 
 cd generated
 
+test ! -e runtime/framework/Obsolete.php
 grep -q "require phpaml/view:\^0.1.0-beta.3 phpaml/engine:\^0.1@beta" composer-invocations.log
 grep -q "AML View installed" ../create.log
 "$php_bin" -r 'require "runtime/autoload.php"; exit(class_exists("AML\\View\\FileApplication") && class_exists("AML\\Engine\\EngineRuntime") && class_exists("PHPAML\\Security\\CspNonce") ? 0 : 1);'
