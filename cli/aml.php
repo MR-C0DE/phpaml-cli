@@ -2369,8 +2369,7 @@ function installI18n(?string $version = null): never
     $marker = "// PHPAML i18n integration\n";
     if ($index !== '' && !str_contains($index, $marker)) {
         $anchors = [
-            '$config = phpamlComposeApplication(\\PHPAML\\Config\\ApplicationConfig::load($root), $root);',
-            "\\PHPAML\\Config\\Env::load(\$root . '/.env');",
+            '$application = new \\PHPAML\\WebApplication($config);',
         ];
         $anchor = array_values(array_filter(
             $anchors,
@@ -2379,17 +2378,28 @@ function installI18n(?string $version = null): never
         $integration = <<<'PHP'
 // PHPAML i18n integration
 if (class_exists(\AML\I18n\I18n::class)) {
+    $i18n = is_array($config['i18n'] ?? null) ? $config['i18n'] : [];
     \AML\I18n\I18n::configure(
-        $root . '/src/locales',
-        (string) \PHPAML\Config\Env::get('APP_LOCALE', 'en'),
-        (string) \PHPAML\Config\Env::get('APP_FALLBACK_LOCALE', 'fr'),
+        (string) ($i18n['directory'] ?? $root . '/src/locales'),
+        (string) ($i18n['default'] ?? \PHPAML\Config\Env::get('APP_LOCALE', 'en')),
+        (string) ($i18n['fallback'] ?? \PHPAML\Config\Env::get('APP_FALLBACK_LOCALE', 'fr')),
+    );
+    $config['middlewares'][] = new \PHPAML\Middleware\LocaleMiddleware(
+        is_array($i18n['supported'] ?? null) ? $i18n['supported'] : ['en', 'fr'],
+        (string) ($i18n['fallback'] ?? 'fr'),
+        is_array($i18n['detection'] ?? null) ? $i18n['detection'] : ['route', 'cookie', 'header'],
+        (string) ($i18n['cookie'] ?? 'phpaml_locale'),
+        static fn (string $locale, \Closure $next): \PHPAML\Http\Response => \AML\I18n\I18n::within(
+            \AML\I18n\I18n::translator()->withLocale($locale),
+            $next,
+        ),
     );
 }
 PHP;
         if ($anchor === '') {
             fail("public/index.php ne contient pas le point d’intégration i18n attendu.");
         }
-        $index = str_replace($anchor, $anchor . PHP_EOL . $integration, $index);
+        $index = str_replace($anchor, $integration . PHP_EOL . $anchor, $index);
         if (file_put_contents($indexPath, $index, LOCK_EX) === false) {
             fail('Impossible de brancher PHPAML i18n dans public/index.php.');
         }

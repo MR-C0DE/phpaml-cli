@@ -301,6 +301,7 @@ grep -q '^APP_LOCALE=en$' .env
 grep -q '^APP_FALLBACK_LOCALE=fr$' .env
 grep -q 'PHPAML i18n integration' public/index.php
 grep -q 'I18n::configure' public/index.php
+grep -q 'LocaleMiddleware' public/index.php
 "$php_bin" -r '$m=json_decode(file_get_contents("phpaml.json"),true,512,JSON_THROW_ON_ERROR); if (($m["modules"]["i18n"]["package"] ?? null) !== "phpaml/i18n" || ($m["i18n"]["enabled"] ?? null) !== true || ($m["i18n"]["supported"] ?? null) !== ["en", "fr"] || ($m["i18n"]["detection"] ?? null) !== ["route", "cookie", "header"]) exit(1);'
 AML_LANG=en "$php_bin" "$root/cli/aml.php" i18n:check > i18n-check.log
 grep -q 'en.*complete' i18n-check.log
