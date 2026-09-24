@@ -439,6 +439,9 @@ aml db:configure mysql --host 127.0.0.1 --port 3306 \
 ```
 
 `aml run <nom>` exécute une entrée de `scripts` déclarée dans `phpaml.json`.
+Une entrée de script possède les mêmes droits que votre compte utilisateur et
+peut lancer n'importe quelle commande. Inspectez toujours `phpaml.json` avant
+d'exécuter un script provenant d'un projet téléchargé ou d'une source inconnue.
 
 ## SEO
 
