@@ -144,7 +144,7 @@ file_put_contents($sftpIndex, "<?php\n\$root = dirname(__DIR__);\n");
 if (!deployRewritePublicRoot($sftpIndex, '/remote/private-app')) exit(6);
 if (!str_contains(file_get_contents($sftpIndex), "\$root = '/remote/private-app';")) exit(7);
 
-foreach (['mvc' => 'app/Controllers/HomeController.php', 'view' => 'src/views/pages/home/page.php'] as $kind => $sourceFile) {
+foreach (['mvc' => 'src/controllers/HomeController.php', 'view' => 'src/views/pages/home/page.php'] as $kind => $sourceFile) {
     $build = $root . '/build-' . $kind;
     $private = $root . '/private-' . $kind;
     $documentRoot = $root . '/public-' . $kind;

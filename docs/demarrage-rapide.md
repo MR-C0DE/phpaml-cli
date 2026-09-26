@@ -49,11 +49,11 @@ JSON ou SVG. Arrêtez le serveur avec `Ctrl+C`.
 
 ## Modifier la page d’accueil
 
-- contrôleur : `app/Controllers/HomeController.php` ;
-- modèle : `app/Models/HomeModel.php` ;
-- vue : `app/views/home.php` ;
-- header : `app/views/partials/header.php` ;
-- footer : `app/views/partials/footer.php` ;
+- contrôleur : `src/controllers/HomeController.php` ;
+- modèle : `src/models/HomeModel.php` ;
+- vue : `src/views/home.php` ;
+- header : `src/views/partials/header.php` ;
+- footer : `src/views/partials/footer.php` ;
 - point d’entrée public : `public/index.php` ;
 - CSS : `public/css/index.css` ;
 - JavaScript : `public/js/main.js` ;

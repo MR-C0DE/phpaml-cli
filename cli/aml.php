@@ -873,8 +873,7 @@ function createApiApplication(string $destination, ?string $templateVersion = nu
 {
     $target = creationTarget($destination);
     createProject($destination, $templateVersion, $refresh, $offline, false, false);
-    foreach (['app/views', 'public/css', 'public/js', 'public/img', 'configs', 'config', 'routes'] as $obsolete) removeGeneratedPath($target . '/' . $obsolete);
-    foreach (['app/Controllers/HomeController.php', 'app/Models/HomeModel.php'] as $obsolete) @unlink($target . '/' . $obsolete);
+    foreach (['src/views', 'public/css', 'public/js', 'public/img', 'configs', 'config', 'routes'] as $obsolete) removeGeneratedPath($target . '/' . $obsolete);
     foreach (['src/controllers', 'src/models', 'src/repositories', 'src/requests', 'src/resources', 'src/routes', 'src/middleware'] as $directory) {
         if (!is_dir($target . '/' . $directory) && !mkdir($target . '/' . $directory, 0755, true) && !is_dir($target . '/' . $directory)) fail("Impossible de créer {$directory}.");
     }
@@ -1492,14 +1491,62 @@ function installView(?string $version = null, bool $offline = false): never
         }
     }
 
-    // AML View applications follow a source-first layout, similar to modern
-    // file-based web frameworks. The classic PHPAML application remains in
-    // app/, while create-view-app migrates all application code into src/.
-    if (is_dir($root . '/app') && !file_exists($root . '/src')) {
-        if (!rename($root . '/app', $root . '/src')) {
-            fail('Impossible de migrer app vers src.');
+    // Every PHPAML application uses src/. Older cached templates are migrated
+    // directory by directory so casing stays identical on Linux and macOS.
+    $legacyAppRoot = $root . '/app';
+    if (is_dir($legacyAppRoot)) {
+        if (!is_dir($root . '/src') && !mkdir($root . '/src', 0755, true) && !is_dir($root . '/src')) {
+            fail('Impossible de créer src/.');
+        }
+        $legacyDirectories = [
+            'Controllers' => 'controllers',
+            'Models' => 'models',
+            'Middleware' => 'middleware',
+            'Services' => 'services',
+            'views' => 'views',
+            'Server' => 'server',
+        ];
+        foreach (new DirectoryIterator($legacyAppRoot) as $entry) {
+            if ($entry->isDot()) {
+                continue;
+            }
+            $name = $entry->getFilename();
+            $destination = $root . '/src/' . ($legacyDirectories[$name] ?? $name);
+            if (file_exists($destination)) {
+                fail("Impossible de migrer app/{$name} : la destination existe déjà dans src/.");
+            }
+            if (!rename($entry->getPathname(), $destination)) {
+                fail("Impossible de migrer app/{$name} vers src/.");
+            }
+        }
+        if (!rmdir($legacyAppRoot)) {
+            fail('Impossible de supprimer le dossier app/ devenu vide.');
         }
         output('Migré : app/ → src/');
+    }
+
+    $legacyRoutesRoot = $root . '/routes';
+    $sourceRoutesRoot = $root . '/src/routes';
+    if (is_dir($legacyRoutesRoot)) {
+        if (!is_dir($sourceRoutesRoot) && !mkdir($sourceRoutesRoot, 0755, true) && !is_dir($sourceRoutesRoot)) {
+            fail('Impossible de créer src/routes.');
+        }
+        foreach (new DirectoryIterator($legacyRoutesRoot) as $routeFile) {
+            if ($routeFile->isDot() || !$routeFile->isFile()) {
+                continue;
+            }
+            $destination = $sourceRoutesRoot . '/' . $routeFile->getFilename();
+            if (file_exists($destination)) {
+                fail("Impossible de migrer routes/ : '{$routeFile->getFilename()}' existe déjà dans src/routes/.");
+            }
+            if (!rename($routeFile->getPathname(), $destination)) {
+                fail("Impossible de migrer routes/{$routeFile->getFilename()} vers src/routes/.");
+            }
+        }
+        if (count(scandir($legacyRoutesRoot) ?: []) === 2) {
+            rmdir($legacyRoutesRoot);
+        }
+        output('Migré : routes/ → src/routes/');
     }
 
     $publicImages = $root . '/public/img';
@@ -1608,7 +1655,7 @@ function installView(?string $version = null, bool $offline = false): never
         file_put_contents($configPath, $configContent, LOCK_EX);
     }
 
-    $webRoutesPath = $root . '/routes/WebApp.php';
+    $webRoutesPath = $root . '/src/routes/WebApp.php';
     if (is_file($webRoutesPath)) {
         $webRoutes = (string) file_get_contents($webRoutesPath);
         $webRoutes = str_replace(
@@ -1625,6 +1672,13 @@ function installView(?string $version = null, bool $offline = false): never
     $composer['autoload']['psr-4'] = is_array($composer['autoload']['psr-4'] ?? null)
         ? $composer['autoload']['psr-4']
         : [];
+    unset($composer['autoload']['psr-4']['App\\Server\\']);
+    foreach ($composer['autoload']['psr-4'] as $namespace => $directory) {
+        $directories = is_array($directory) ? $directory : [$directory];
+        if (array_filter($directories, static fn (mixed $path): bool => is_string($path) && (str_starts_with($path, 'app/') || str_starts_with($path, 'routes/'))) !== []) {
+            unset($composer['autoload']['psr-4'][$namespace]);
+        }
+    }
     $composer['autoload']['psr-4']['App\\'] = 'src/';
     $composer['autoload']['psr-4']['App\\Views\\'] = 'src/views/';
     $composer['autoload']['psr-4']['App\\Views\\Pages\\'] = 'src/views/pages/';
@@ -1635,7 +1689,6 @@ function installView(?string $version = null, bool $offline = false): never
     $composer['autoload']['psr-4']['App\\Models\\'] = 'src/models/';
     $composer['autoload']['psr-4']['App\\Middleware\\'] = 'src/middleware/';
     $composer['autoload']['psr-4']['App\\Services\\'] = 'src/services/';
-    unset($composer['autoload']['psr-4']['App\\Server\\']);
     file_put_contents(
         $composerPath,
         json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL,
@@ -2941,21 +2994,12 @@ function apiPlural(string $singular): string
 /** @return array{model:string,resource:string,create:string,update:string,controller:string} */
 function apiResourcePaths(string $root, string $resource): array
 {
-    if (is_dir($root . '/src')) {
-        return [
-            'model' => "src/models/{$resource}.php",
-            'resource' => "src/resources/{$resource}Resource.php",
-            'create' => "src/requests/Create{$resource}Request.php",
-            'update' => "src/requests/Update{$resource}Request.php",
-            'controller' => "src/controllers/{$resource}Controller.php",
-        ];
-    }
     return [
         'model' => "src/models/{$resource}.php",
-        'resource' => "app/Resources/{$resource}Resource.php",
-        'create' => "app/Requests/Create{$resource}Request.php",
-        'update' => "app/Requests/Update{$resource}Request.php",
-        'controller' => "app/Controllers/Api/{$resource}Controller.php",
+        'resource' => "src/resources/{$resource}Resource.php",
+        'create' => "src/requests/Create{$resource}Request.php",
+        'update' => "src/requests/Update{$resource}Request.php",
+        'controller' => "src/controllers/{$resource}Controller.php",
     ];
 }
 
@@ -3146,7 +3190,7 @@ function generateApi(string $name, array $arguments = []): void
 {
     $root = projectRoot();
     $manifest = projectInfo($root);
-    $modernApi = ($manifest['application']['type'] ?? null) === 'api';
+    $modernApi = isset($manifest['application']);
     if (!$modernApi && !is_file($root . '/configs/api.php')) { installApi(); }
     $resource = className($name);
     $controller = $resource . 'Controller';
@@ -3165,7 +3209,7 @@ function generateApi(string $name, array $arguments = []): void
 
 declare(strict_types=1);
 
-namespace App\Controllers\Api;
+namespace App\Controllers;
 
 use PHPAML\Api\ApiResponse;
 use PHPAML\Http\Request;
@@ -3243,7 +3287,7 @@ PHP
 
 declare(strict_types=1);
 
-namespace App\Controllers\Api;
+namespace App\Controllers;
 
 use AML\Data\Connection;
 use AML\Data\DbSet;
@@ -3308,9 +3352,6 @@ final class {{CONTROLLER}}
 PHP
         );
     }
-    if ($modernApi) {
-        $content = str_replace('namespace App\\Controllers\\Api;', 'namespace App\\Controllers;', $content);
-    }
     if (!writeNewFile($root, $path, $content)) { fail("Le fichier '{$path}' existe déjà."); }
 
     if ($modernApi) {
@@ -3339,7 +3380,7 @@ PHP
 
     $routesPath = $root . '/configs/api-routes.php';
     $routes = (string) file_get_contents($routesPath);
-    $import = "use App\\Controllers\\Api\\{$controller};";
+    $import = "use App\\Controllers\\{$controller};";
     if (!str_contains($routes, $import)) {
         $routes = str_replace("declare(strict_types=1);", "declare(strict_types=1);\n\n{$import}", $routes);
     }
@@ -3421,20 +3462,19 @@ function generateApiClient(?string $outputPath = null): void
 function generateClass(string $type, string $name): void
 {
     $root = projectRoot();
-    $isViewApplication = isset(projectInfo($root)['modules']['view']);
-    $sourceRoot = $isViewApplication ? 'src' : 'app';
+    $sourceRoot = 'src';
     $namespaceRoot = 'App';
     if ($type === 'controller') {
         $class = className($name, 'Controller');
-        $path = $isViewApplication ? "{$sourceRoot}/controllers/{$class}.php" : "{$sourceRoot}/Controllers/{$class}.php";
+        $path = "{$sourceRoot}/controllers/{$class}.php";
         $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespaceRoot}\\Controllers;\n\nuse PHPAML\\Http\\Request;\nuse PHPAML\\Http\\Response;\nuse PHPAML\\Mvc\\Controller;\n\nfinal class {$class} extends Controller\n{\n    public function index(Request \$request): Response\n    {\n        return \$this->json(['controller' => '{$class}']);\n    }\n}\n";
     } elseif ($type === 'model') {
         $class = className($name);
-        $path = $isViewApplication ? "{$sourceRoot}/models/{$class}.php" : "{$sourceRoot}/Models/{$class}.php";
+        $path = "{$sourceRoot}/models/{$class}.php";
         $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespaceRoot}\\Models;\n\nfinal class {$class}\n{\n}\n";
     } else {
         $class = className($name, 'Middleware');
-        $path = $isViewApplication ? "{$sourceRoot}/middleware/{$class}.php" : "{$sourceRoot}/Middleware/{$class}.php";
+        $path = "{$sourceRoot}/middleware/{$class}.php";
         $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespaceRoot}\\Middleware;\n\nuse Closure;\nuse PHPAML\\Http\\Request;\nuse PHPAML\\Http\\Response;\nuse PHPAML\\Middleware\\MiddlewareInterface;\n\nfinal class {$class} implements MiddlewareInterface\n{\n    public function process(Request \$request, Closure \$next): Response\n    {\n        return \$next(\$request);\n    }\n}\n";
     }
     $fullPath = $root . '/' . $path;
@@ -4333,10 +4373,41 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     $manifest = $root . '/phpaml.json';
     $legacyRuntime = $root . '/aml_env';
     $runtime = $root . '/runtime';
-    $legacyView = $root . '/app/View';
-    $ui = $root . '/app/UI';
     $legacyDatabase = $root . '/database';
     $runtimeDatabase = $root . '/runtime/database';
+    $sourceMoves = [
+        'app/Controllers' => 'src/controllers',
+        'app/Models' => 'src/models',
+        'app/Middleware' => 'src/middleware',
+        'app/Services' => 'src/services',
+        'app/Repositories' => 'src/repositories',
+        'app/Requests' => 'src/requests',
+        'app/Resources' => 'src/resources',
+        'app/views' => 'src/views',
+        'app/View' => 'src/View',
+        'app/UI' => 'src/UI',
+        'app/routes' => 'src/routes',
+        'routes' => 'src/routes',
+    ];
+    if (is_dir($root . '/app')) {
+        $normalizedApplicationDirectories = [
+            'controllers' => 'controllers', 'models' => 'models', 'middleware' => 'middleware',
+            'services' => 'services', 'repositories' => 'repositories', 'requests' => 'requests',
+            'resources' => 'resources', 'routes' => 'routes', 'views' => 'views',
+        ];
+        foreach (new DirectoryIterator($root . '/app') as $entry) {
+            if (!$entry->isDot() && !isset($sourceMoves['app/' . $entry->getFilename()])) {
+                $name = $entry->getFilename();
+                $sourceMoves['app/' . $name] = 'src/' . ($normalizedApplicationDirectories[strtolower($name)] ?? $name);
+            }
+        }
+    }
+    $activeSourceMoves = [];
+    foreach ($sourceMoves as $from => $to) {
+        if (is_dir($root . '/' . $from)) {
+            $activeSourceMoves[$from] = $to;
+        }
+    }
 
     $conflicts = [];
     if (is_file($legacyManifest) && is_file($manifest)) {
@@ -4345,11 +4416,20 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     if (is_dir($legacyRuntime) && is_dir($runtime)) {
         $conflicts[] = 'aml_env/ + runtime/';
     }
-    if (is_dir($legacyView) && is_dir($ui)) {
-        $conflicts[] = 'app/View/ + app/UI/';
-    }
     if (is_dir($legacyDatabase) && is_dir($runtimeDatabase)) {
         $conflicts[] = 'database/ + runtime/database/';
+    }
+    foreach ($activeSourceMoves as $from => $to) {
+        if (is_dir($root . '/' . $to)) {
+            $conflicts[] = $from . '/ + ' . $to . '/';
+        }
+    }
+    $destinations = [];
+    foreach ($activeSourceMoves as $from => $to) {
+        if (isset($destinations[$to])) {
+            $conflicts[] = $destinations[$to] . '/ + ' . $from . '/';
+        }
+        $destinations[$to] = $from;
     }
     if ($conflicts !== []) {
         fail('Migration impossible : conflits détectés (' . implode(', ', $conflicts) . ').');
@@ -4357,9 +4437,8 @@ function migrateProjectStructure(bool $apply, bool $yes): void
 
     $renameManifest = is_file($legacyManifest);
     $renameRuntime = is_dir($legacyRuntime);
-    $renameView = is_dir($legacyView);
     $renameDatabase = is_dir($legacyDatabase);
-    if (!$renameManifest && !$renameRuntime && !$renameView && !$renameDatabase) {
+    if (!$renameManifest && !$renameRuntime && !$renameDatabase && $activeSourceMoves === []) {
         output(currentLanguage() === 'fr' ? 'La structure du projet est déjà à jour.' : 'The project structure is already up to date.');
         return;
     }
@@ -4371,8 +4450,8 @@ function migrateProjectStructure(bool $apply, bool $yes): void
     if ($renameRuntime) {
         output('  aml_env/ → runtime/');
     }
-    if ($renameView) {
-        output('  app/View/ → app/UI/');
+    foreach ($activeSourceMoves as $from => $to) {
+        output("  {$from}/ → {$to}/");
     }
     if ($renameDatabase) {
         output('  database/ → runtime/database/');
@@ -4423,8 +4502,8 @@ function migrateProjectStructure(bool $apply, bool $yes): void
             if (!is_string($content)
                 || (!str_contains($content, 'aml_env')
                     && !str_contains($content, 'info.json')
-                    && !str_contains($content, 'app/View')
-                    && !str_contains($content, 'App\\View')
+                    && !str_contains($content, 'app/')
+                    && !str_contains($content, 'routes/')
                     && !str_contains($content, 'database/migrations')
                     && !str_contains($content, 'database/seeders'))) {
                 continue;
@@ -4439,18 +4518,18 @@ function migrateProjectStructure(bool $apply, bool $yes): void
             }
             $saved[$path] = $target;
             $protected = str_replace(
-                ['runtime/database/migrations', 'runtime/database/seeders'],
-                ['__PHPAML_RUNTIME_MIGRATIONS__', '__PHPAML_RUNTIME_SEEDERS__'],
+                ['runtime/database/migrations', 'runtime/database/seeders', 'src/routes/'],
+                ['__PHPAML_RUNTIME_MIGRATIONS__', '__PHPAML_RUNTIME_SEEDERS__', '__PHPAML_SRC_ROUTES__'],
                 $content
             );
             $updated = str_replace(
-                ['aml_env', 'info.json', 'app/View', 'App\\View', 'database/migrations', 'database/seeders'],
-                ['runtime', 'phpaml.json', 'app/UI', 'App\\UI', 'runtime/database/migrations', 'runtime/database/seeders'],
+                ['aml_env', 'info.json', 'app/Controllers', 'app/controllers', 'app/Models', 'app/models', 'app/Middleware', 'app/middleware', 'app/Services', 'app/services', 'app/Repositories', 'app/Requests', 'app/Resources', 'app/views', 'app/View', 'app/UI', 'app/routes', 'routes/', 'database/migrations', 'database/seeders'],
+                ['runtime', 'phpaml.json', 'src/controllers', 'src/controllers', 'src/models', 'src/models', 'src/middleware', 'src/middleware', 'src/services', 'src/services', 'src/repositories', 'src/requests', 'src/resources', 'src/views', 'src/View', 'src/UI', 'src/routes', 'src/routes/', 'runtime/database/migrations', 'runtime/database/seeders'],
                 $protected
             );
             $updated = str_replace(
-                ['__PHPAML_RUNTIME_MIGRATIONS__', '__PHPAML_RUNTIME_SEEDERS__'],
-                ['runtime/database/migrations', 'runtime/database/seeders'],
+                ['__PHPAML_RUNTIME_MIGRATIONS__', '__PHPAML_RUNTIME_SEEDERS__', '__PHPAML_SRC_ROUTES__'],
+                ['runtime/database/migrations', 'runtime/database/seeders', 'src/routes/'],
                 $updated
             );
             if (file_put_contents($path, $updated) === false) {
@@ -4491,15 +4570,29 @@ function migrateProjectStructure(bool $apply, bool $yes): void
                 throw new RuntimeException('Unable to migrate database');
             }
         }
-        if ($renameView && !rename($legacyView, $ui)) {
-            throw new RuntimeException('Unable to migrate app/View');
+        foreach ($activeSourceMoves as $from => $to) {
+            $destination = $root . '/' . $to;
+            if (!is_dir(dirname($destination)) && !mkdir(dirname($destination), 0755, true) && !is_dir(dirname($destination))) {
+                throw new RuntimeException("Unable to create " . dirname($to));
+            }
+            if (!rename($root . '/' . $from, $destination)) {
+                throw new RuntimeException("Unable to migrate {$from}");
+            }
+        }
+        if (is_dir($root . '/app')) {
+            @rmdir($root . '/app');
         }
     } catch (Throwable $error) {
         if (is_dir($runtimeDatabase) && !is_dir($legacyDatabase) && $renameDatabase) {
             @rename($runtimeDatabase, $legacyDatabase);
         }
-        if (is_dir($ui) && !is_dir($legacyView) && $renameView) {
-            @rename($ui, $legacyView);
+        foreach (array_reverse($activeSourceMoves, true) as $from => $to) {
+            if (is_dir($root . '/' . $to) && !is_dir($root . '/' . $from)) {
+                if (!is_dir(dirname($root . '/' . $from))) {
+                    @mkdir(dirname($root . '/' . $from), 0755, true);
+                }
+                @rename($root . '/' . $to, $root . '/' . $from);
+            }
         }
         if (is_dir($runtime) && !is_dir($legacyRuntime) && $renameRuntime) {
             @rename($runtime, $legacyRuntime);

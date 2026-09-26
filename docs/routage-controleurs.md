@@ -2,7 +2,7 @@
 
 ## Déclarer une route
 
-Une application classique place ses routes dans `routes/WebApp.php`. Une API
+Une application classique place ses routes dans `src/routes/WebApp.php`. Une API
 ou le backend d’une application AML View utilise une classe par ressource dans
 `src/routes`, par exemple `MovieRoute.php` :
 

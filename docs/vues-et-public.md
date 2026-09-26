@@ -11,7 +11,7 @@ return $this->view('home.php', [
 ]);
 ```
 
-Dans `app/views/home.php` :
+Dans `src/views/home.php` :
 
 ```php
 <h1><?= $this->escape($title) ?></h1>
@@ -19,11 +19,11 @@ Dans `app/views/home.php` :
 ```
 
 Utilisez `$this->escape()` pour toute valeur non fiable. Le moteur bloque les
-chemins qui tentent de sortir de `app/views`.
+chemins qui tentent de sortir de `src/views`.
 
 ## Header et footer
 
-Les composants partagés se trouvent dans `app/views/partials` :
+Les composants partagés se trouvent dans `src/views/partials` :
 
 ```php
 <?php $this->partial('header.php', ['title' => $title]) ?>
@@ -38,8 +38,8 @@ Les composants partagés se trouvent dans `app/views/partials` :
 Le modèle officiel fournit déjà :
 
 ```text
-app/views/partials/header.php
-app/views/partials/footer.php
+src/views/partials/header.php
+src/views/partials/footer.php
 ```
 
 ## CSS, JavaScript et favicon

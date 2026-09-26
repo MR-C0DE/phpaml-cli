@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.7.0-beta.28 — 2026-09-26
+
+- unifie les applications classiques, AML View et API sous la racine `src/` ;
+- place les contrôleurs, modèles, middlewares et ressources générés dans
+  `src/`, et toutes les routes dans `src/routes/` ;
+- étend `aml migrate:structure` pour convertir les anciens dossiers `app/` et
+  `routes/` avec sauvegarde, contrôle des conflits et mise à jour des références ;
+- retire les anciens mappings Composer pendant la conversion AML View et
+  corrige le namespace des contrôleurs API générés ;
+- ajoute les non-régressions de création, migration, build et déploiement pour
+  la structure unifiée ;
+- distribue Template `0.5.0-beta.7` et Framework `0.3.0-beta.5`.
+
 ## 1.7.0-beta.27 — 2026-09-12
 
 - migre la route classique `GET /` de `routes/WebApp.php` vers

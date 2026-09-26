@@ -29,6 +29,8 @@ src/
 ├── middleware/               # optional middleware
 ├── services/                 # optional services
 ├── locales/                  # optional JSON translation catalogs
+├── routes/
+│   └── WebApp.php            # optional backend routes
 └── views/
     ├── pages/
     │   ├── home/page.php     # /
@@ -40,8 +42,6 @@ src/
     ├── stylesheets/
     ├── themes/
     └── assets/
-routes/
-└── WebApp.php                # classic web routes
 public/
 ├── index.php                 # only PHP entry point
 ├── favicon.svg

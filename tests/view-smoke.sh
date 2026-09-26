@@ -15,7 +15,7 @@ cleanup() {
 trap cleanup EXIT
 
 template="$fixture/template/phpaml-template-0.0.0"
-mkdir -p "$template/public/img" "$template/public/css" "$template/public/js" "$template/app/views" "$template/app/Controllers" "$template/app/Models" "$template/configs" "$template/routes" "$template/runtime/framework"
+mkdir -p "$template/public/img" "$template/public/css" "$template/public/js" "$template/src/views" "$template/src/controllers" "$template/src/models" "$template/src/routes" "$template/configs" "$template/runtime/framework"
 touch "$template/public/img/favicon.svg" "$template/public/css/index.css" "$template/public/js/main.js"
 printf '%s\n' '<?php // obsolete framework file' > "$template/runtime/framework/Obsolete.php"
 cat > "$template/public/.htaccess" <<'HTACCESS'
@@ -24,8 +24,8 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]
 HTACCESS
-touch "$template/app/views/.gitkeep"
-cat > "$template/app/Controllers/HomeController.php" <<'PHP'
+touch "$template/src/views/.gitkeep"
+cat > "$template/src/controllers/HomeController.php" <<'PHP'
 <?php
 namespace App\Controllers;
 use App\Models\HomeModel;
@@ -36,18 +36,17 @@ final class HomeController extends Controller {
     public function index(Request $request): Response { return $this->view('home.php', ['model' => new HomeModel()]); }
 }
 PHP
-printf '%s\n' '<?php namespace App\Models; final class HomeModel { public function getName(): string { return "PHPAML"; } }' > "$template/app/Models/HomeModel.php"
+printf '%s\n' '<?php namespace App\Models; final class HomeModel { public function getName(): string { return "PHPAML"; } }' > "$template/src/models/HomeModel.php"
 cat > "$template/phpaml.json" <<'JSON'
 {"name":"template","version":"1.0.0","runtime":{"directory":"runtime"},"modules":{}}
 JSON
 cat > "$template/composer.json" <<'JSON'
-{"name":"phpaml/view-test","require":{"php":"^8.2"},"autoload":{"psr-4":{"App\\":"app/"}},"config":{"vendor-dir":"runtime"}}
+{"name":"phpaml/view-test","require":{"php":"^8.2"},"autoload":{"psr-4":{"App\\Controllers\\":"src/controllers/","App\\Models\\":"src/models/","App\\Routes\\":"src/routes/","App\\":"src/"}},"config":{"vendor-dir":"runtime"}}
 JSON
 cat > "$template/phpstan.neon" <<'NEON'
 parameters:
     paths:
-        - app/Controllers
-        - app/Models
+        - src
         - public/index.php
 NEON
 printf 'APP_ENV=local\n' > "$template/.env.example"
@@ -55,13 +54,13 @@ cat > "$template/configs/app.php" <<'PHP'
 <?php
 use App\Controllers\HomeController;
 return [
-    'views_path' => dirname(__DIR__) . '/app/views',
+    'views_path' => dirname(__DIR__) . '/src/views',
     'routes' => [
         'GET /' => ['handler' => [HomeController::class, 'index'], 'name' => 'home'],
     ],
 ];
 PHP
-cat > "$template/routes/WebApp.php" <<'PHP'
+cat > "$template/src/routes/WebApp.php" <<'PHP'
 <?php
 namespace App\Routes;
 use App\Controllers\HomeController;
@@ -76,7 +75,7 @@ $root = dirname(__DIR__);
 $requestPath = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/');
 if (PHP_SAPI === 'cli-server' && $requestPath === '/_aml/live-reload') {
     $fingerprint = [];
-    foreach ([$root . '/app', $root . '/configs', $root . '/database', __DIR__] as $watchedRoot) {
+    foreach ([$root . '/src', $root . '/configs', $root . '/database', __DIR__] as $watchedRoot) {
         if (!is_dir($watchedRoot)) continue;
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($watchedRoot, FilesystemIterator::SKIP_DOTS));
         foreach ($files as $file) if ($file->isFile()) $fingerprint[] = $file->getPathname() . ':' . $file->getMTime();
@@ -147,7 +146,12 @@ AML_LANG=en AML_CACHE_HOME="$fixture/cache" \
   "$php_bin" "$root/cli/aml.php" create "$fixture/absolute-project" --offline --no-install --version 0.0.0 > absolute-create.log
 test -f "$fixture/absolute-project/phpaml.json"
 test ! -e "$fixture/work/$fixture/absolute-project"
-test ! -d "$fixture/absolute-project/app/UI"
+test ! -d "$fixture/absolute-project/app"
+test -f "$fixture/absolute-project/src/controllers/HomeController.php"
+test -f "$fixture/absolute-project/src/models/HomeModel.php"
+test -f "$fixture/absolute-project/src/views/home.php"
+test -f "$fixture/absolute-project/src/routes/WebApp.php"
+test ! -d "$fixture/absolute-project/routes"
 
 AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/composer" \
   "$php_bin" "$root/cli/aml.php" create automatic-project --offline --version 0.0.0 > automatic-create.log
@@ -180,10 +184,10 @@ grep -q 'Navigation(),' src/views/layouts/AppLayout.php
 ! grep -q 'new Element(' src/views/pages/home/page.php
 test -d src/controllers
 test -d src/models
-find src -type d -print | grep -q '^src/controllers$'
-find src -type d -print | grep -q '^src/models$'
-! find src -type d -print | grep -q '^src/Controllers$'
-! find src -type d -print | grep -q '^src/Models$'
+test -d src/controllers
+test -d src/models
+test ! -d src/Controllers
+test ! -d src/Models
 grep -q 'src/controllers' phpstan.neon
 grep -q 'src/models' phpstan.neon
 ! grep -q 'app/Controllers' phpstan.neon
@@ -262,8 +266,8 @@ grep -q '"App\\\\Services\\\\": "src/services/"' composer.json
 grep -q 'App\\Controllers' configs/app.php
 ! grep -q 'views_path' configs/app.php
 grep -q 'GET /api/health' configs/app.php
-grep -Fq "\$this->get('/api/health', [HomeController::class, 'index']);" routes/WebApp.php
-! grep -Fq "\$this->get('/', [HomeController::class, 'index']);" routes/WebApp.php
+grep -Fq "\$this->get('/api/health', [HomeController::class, 'index']);" src/routes/WebApp.php
+! grep -Fq "\$this->get('/', [HomeController::class, 'index']);" src/routes/WebApp.php
 grep -q '\$this->json' src/controllers/HomeController.php
 ! grep -q '\$this->view' src/controllers/HomeController.php
 

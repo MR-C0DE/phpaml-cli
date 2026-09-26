@@ -24,7 +24,7 @@ AML_LANG=fr "$php_bin" "$root/cli/aml.php" make:api Product --auth --read-abilit
 
 test -f configs/api.php
 test -f configs/api-routes.php
-test -f app/Controllers/Api/ProductController.php
+test -f src/controllers/ProductController.php
 grep -q "require __DIR__ . '/api.php'" configs/app.php
 grep -q "'project_root' => dirname(__DIR__)" configs/app.php
 grep -q "GET /api/v1/products" configs/api-routes.php
@@ -33,7 +33,7 @@ grep -q "AbilityMiddleware::class" configs/api-routes.php
 grep -q "products.write" configs/api-routes.php
 "$php_bin" -l configs/app.php >/dev/null
 "$php_bin" -l configs/api-routes.php >/dev/null
-"$php_bin" -l app/Controllers/Api/ProductController.php >/dev/null
+"$php_bin" -l src/controllers/ProductController.php >/dev/null
 
 # Persistent resources can receive fields after their initial generation.
 mkdir -p src/views
