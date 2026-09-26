@@ -160,6 +160,17 @@ test -f automatic-project/runtime/aml-installed.json
 grep -q 'install --no-interaction --prefer-dist' automatic-project/composer-invocations.log
 grep -q 'Ready. Run: cd automatic-project && aml serve' automatic-create.log
 
+AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/composer" \
+  "$php_bin" "$root/cli/aml.php" create-api generated-api --offline --version 0.0.0 > api-create.log
+test -f generated-api/src/controllers/HealthController.php
+test -f generated-api/src/routes/ApiRoute.php
+test ! -f generated-api/src/controllers/HomeController.php
+test ! -f generated-api/src/models/HomeModel.php
+test ! -f generated-api/src/routes/WebApp.php
+test ! -d generated-api/src/views
+test ! -d generated-api/app
+test ! -d generated-api/routes
+
 cd generated
 
 test ! -e runtime/framework/Obsolete.php

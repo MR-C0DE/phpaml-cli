@@ -874,6 +874,9 @@ function createApiApplication(string $destination, ?string $templateVersion = nu
     $target = creationTarget($destination);
     createProject($destination, $templateVersion, $refresh, $offline, false, false);
     foreach (['src/views', 'public/css', 'public/js', 'public/img', 'configs', 'config', 'routes'] as $obsolete) removeGeneratedPath($target . '/' . $obsolete);
+    foreach (['src/controllers/HomeController.php', 'src/models/HomeModel.php', 'src/routes/WebApp.php'] as $obsolete) {
+        removeGeneratedPath($target . '/' . $obsolete);
+    }
     foreach (['src/controllers', 'src/models', 'src/repositories', 'src/requests', 'src/resources', 'src/routes', 'src/middleware'] as $directory) {
         if (!is_dir($target . '/' . $directory) && !mkdir($target . '/' . $directory, 0755, true) && !is_dir($target . '/' . $directory)) fail("Impossible de créer {$directory}.");
     }

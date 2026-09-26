@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.0-beta.29 — 2026-09-26
+
+- retire du projet API pur le contrôleur, le modèle et la route d’accueil
+  hérités du Template classique ;
+- garantit que `aml create-api` expose uniquement les routes API attendues et
+  ne conserve ni vues ni dossiers historiques ;
+- ajoute une non-régression sur les fichiers générés par `create-api`.
+
 ## 1.7.0-beta.28 — 2026-09-26
 
 - unifie les applications classiques, AML View et API sous la racine `src/` ;
