@@ -293,7 +293,8 @@ function showHelp(): void
             '  api:openapi              Generate public/openapi.json',
             '  api:client               Generate the TypeScript API client',
             '  make:controller <name>   Generate a controller',
-            '  make:model <name>        Generate a model',
+            '  make:model <name>        Generate a plain PHP model',
+            '  make:entity <name>       Generate a persistent phpaml/data entity',
             '  make:middleware <name>   Generate middleware',
             '  make:migration <name>    Generate a migration',
             '  make:seeder <name>       Generate a data seeder',
@@ -383,7 +384,8 @@ function showHelp(): void
     output('  api:openapi               Génère public/openapi.json');
     output('  api:client                Génère le client TypeScript');
     output('  make:controller <nom>     Génère un contrôleur');
-    output('  make:model <nom>          Génère un modèle');
+    output('  make:model <nom>          Génère un modèle PHP simple');
+    output('  make:entity <nom>         Génère une entité persistante phpaml/data');
     output('  make:middleware <nom>     Génère un middleware');
     output('  make:migration <nom>      Génère une migration');
     output('  make:seeder <nom>         Génère un seeder de données');
@@ -1479,7 +1481,7 @@ function installView(?string $version = null, bool $offline = false): never
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
-    $constraint = $version === null ? '^0.1.0-beta.3' : ltrim(trim($version), 'v');
+    $constraint = $version === null ? '^0.1.0-beta.6' : ltrim(trim($version), 'v');
     if (preg_match('/^[0-9A-Za-z.*^~<>=|@+_.-]+$/', $constraint) !== 1) {
         fail('La version AML View est invalide.');
     }
@@ -1731,7 +1733,7 @@ function installView(?string $version = null, bool $offline = false): never
         fail('L’installation Composer de phpaml/view a échoué.');
     }
     $requiredRuntimeFiles = [
-        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.3 ou plus récent',
+        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.6 ou plus récent',
         'runtime/phpaml/engine/src/EngineRuntime.php' => 'phpaml/engine',
         'runtime/framework/Security/CspNonce.php' => 'phpaml/framework v0.2.1-beta.1 ou plus récent',
     ];
@@ -2337,15 +2339,17 @@ if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
             $result = $viewApp->error($requestPath, $error);
         }
         $session = $application->container()->get(\PHPAML\Session\Session::class);
-        $head = $result instanceof \AML\View\PageResult ? $viewApp->head($requestPath) : '';
         $body = $result instanceof \AML\View\PageResult ? $result->rootHtml() : (string) $result;
         $liveReloadMeta = PHP_SAPI === 'cli-server' ? '<meta name="aml-live-reload" content="/_aml/live-reload">' : '';
         $cspNonce = \PHPAML\Security\CspNonce::from($viewRequest);
+        $metadata = $result instanceof \AML\View\PageResult ? $viewApp->metadata($requestPath) : new \AML\View\PageMetadata();
+        $head = $metadata->render($cspNonce);
+        $htmlAttributes = $metadata->htmlAttributes();
         $engineScript = \AML\Engine\EngineRuntime::externalScript();
-        $html = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        $html = '<!doctype html><html ' . $htmlAttributes . '><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . $session->csrfMeta() . $liveReloadMeta . $head
-            . '<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/_aml/styles.css">'
+            . '<link rel="stylesheet" href="/_aml/styles.css">'
             . '</head><body>' . $body . $engineScript . '</body></html>';
         return \PHPAML\Http\Response::html($html, $status);
     });
@@ -2375,7 +2379,7 @@ PHP;
             [
                 "if (method_exists(\\AML\\Engine\\EngineRuntime::class, 'assetFilename')\n            && \$requestPath === '/_aml/' . \\AML\\Engine\\EngineRuntime::assetFilename(true)) {",
                 "if (method_exists(\\AML\\Engine\\EngineRuntime::class, 'assetFilename')\n            && \$requestPath === '/_aml/' . \\AML\\Engine\\EngineRuntime::assetFilename(true) . '.map') {",
-                "\$cspNonce = \\PHPAML\\Security\\CspNonce::from(\$viewRequest);\n        \$engineScript = method_exists(\\AML\\Engine\\EngineRuntime::class, 'externalScript')\n            ? \\AML\\Engine\\EngineRuntime::externalScript()\n            : \\AML\\Engine\\EngineRuntime::script(\$cspNonce);\n        \$html = '<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">'",
+                "\$cspNonce = \\PHPAML\\Security\\CspNonce::from(\$viewRequest);\n        \$metadata = \$result instanceof \\AML\\View\\PageResult ? \$viewApp->metadata(\$requestPath) : new \\AML\\View\\PageMetadata();\n        \$head = \$metadata->render(\$cspNonce);\n        \$htmlAttributes = \$metadata->htmlAttributes();\n        \$engineScript = method_exists(\\AML\\Engine\\EngineRuntime::class, 'externalScript')\n            ? \\AML\\Engine\\EngineRuntime::externalScript()\n            : \\AML\\Engine\\EngineRuntime::script(\$cspNonce);\n        \$html = '<!doctype html><html ' . \$htmlAttributes . '><head><meta charset=\"utf-8\">'",
                 ". '</head><body>' . \$body . \$engineScript . '</body></html>';",
             ],
             $migratedIndex
@@ -4540,6 +4544,37 @@ function migrateProjectStructure(bool $apply, bool $yes): void
             }
         }
 
+        $composerPath = $root . '/composer.json';
+        if (is_file($composerPath)) {
+            $composer = json_decode((string) file_get_contents($composerPath), true, 512, JSON_THROW_ON_ERROR);
+            $composer['autoload'] = is_array($composer['autoload'] ?? null) ? $composer['autoload'] : [];
+            $composer['autoload']['psr-4'] = is_array($composer['autoload']['psr-4'] ?? null)
+                ? $composer['autoload']['psr-4']
+                : [];
+            foreach ($composer['autoload']['psr-4'] as $namespace => $directory) {
+                $directories = is_array($directory) ? $directory : [$directory];
+                if (array_filter($directories, static fn (mixed $path): bool => is_string($path) && (str_starts_with($path, 'app/') || str_starts_with($path, 'routes/'))) !== []) {
+                    unset($composer['autoload']['psr-4'][$namespace]);
+                }
+            }
+            foreach ([
+                'App\\Controllers\\' => 'src/controllers/',
+                'App\\Models\\' => 'src/models/',
+                'App\\Middleware\\' => 'src/middleware/',
+                'App\\Services\\' => 'src/services/',
+                'App\\Repositories\\' => 'src/repositories/',
+                'App\\Requests\\' => 'src/requests/',
+                'App\\Resources\\' => 'src/resources/',
+                'App\\Routes\\' => 'src/routes/',
+                'App\\' => 'src/',
+            ] as $namespace => $directory) {
+                $composer['autoload']['psr-4'][$namespace] = $directory;
+            }
+            if (file_put_contents($composerPath, json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL, LOCK_EX) === false) {
+                throw new RuntimeException('Unable to update composer.json');
+            }
+        }
+
         if ($renameManifest) {
             $raw = file_get_contents($legacyManifest);
             $data = json_decode($raw ?: '', true, 512, JSON_THROW_ON_ERROR);
@@ -4774,6 +4809,9 @@ switch ($command) {
             : fail('Indiquez le nom de la classe à générer.');
         break;
     case 'make:model':
+        isset($arguments[1]) ? generateClass('model', $arguments[1]) : fail('Indiquez le nom de la classe à générer.');
+        break;
+    case 'make:entity':
         isset($arguments[1]) ? runDataCommand('data:make-model', [$arguments[1]]) : fail('Indiquez le nom de la classe à générer.');
     case 'make:migration':
         isset($arguments[1]) ? runDataCommand('data:make-migration', [$arguments[1]]) : fail('Indiquez le nom de la migration.');

@@ -3,9 +3,11 @@
 PHPAML uses Semantic Versioning independently for each component:
 
 - AML CLI stable: `1.6.0`
-- AML CLI preview: `1.7.0-beta.29`
+- AML CLI preview: `1.7.0-beta.30`
 - PHPAML Framework preview: `0.3.0-beta.5`
 - PHPAML Template preview: `0.5.0-beta.7`
+- AML View preview: `0.1.0-beta.6`
+- PHPAML Engine preview: `0.1.0-beta.4`
 
 These preview values are checked against the package manifests by the CLI test
 workflow. A version bump that leaves this document behind fails CI.

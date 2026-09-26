@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.7.0-beta.30 — 2026-09-26
+
+- Corrige `aml migrate:structure` afin que l'autoload PSR-4 de Composer pointe vers `src/` après la migration d'une application classique.
+- Ajoute une couverture de non-régression garantissant la suppression des anciens chemins `app/` dans `composer.json`.
+- Découple `aml make:model` de PHPAML Data : il génère désormais un modèle PHP simple, tandis que `aml make:entity` génère une entité persistante.
+- Installe AML View `0.1.0-beta.6` par défaut avec PHPAML Engine
+  `0.1.0-beta.4`, incluant les composants HTML natifs, `Alert`,
+  `Console::log()` et les progressions réactives.
+
 ## 1.7.0-beta.29 — 2026-09-26
 
 - retire du projet API pur le contrôleur, le modèle et la route d’accueil

@@ -64,10 +64,12 @@ stored in `phpaml.json`, secrets in `.env`, and generated configuration in
 ```php
 <?php
 
-use AML\View\Attributes\State;
+use AML\Engine\ClientAction;
+use AML\Engine\StateRef;
 use AML\View\Page;
+use AML\View\State;
 use AML\View\View;
-use function AML\View\{Button, Heading, Text, VStack};
+use function AML\View\{Button, Heading, Progress, Text, VStack};
 
 final class Home extends Page
 {
@@ -78,8 +80,10 @@ final class Home extends Page
     {
         return VStack(
             Heading('AML View')->size(42)->bold(),
-            Text("Current value: {$this->count}"),
-            Button('Add one')->onClick(fn () => $this->count++),
+            Text(StateRef::to('count', $this->count)),
+            Progress(StateRef::to('count', $this->count), 100)
+                ->attribute('aria-label', 'Completion'),
+            Button('Add ten')->onClick(ClientAction::increment('count', 10)),
         )->class('home-hero')->gap(16)->padding(40);
     }
 }

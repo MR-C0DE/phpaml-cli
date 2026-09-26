@@ -32,12 +32,17 @@ COMPOSER
 chmod +x "$fixture/composer"
 
 cd "$fixture"
+AML_LANG=en "$php_bin" "$root/cli/aml.php" make:model PlainUser
+test -f src/models/PlainUser.php
+grep -q 'final class PlainUser' src/models/PlainUser.php
+test ! -f data-invocations.log
+
 AML_LANG=en AML_COMPOSER_BINARY="$fixture/composer" "$php_bin" "$root/cli/aml.php" install data --driver sqlite
 grep -q 'require phpaml/data:\^0.2@alpha' composer-invocations.log
 grep -q '^data:install --driver sqlite$' data-invocations.log
 
 AML_LANG=en "$php_bin" "$root/cli/aml.php" data:status --connection main --json
-AML_LANG=en "$php_bin" "$root/cli/aml.php" make:model User
+AML_LANG=en "$php_bin" "$root/cli/aml.php" make:entity User
 grep -q '^data:status --connection main --json$' data-invocations.log
 grep -q '^data:make-model User$' data-invocations.log
 

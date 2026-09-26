@@ -24,7 +24,7 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]
 HTACCESS
-touch "$template/src/views/.gitkeep"
+printf '%s\n' '<?php echo htmlspecialchars($model->getName(), ENT_QUOTES, "UTF-8");' > "$template/src/views/home.php"
 cat > "$template/src/controllers/HomeController.php" <<'PHP'
 <?php
 namespace App\Controllers;
@@ -46,7 +46,8 @@ JSON
 cat > "$template/phpstan.neon" <<'NEON'
 parameters:
     paths:
-        - src
+        - app/Controllers
+        - app/Models
         - public/index.php
 NEON
 printf 'APP_ENV=local\n' > "$template/.env.example"
@@ -174,7 +175,7 @@ test ! -d generated-api/routes
 cd generated
 
 test ! -e runtime/framework/Obsolete.php
-grep -q "require phpaml/view:\^0.1.0-beta.3 phpaml/engine:\^0.1@beta" composer-invocations.log
+grep -q "require phpaml/view:\^0.1.0-beta.6 phpaml/engine:\^0.1@beta" composer-invocations.log
 grep -q "AML View installed" ../create.log
 "$php_bin" -r 'require "runtime/autoload.php"; exit(class_exists("AML\\View\\FileApplication") && class_exists("AML\\Engine\\EngineRuntime") && class_exists("PHPAML\\Security\\CspNonce") ? 0 : 1);'
 test ! -d src/views/templates
@@ -197,8 +198,8 @@ test -d src/controllers
 test -d src/models
 test -d src/controllers
 test -d src/models
-test ! -d src/Controllers
-test ! -d src/Models
+test -z "$(find src -maxdepth 1 -type d -name Controllers -print -quit)"
+test -z "$(find src -maxdepth 1 -type d -name Models -print -quit)"
 grep -q 'src/controllers' phpstan.neon
 grep -q 'src/models' phpstan.neon
 ! grep -q 'app/Controllers' phpstan.neon
@@ -240,7 +241,7 @@ grep -q 'max-age=31536000, immutable' public/index.php
 grep -q "\$root . '/src', \$root . '/configs'" public/index.php
 grep -q 'meta name="aml-live-reload"' public/index.php
 ! grep -q '/_aml/view' public/index.php
-! grep -q 'BrowserRuntime::script' public/index.php
+! grep -Fq 'BrowserRuntime::script' public/index.php
 grep -q 'ClientAction::increment' src/views/pages/home/page.php
 grep -q "Shared('demo.count')" src/views/pages/home/page.php
 grep -q "Persisted('local', 'phpaml.demo.count')" src/views/pages/home/page.php
@@ -255,7 +256,7 @@ grep -q "classWhen" src/views/pages/home/page.php
 grep -q "disabledWhen" src/views/pages/home/page.php
 grep -q "Each(StateRef::to('tasks'" src/views/pages/home/page.php
 grep -q "ClientAction::append" src/views/pages/home/page.php
-grep -q '/favicon.svg' public/index.php
+grep -q '\$metadata->render(\$cspNonce)' public/index.php
 grep -q "Image('/phpaml-logo-violet-lime.png'" src/views/pages/home/page.php
 grep -q 'MainContent(Group(' src/views/pages/home/page.php
 grep -q -- "->class('view-hero', 'shell')" src/views/pages/home/page.php
@@ -355,6 +356,9 @@ AML_LANG=en "$php_bin" "$root/cli/aml.php" make:view-loading dashboard
 AML_LANG=en "$php_bin" "$root/cli/aml.php" make:view-error dashboard
 AML_LANG=en "$php_bin" "$root/cli/aml.php" make:view-not-found dashboard
 AML_LANG=en "$php_bin" "$root/cli/aml.php" make:controller ApiUser
+AML_LANG=en "$php_bin" "$root/cli/aml.php" make:model User
+test -f src/models/User.php
+grep -q 'final class User' src/models/User.php
 test -f src/views/pages/account/page.php
 test -f src/views/components/UserMenu.php
 grep -q 'function UserMenu(mixed ...\$arguments): UserMenu' src/views/components/UserMenu.php

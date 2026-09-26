@@ -126,7 +126,9 @@ aml make:middleware Auth
 aml make:migration create_users_table
 ```
 
-AML refuse de remplacer une classe existante.
+`make:model` crée une classe PHP simple dans `src/models/` et ne requiert pas
+PHPAML Data. Pour un modèle persistant, installez Data puis utilisez
+`aml make:entity User`. AML refuse de remplacer une classe existante.
 
 ## API JSON
 
@@ -193,7 +195,7 @@ MongoDB, puis crée `src/models/`, `runtime/database/migrations/` et
 la section `data` de `phpaml.json`; `.env` peut les surcharger.
 
 ```bash
-aml make:model User
+aml make:entity User
 aml make:migration create_users_table
 aml make:seeder UserSeeder
 aml data:migrate
@@ -353,7 +355,7 @@ Elles créent respectivement `src/views/pages/home/page.php`,
 `src/views/components/Navigation.php` et `src/views/layouts/DashboardLayout.php`.
 
 Une version précise d’AML View peut être demandée avec
-`aml create-view-app mon-interface --view-version 0.1.0-beta.3`.
+`aml create-view-app mon-interface --view-version 0.1.0-beta.6`.
 
 `aml create` reste réservé aux projets PHPAML classiques et n’ajoute pas AML
 View.
