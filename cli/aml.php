@@ -261,7 +261,7 @@ function showHelp(): void
             'AML — PHPAML command-line interface', '',
             'Usage: aml <command> [options]', '', 'Commands:',
             '  create <directory>       Create an application (use . for the current directory)',
-            '  create-view-app <directory> Create an application with AML View',
+            '  create-view-app <directory> Create an application with AML View [--empty]',
             '  create-api <directory>   Create a JSON API application',
             '  serve [host:port]        Start the development server',
             '  install [module]         Install the engine or an optional module',
@@ -352,7 +352,7 @@ function showHelp(): void
     output();
     output('Commandes :');
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
-    output('  create-view-app <dossier> Crée une application avec AML View');
+    output('  create-view-app <dossier> Crée une application avec AML View [--empty]');
     output('  create-api <dossier>      Crée une application API JSON');
     output('  serve [hôte:port]         Lance le serveur de développement');
     output('  install [module]          Installe le moteur ou un module optionnel');
@@ -847,14 +847,15 @@ function createViewApplication(
     ?string $templateVersion = null,
     ?string $viewVersion = null,
     bool $refresh = false,
-    bool $offline = false
+    bool $offline = false,
+    bool $empty = false,
 ): never {
     $target = creationTarget($destination);
     createProject($destination, $templateVersion, $refresh, $offline, false, false);
     if (!chdir($target)) {
         fail("Impossible d’ouvrir le projet créé dans {$target}.");
     }
-    installView($viewVersion, $offline);
+    installView($viewVersion, $offline, $empty);
 }
 
 function removeGeneratedPath(string $path): void
@@ -1475,7 +1476,7 @@ PHP;
     return $exitCode === 0;
 }
 
-function installView(?string $version = null, bool $offline = false): never
+function installView(?string $version = null, bool $offline = false, bool $empty = false): never
 {
     $root = projectRoot();
     if (!is_file($root . '/composer.json')) {
@@ -2276,6 +2277,69 @@ foreach ($tests as $name => $test) {
 exit($failed === 0 ? 0 : 1);
 PHP
     );
+    if ($empty) {
+        foreach ([
+            'src/views/pages/about',
+            'src/views/components',
+            'src/views/layouts',
+            'src/views/states',
+            'src/views/themes',
+            'src/views/stylesheets/components',
+            'src/views/stylesheets/layouts',
+            'src/views/stylesheets/states',
+            'src/views/stylesheets/pages/home.css',
+        ] as $generatedDemoPath) {
+            removeGeneratedPath($root . '/' . $generatedDemoPath);
+        }
+        file_put_contents($root . '/src/views/pages/home/page.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Views\Pages\Home;
+
+use AML\View\Page;
+use AML\View\View;
+use function AML\View\MainContent;
+
+final class HomePage extends Page
+{
+    public function body(): View
+    {
+        return MainContent();
+    }
+}
+PHP
+            . PHP_EOL,
+            LOCK_EX,
+        );
+        file_put_contents($root . '/src/views/stylesheets/base.css', <<<'CSS'
+*, *::before, *::after { box-sizing: border-box; }
+html { color-scheme: light dark; }
+body { margin: 0; min-height: 100vh; font-family: system-ui, sans-serif; }
+CSS
+            . PHP_EOL,
+            LOCK_EX,
+        );
+        file_put_contents($root . '/tests/aml-view.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+$root = dirname(__DIR__);
+require_once $root . '/runtime/autoload.php';
+
+$result = (new \AML\View\FileApplication($root . '/src/views'))->mount('/');
+if (!$result instanceof \AML\View\PageResult || !str_contains($result->rootHtml(), '<main')) {
+    throw new RuntimeException('The empty AML View home page did not render.');
+}
+
+fwrite(STDOUT, "✓ AML View: empty home page renders" . PHP_EOL);
+PHP
+            . PHP_EOL,
+            LOCK_EX,
+        );
+    }
     $indexPath = $root . '/public/index.php';
     $index = is_file($indexPath) ? (string) file_get_contents($indexPath) : '';
     $marker = "// AML View integration\n";
@@ -4699,7 +4763,8 @@ switch ($command) {
             optionValue($arguments, '--template-version') ?? optionValue($arguments, '--version'),
             optionValue($arguments, '--view-version'),
             in_array('--refresh', $arguments, true),
-            in_array('--offline', $arguments, true)
+            in_array('--offline', $arguments, true),
+            in_array('--empty', $arguments, true),
         );
         break;
     case 'create-api':

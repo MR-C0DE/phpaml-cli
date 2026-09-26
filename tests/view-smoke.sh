@@ -142,6 +142,16 @@ mkdir -p "$fixture/work"
 cd "$fixture/work"
 AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/composer" \
   "$php_bin" "$root/cli/aml.php" create-view-app generated --offline --version 0.0.0 > create.log
+AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/composer" \
+  "$php_bin" "$root/cli/aml.php" create-view-app generated-empty --empty --offline --version 0.0.0 > empty-create.log
+test -f generated-empty/src/views/pages/home/page.php
+grep -q 'return MainContent();' generated-empty/src/views/pages/home/page.php
+test ! -d generated-empty/src/views/pages/about
+test ! -d generated-empty/src/views/components
+test ! -d generated-empty/src/views/layouts
+test ! -d generated-empty/src/views/themes
+test ! -f generated-empty/src/views/stylesheets/pages/home.css
+grep -q 'empty home page renders' generated-empty/tests/aml-view.php
 
 AML_LANG=en AML_CACHE_HOME="$fixture/cache" \
   "$php_bin" "$root/cli/aml.php" create "$fixture/absolute-project" --offline --no-install --version 0.0.0 > absolute-create.log

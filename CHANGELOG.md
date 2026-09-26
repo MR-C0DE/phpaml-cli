@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Ajoute `aml create-view-app <dossier> --empty` pour créer une application AML
+  View minimale, sans démonstration, navigation, thèmes ni pages secondaires.
+
 ## 1.7.0-beta.30 — 2026-09-26
 
 - Corrige `aml migrate:structure` afin que l'autoload PSR-4 de Composer pointe vers `src/` après la migration d'une application classique.

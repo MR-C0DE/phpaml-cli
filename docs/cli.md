@@ -216,7 +216,12 @@ déclaratives et son intégration sécurisée :
 ```bash
 aml create-view-app .
 aml create-view-app mon-interface
+aml create-view-app mon-interface --empty
 ```
+
+`--empty` conserve uniquement une page d’accueil AML View minimale et la base
+CSS nécessaire. La démonstration, la navigation, les thèmes et les pages
+secondaires ne sont pas générés.
 
 La commande crée le projet, installe son moteur et `phpaml/view` depuis
 Packagist, génère `AML_VIEW_SECRET`, enregistre le module dans `phpaml.json`

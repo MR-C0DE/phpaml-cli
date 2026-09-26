@@ -16,6 +16,13 @@ cd my-project
 aml serve
 ```
 
+For a minimal project without demonstration pages, navigation, themes or
+interactive examples, add `--empty`:
+
+```bash
+aml create-view-app my-project --empty
+```
+
 Use `aml create-view-app .` in the current directory. AML installs View and
 Engine automatically. `aml create` keeps creating a classic MVC application
 without AML View.
