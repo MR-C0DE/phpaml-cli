@@ -41,7 +41,34 @@ jobs:
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Check that every platform build succeeded
+        id: platforms
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ready=true
+          for workflow in \
+            "Build macOS ARM64" \
+            "Build Windows x64" \
+            "Build Linux x64"
+          do
+            conclusion="$(gh api \
+              --paginate \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs?event=push&branch=${RELEASE_TAG}&per_page=100" \
+              --jq ".workflow_runs[] | select(.name == \"${workflow}\") | .conclusion" \
+              | head -n 1)"
+            if [[ "$conclusion" != "success" ]]; then
+              echo "${workflow} is not ready for ${RELEASE_TAG}; publication is deferred."
+              ready=false
+            fi
+          done
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+
       - name: Download successful platform artifacts
+        if: steps.platforms.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
@@ -78,6 +105,7 @@ jobs:
           test -n "$(find release-assets -maxdepth 1 -type f -print -quit)"
 
       - name: Verify checksums
+        if: steps.platforms.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -87,6 +115,7 @@ jobs:
           done
 
       - name: Publish or update the GitHub release
+        if: steps.platforms.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}

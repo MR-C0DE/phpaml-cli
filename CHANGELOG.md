@@ -4,6 +4,8 @@
 
 - Ajoute `aml create-view-app <dossier> --empty` pour créer une application AML
   View minimale, sans démonstration, navigation, thèmes ni pages secondaires.
+- Diffère proprement la publication d’une release CLI jusqu’à la réussite des
+  trois builds macOS, Linux et Windows, sans échec transitoire trompeur.
 
 ## 1.7.0-beta.30 — 2026-09-26
 
