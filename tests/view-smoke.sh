@@ -311,6 +311,10 @@ server_pid=''
 if ! "$php_bin" -r '$payload=json_decode($argv[1],true,512,JSON_THROW_ON_ERROR); exit(($payload["status"] ?? null) === "ok" ? 0 : 1);' "$health_response"; then
   echo "Unexpected health response: $health_response" >&2
   cat "$fixture/view-http.log" >&2
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+    diagnostic="$(printf '%s | %s' "$health_response" "$(tr '\n' ' ' < "$fixture/view-http.log")" | sed 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')"
+    echo "::error title=Generated AML View health check failed::$diagnostic"
+  fi
   exit 1
 fi
 "$php_bin" -r '$m=json_decode(file_get_contents("phpaml.json"),true,512,JSON_THROW_ON_ERROR); if (($m["modules"]["view"]["package"] ?? null) !== "phpaml/view") exit(1);'
