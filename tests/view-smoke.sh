@@ -283,6 +283,10 @@ cat > runtime/autoload.php <<'PHP'
 require_once __DIR__ . '/framework/Autoloader.php';
 \PHPAML\Autoloader::register([
     'PHPAML\\' => __DIR__ . '/framework',
+    'App\\Controllers\\' => dirname(__DIR__) . '/src/controllers',
+    'App\\Models\\' => dirname(__DIR__) . '/src/models',
+    'App\\Middleware\\' => dirname(__DIR__) . '/src/middleware',
+    'App\\Services\\' => dirname(__DIR__) . '/src/services',
     'App\\' => dirname(__DIR__) . '/src',
 ]);
 PHP
