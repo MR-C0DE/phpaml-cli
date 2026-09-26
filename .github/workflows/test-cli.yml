@@ -103,6 +103,8 @@ jobs:
       - name: Test AML View installation and generators on Unix
         if: runner.os != 'Windows'
         shell: bash
+        env:
+          PHPAML_FRAMEWORK_SOURCE: ${{ github.workspace }}/.integration/framework/src
         run: PHP_BINARY=php ./tests/view-smoke.sh
       - name: Test bilingual CLI on Windows
         if: runner.os == 'Windows'

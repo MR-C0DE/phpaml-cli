@@ -4,7 +4,15 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 fixture="$(mktemp -d)"
 php_bin="${PHP_BINARY:-php}"
-trap 'rm -rf "$fixture"' EXIT
+server_pid=''
+cleanup() {
+  if [[ -n "$server_pid" ]]; then
+    kill "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+  fi
+  rm -rf "$fixture"
+}
+trap cleanup EXIT
 
 template="$fixture/template/phpaml-template-0.0.0"
 mkdir -p "$template/public/img" "$template/public/css" "$template/public/js" "$template/app/views" "$template/app/Controllers" "$template/app/Models" "$template/configs" "$template/routes" "$template/runtime/framework"
@@ -21,11 +29,14 @@ cat > "$template/app/Controllers/HomeController.php" <<'PHP'
 <?php
 namespace App\Controllers;
 use App\Models\HomeModel;
-final class HomeController {
-    public function index() { return $this->view('home.php', ['model' => new HomeModel()]); }
+use PHPAML\Http\Request;
+use PHPAML\Http\Response;
+use PHPAML\Mvc\Controller;
+final class HomeController extends Controller {
+    public function index(Request $request): Response { return $this->view('home.php', ['model' => new HomeModel()]); }
 }
 PHP
-printf '%s\n' '<?php namespace App\Models; final class HomeModel {}' > "$template/app/Models/HomeModel.php"
+printf '%s\n' '<?php namespace App\Models; final class HomeModel { public function getName(): string { return "PHPAML"; } }' > "$template/app/Models/HomeModel.php"
 cat > "$template/phpaml.json" <<'JSON'
 {"name":"template","version":"1.0.0","runtime":{"directory":"runtime"},"modules":{}}
 JSON
@@ -255,6 +266,53 @@ grep -Fq "\$this->get('/api/health', [HomeController::class, 'index']);" routes/
 ! grep -Fq "\$this->get('/', [HomeController::class, 'index']);" routes/WebApp.php
 grep -q '\$this->json' src/controllers/HomeController.php
 ! grep -q '\$this->view' src/controllers/HomeController.php
+
+# Exercise the generated backend over HTTP. Text assertions above are useful,
+# but they cannot detect a route that is present in the file and absent from
+# the application actually booted by the framework.
+framework_source="${PHPAML_FRAMEWORK_SOURCE:-$root/../phpaml-framework/src}"
+if [[ ! -f "$framework_source/Autoloader.php" ]]; then
+  echo "PHPAML framework source is unavailable: $framework_source" >&2
+  exit 1
+fi
+rm -rf runtime/framework
+mkdir -p runtime/framework
+cp -R "$framework_source"/. runtime/framework/
+cat > runtime/autoload.php <<'PHP'
+<?php
+require_once __DIR__ . '/framework/Autoloader.php';
+\PHPAML\Autoloader::register([
+    'PHPAML\\' => __DIR__ . '/framework',
+    'App\\' => dirname(__DIR__) . '/src',
+]);
+PHP
+cat > tests/view-http-router.php <<'PHP'
+<?php
+declare(strict_types=1);
+$root = dirname(__DIR__);
+require_once $root . '/runtime/autoload.php';
+$config = \PHPAML\Config\ApplicationConfig::load($root);
+(new \PHPAML\WebApplication($config))->run();
+PHP
+printf '\nAPP_DEBUG=true\n' >> .env
+http_port="$($php_bin -r '$socket=stream_socket_server("tcp://127.0.0.1:0",$errno,$error); if($socket===false){fwrite(STDERR,$error);exit(1);} echo parse_url(stream_socket_get_name($socket,false),PHP_URL_PORT); fclose($socket);')"
+"$php_bin" -S "127.0.0.1:$http_port" tests/view-http-router.php > "$fixture/view-http.log" 2>&1 &
+server_pid=$!
+health_response=''
+for _ in {1..40}; do
+  if health_response="$($php_bin -r '$url=$argv[1]; $context=stream_context_create(["http"=>["ignore_errors"=>true,"timeout"=>1]]); $body=@file_get_contents($url,false,$context); if($body===false){exit(1);} echo $body;' "http://127.0.0.1:$http_port/api/health" 2>/dev/null)"; then
+    break
+  fi
+  sleep 0.1
+done
+kill "$server_pid" 2>/dev/null || true
+wait "$server_pid" 2>/dev/null || true
+server_pid=''
+if ! "$php_bin" -r '$payload=json_decode($argv[1],true,512,JSON_THROW_ON_ERROR); exit(($payload["status"] ?? null) === "ok" ? 0 : 1);' "$health_response"; then
+  echo "Unexpected health response: $health_response" >&2
+  cat "$fixture/view-http.log" >&2
+  exit 1
+fi
 "$php_bin" -r '$m=json_decode(file_get_contents("phpaml.json"),true,512,JSON_THROW_ON_ERROR); if (($m["modules"]["view"]["package"] ?? null) !== "phpaml/view") exit(1);'
 "$php_bin" -r '$m=json_decode(file_get_contents("phpaml.json"),true,512,JSON_THROW_ON_ERROR); if (($m["modules"]["view"]["mode"] ?? null) !== "frontend") exit(1);'
 "$php_bin" -r '$m=json_decode(file_get_contents("phpaml.json"),true,512,JSON_THROW_ON_ERROR); if (($m["modules"]["engine"]["package"] ?? null) !== "phpaml/engine") exit(1);'
