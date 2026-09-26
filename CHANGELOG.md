@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.7.0-beta.31 — 2026-09-26
 
 - Ajoute `aml create-view-app <dossier> --empty` pour créer une application AML
   View minimale, sans démonstration, navigation, thèmes ni pages secondaires.
