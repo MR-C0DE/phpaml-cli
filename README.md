@@ -100,6 +100,19 @@ Start with an API-oriented structure, CORS configuration, validation, data
 access, migrations, and OpenAPI tooling. Explore the
 [Movies API source](https://github.com/MR-C0DE/phpaml-movies-api-demo).
 
+### An object-oriented console program
+
+```bash
+aml create-console hello
+cd hello
+aml run -- Andre
+```
+
+Learn and use PHP without HTTP or HTML. The generated `App\Program::main()`
+receives command-line arguments, writes directly to the terminal, and returns
+the process exit code. Use `aml make:class Domain/User` and `aml test` as the
+program grows.
+
 ## One platform, focused packages
 
 PHPAML is presented through separate repositories so each package can evolve

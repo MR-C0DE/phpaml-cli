@@ -445,7 +445,23 @@ aml db:configure mysql --host 127.0.0.1 --port 3306 \
   --database phpaml --user root --password root
 ```
 
-`aml run <nom>` exécute une entrée de `scripts` déclarée dans `phpaml.json`.
+`aml create-console <dossier>` crée un programme PHP strictement console et
+orienté objet. Il ne contient ni serveur Web, ni route, ni contrôleur, ni vue.
+Son point d'entrée est `App\Program::main(array $arguments): int` : `echo`
+écrit dans le terminal et l'entier retourné devient le code de sortie.
+
+```bash
+aml create-console bonjour
+cd bonjour
+aml run
+aml run -- Andre
+aml make:class Domain/User
+aml test
+```
+
+Dans un projet console, `aml run` exécute `Program::main()`. Dans les autres
+projets, `aml run <nom>` exécute une entrée de `scripts` déclarée dans
+`phpaml.json`.
 Une entrée de script possède les mêmes droits que votre compte utilisateur et
 peut lancer n'importe quelle commande. Inspectez toujours `phpaml.json` avant
 d'exécuter un script provenant d'un projet téléchargé ou d'une source inconnue.

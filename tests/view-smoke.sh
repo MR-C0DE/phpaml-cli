@@ -182,6 +182,27 @@ test ! -d generated-api/src/views
 test ! -d generated-api/app
 test ! -d generated-api/routes
 
+AML_LANG=en AML_CACHE_HOME="$fixture/cache" \
+  "$php_bin" "$root/cli/aml.php" create-console generated-console > console-create.log
+test -f generated-console/phpaml.json
+test -f generated-console/composer.json
+test -f generated-console/src/Program.php
+test -f generated-console/tests/run.php
+test ! -d generated-console/public
+grep -q '"type": "console"' generated-console/phpaml.json
+grep -q 'Ready. Run: cd generated-console && aml run' console-create.log
+cd generated-console
+AML_LANG=en "$php_bin" "$root/cli/aml.php" run André > console-run.log
+grep -q 'Bonjour, André !' console-run.log
+AML_LANG=en "$php_bin" "$root/cli/aml.php" run -- PHPAML > console-run-separator.log
+grep -q 'Bonjour, PHPAML !' console-run-separator.log
+AML_LANG=en "$php_bin" "$root/cli/aml.php" make:class Domain/User > console-class.log
+test -f src/Domain/User.php
+grep -q 'namespace App\\Domain;' src/Domain/User.php
+AML_LANG=en "$php_bin" "$root/cli/aml.php" test > console-test.log
+grep -q 'Program::main() fonctionne' console-test.log
+cd ..
+
 cd generated
 
 test ! -e runtime/framework/Obsolete.php

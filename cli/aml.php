@@ -194,8 +194,15 @@ function fail(string $message, int $code = 1): never
 function projectRoot(): string
 {
     $current = getcwd() ?: PHPAML_FRAMEWORK_ROOT;
-    if ((is_file($current . '/phpaml.json') || is_file($current . '/info.json')) && is_file($current . '/public/index.php')) {
-        return $current;
+    $manifestPath = is_file($current . '/phpaml.json')
+        ? $current . '/phpaml.json'
+        : (is_file($current . '/info.json') ? $current . '/info.json' : null);
+    if ($manifestPath !== null) {
+        $manifest = json_decode((string) file_get_contents($manifestPath), true);
+        $isConsole = is_array($manifest) && ($manifest['application']['type'] ?? null) === 'console';
+        if ($isConsole || is_file($current . '/public/index.php')) {
+            return $current;
+        }
     }
     fail("Le dossier courant n'est pas un projet PHPAML. Utilisez 'aml create .'.");
 }
@@ -263,6 +270,7 @@ function showHelp(): void
             '  create <directory>       Create an application (use . for the current directory)',
             '  create-view-app <directory> Create an application with AML View [--empty]',
             '  create-api <directory>   Create a JSON API application',
+            '  create-console <directory> Create an object-oriented PHP console program',
             '  serve [host:port]        Start the development server',
             '  install [module]         Install the engine or an optional module',
             '  build [options]          Create a production deployment archive',
@@ -293,6 +301,7 @@ function showHelp(): void
             '  api:openapi              Generate public/openapi.json',
             '  api:client               Generate the TypeScript API client',
             '  make:controller <name>   Generate a controller',
+            '  make:class <name>        Generate a plain PHP class',
             '  make:model <name>        Generate a plain PHP model',
             '  make:entity <name>       Generate a persistent phpaml/data entity',
             '  make:middleware <name>   Generate middleware',
@@ -333,11 +342,12 @@ function showHelp(): void
             '  env:set <key> <value>    Create or update an .env variable',
             '  language [en|fr]         Show or change the CLI language',
             '  cache:clear              Clear the application cache',
-            '  run <script>             Run a script declared in phpaml.json',
+            '  run [script|-- args]     Run a console program or a declared script',
             '  test                     Run automated tests',
             '  version                  Show the framework version',
             '  help                     Show this help', '', 'Examples:',
             '  aml create .', '  aml create my-project', '  aml create-view-app my-view-app',
+            '  aml create-console hello && cd hello && aml run',
             '  aml serve 127.0.0.1:8080', '  aml install', '  aml --update --check', '  aml doctor',
             '  aml env:init', '  aml env:set APP_DEBUG false',
             '  aml db:configure sqlite', '  aml install i18n', '  aml language fr',
@@ -354,6 +364,7 @@ function showHelp(): void
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
     output('  create-view-app <dossier> Crée une application avec AML View [--empty]');
     output('  create-api <dossier>      Crée une application API JSON');
+    output('  create-console <dossier>  Crée un programme PHP objet pour la console');
     output('  serve [hôte:port]         Lance le serveur de développement');
     output('  install [module]          Installe le moteur ou un module optionnel');
     output('  build [options]           Crée une archive de déploiement production');
@@ -384,6 +395,7 @@ function showHelp(): void
     output('  api:openapi               Génère public/openapi.json');
     output('  api:client                Génère le client TypeScript');
     output('  make:controller <nom>     Génère un contrôleur');
+    output('  make:class <nom>          Génère une classe PHP simple');
     output('  make:model <nom>          Génère un modèle PHP simple');
     output('  make:entity <nom>         Génère une entité persistante phpaml/data');
     output('  make:middleware <nom>     Génère un middleware');
@@ -424,7 +436,7 @@ function showHelp(): void
     output('  env:set <clé> <valeur>    Crée ou modifie une variable de .env');
     output('  language [en|fr]          Affiche ou change la langue du CLI');
     output('  cache:clear               Vide le cache de l’application');
-    output('  run <script>              Exécute un script déclaré dans phpaml.json');
+    output('  run [script|-- arguments] Exécute un programme console ou un script déclaré');
     output('  test                      Exécute les tests automatisés');
     output('  version                   Affiche la version du framework');
     output('  help                      Affiche cette aide');
@@ -433,6 +445,7 @@ function showHelp(): void
     output('  aml create .');
     output('  aml create mon-projet');
     output('  aml create-view-app mon-interface');
+    output('  aml create-console bonjour && cd bonjour && aml run');
     output('  aml create mon-projet --version 0.1.0');
     output('  aml create mon-projet --offline');
     output('  aml serve 127.0.0.1:8080');
@@ -727,6 +740,102 @@ function creationTarget(string $destination): string
         : ($isAbsolute
             ? rtrim($destination, '/\\')
             : $base . DIRECTORY_SEPARATOR . trim($destination, '/\\'));
+}
+
+function createConsoleApplication(string $destination): void
+{
+    $target = creationTarget($destination);
+    $projectName = basename(str_replace('\\', '/', $target));
+    if ($projectName === '' || in_array($projectName, ['.', '..'], true)) {
+        fail('Le nom du projet est invalide.');
+    }
+
+    $packageName = strtolower((string) preg_replace('/[^a-zA-Z0-9_-]+/', '-', $projectName));
+    $manifest = [
+        'name' => $packageName,
+        'version' => '1.0.0',
+        'application' => [
+            'type' => 'console',
+            'entry' => 'App\\Program',
+        ],
+    ];
+    $composer = [
+        'name' => 'app/' . $packageName,
+        'description' => 'Programme PHP console créé avec AML',
+        'type' => 'project',
+        'require' => ['php' => '^8.2'],
+        'autoload' => ['psr-4' => ['App\\' => 'src/']],
+    ];
+    $files = [
+        'phpaml.json' => json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL,
+        'composer.json' => json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL,
+        'src/Program.php' => <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App;
+
+final class Program
+{
+    /** @param list<string> $arguments */
+    public static function main(array $arguments): int
+    {
+        $name = $arguments[0] ?? 'PHP';
+        echo "Bonjour, {$name} !" . PHP_EOL;
+
+        return 0;
+    }
+}
+PHP
+        . PHP_EOL,
+        'tests/run.php' => <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/src/Program.php';
+
+$status = \App\Program::main(['test']);
+if ($status !== 0) {
+    fwrite(STDERR, "Échec : Program::main() doit retourner 0.\n");
+    exit(1);
+}
+
+echo "✓ Program::main() fonctionne.\n";
+PHP
+        . PHP_EOL,
+        '.gitignore' => "/runtime/\n/.phpunit.cache/\n",
+    ];
+
+    $conflicts = [];
+    foreach (array_keys($files) as $relative) {
+        if (file_exists($target . '/' . $relative)) {
+            $conflicts[] = $relative;
+        }
+    }
+    if ($conflicts !== []) {
+        fail('Création annulée pour éviter un écrasement : ' . implode(', ', array_slice($conflicts, 0, 5)));
+    }
+    if (!is_dir($target) && !mkdir($target, 0755, true) && !is_dir($target)) {
+        fail("Impossible de créer '{$target}'.");
+    }
+    foreach ($files as $relative => $content) {
+        $path = $target . '/' . $relative;
+        if (!is_dir(dirname($path)) && !mkdir(dirname($path), 0755, true) && !is_dir(dirname($path))) {
+            fail('Impossible de créer ' . dirname($relative) . '.');
+        }
+        if (file_put_contents($path, $content, LOCK_EX) === false) {
+            fail("Impossible de créer '{$relative}'.");
+        }
+    }
+
+    output(currentLanguage() === 'en'
+        ? "Console program '{$projectName}' created in {$target}"
+        : "Programme console '{$projectName}' créé dans {$target}");
+    output(currentLanguage() === 'en'
+        ? ($destination === '.' ? 'Ready. Run: aml run' : "Ready. Run: cd {$destination} && aml run")
+        : ($destination === '.' ? 'Prêt. Lancez : aml run' : "Prêt. Lancez : cd {$destination} && aml run"));
 }
 
 function createProject(
@@ -2796,6 +2905,74 @@ function runScript(string $name): never
 }
 
 /** @param list<string> $arguments */
+function runConsoleProgram(array $arguments): never
+{
+    $root = projectRoot();
+    $manifest = projectInfo($root);
+    if (($manifest['application']['type'] ?? null) !== 'console') {
+        fail("Ce projet n'est pas une application console PHPAML.");
+    }
+    $entry = $manifest['application']['entry'] ?? 'App\\Program';
+    if (!is_string($entry) || preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]*$/', $entry) !== 1) {
+        fail("La classe d'entrée console est invalide dans phpaml.json.");
+    }
+
+    $runner = <<<'PHP'
+$root = $argv[1];
+$entry = $argv[2];
+$programArguments = array_slice($argv, 3);
+spl_autoload_register(static function (string $class) use ($root): void {
+    $prefix = 'App\\';
+    if (!str_starts_with($class, $prefix)) return;
+    $relative = str_replace('\\', '/', substr($class, strlen($prefix)));
+    $path = $root . '/src/' . $relative . '.php';
+    if (is_file($path)) require_once $path;
+});
+if (!class_exists($entry) || !method_exists($entry, 'main')) {
+    fwrite(STDERR, "La classe {$entry} doit déclarer public static function main(array $arguments): int.\n");
+    exit(1);
+}
+$method = new ReflectionMethod($entry, 'main');
+if (!$method->isPublic() || !$method->isStatic()) {
+    fwrite(STDERR, "{$entry}::main() doit être publique et statique.\n");
+    exit(1);
+}
+$parameters = $method->getParameters();
+$parameterType = $parameters[0]->getType() ?? null;
+$returnType = $method->getReturnType();
+if (count($parameters) !== 1
+    || !$parameterType instanceof ReflectionNamedType
+    || $parameterType->getName() !== 'array'
+    || !$returnType instanceof ReflectionNamedType
+    || $returnType->getName() !== 'int') {
+    fwrite(STDERR, "{$entry}::main() doit respecter main(array \$arguments): int.\n");
+    exit(1);
+}
+try {
+    $status = $entry::main($programArguments);
+    if (!is_int($status)) {
+        fwrite(STDERR, "{$entry}::main() doit retourner un entier.\n");
+        exit(1);
+    }
+    exit($status);
+} catch (Throwable $error) {
+    fwrite(STDERR, get_class($error) . ': ' . $error->getMessage() . PHP_EOL);
+    exit(1);
+}
+PHP;
+
+    $command = escapeshellarg(PHP_BINARY)
+        . ' -r ' . escapeshellarg($runner)
+        . ' -- ' . escapeshellarg($root)
+        . ' ' . escapeshellarg($entry);
+    foreach ($arguments as $argument) {
+        $command .= ' ' . escapeshellarg($argument);
+    }
+    passthru($command, $exitCode);
+    exit($exitCode);
+}
+
+/** @param list<string> $arguments */
 function installData(array $arguments): never
 {
     $root = projectRoot();
@@ -3557,6 +3734,24 @@ function generateClass(string $type, string $name): void
     }
     file_put_contents($fullPath, $content);
     output("Créé : {$path}");
+}
+
+function generatePlainClass(string $name): void
+{
+    $root = projectRoot();
+    $segments = array_values(array_filter(explode('/', str_replace('\\', '/', trim($name, '/\\')))));
+    if ($segments === []) {
+        fail('Le nom de la classe est invalide.');
+    }
+    $class = className((string) array_pop($segments));
+    $namespaceSegments = array_map(static fn (string $segment): string => className($segment), $segments);
+    $namespace = 'App' . ($namespaceSegments === [] ? '' : '\\' . implode('\\', $namespaceSegments));
+    $directory = 'src' . ($namespaceSegments === [] ? '' : '/' . implode('/', $namespaceSegments));
+    $path = "{$directory}/{$class}.php";
+    $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespace};\n\nfinal class {$class}\n{\n}\n";
+    if (!writeNewFile($root, $path, $content)) {
+        fail("Le fichier '{$path}' existe déjà.");
+    }
 }
 
 function generateViewClass(string $type, string $name): void
@@ -4776,6 +4971,10 @@ switch ($command) {
             in_array('--offline', $arguments, true)
         );
         break;
+    case 'create-console':
+        $destination = isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : '.';
+        createConsoleApplication($destination);
+        break;
     case 'serve':
         serve($arguments[1] ?? '127.0.0.1:8910');
     case 'build':
@@ -4839,6 +5038,12 @@ switch ($command) {
             in_array('--production', $arguments, true)
         );
     case 'run':
+        $runManifest = projectInfo(projectRoot());
+        if (($runManifest['application']['type'] ?? null) === 'console') {
+            $programArguments = array_slice($arguments, 1);
+            if (($programArguments[0] ?? null) === '--') array_shift($programArguments);
+            runConsoleProgram(array_values($programArguments));
+        }
         isset($arguments[1]) ? runScript($arguments[1]) : fail('Indiquez le nom du script.');
     case 'routes':
         showRoutes();
@@ -4872,6 +5077,9 @@ switch ($command) {
         isset($arguments[1])
             ? generateClass(substr($command, 5), $arguments[1])
             : fail('Indiquez le nom de la classe à générer.');
+        break;
+    case 'make:class':
+        isset($arguments[1]) ? generatePlainClass($arguments[1]) : fail('Indiquez le nom de la classe à générer.');
         break;
     case 'make:model':
         isset($arguments[1]) ? generateClass('model', $arguments[1]) : fail('Indiquez le nom de la classe à générer.');

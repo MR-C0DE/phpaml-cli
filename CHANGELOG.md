@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.0-beta.32 — 2026-10-01
+
+- Ajoute `aml create-console` pour créer un programme PHP objet sans couche Web.
+- Ajoute l'exécution de `Program::main()` avec `aml run`, les arguments après
+  `--`, un code de sortie typé et l'autoload de `src/`.
+- Ajoute `aml make:class` et une couverture de création, exécution, arguments,
+  génération de classe et tests pour les projets console.
+
 ## 1.7.0-beta.31 — 2026-09-26
 
 - Ajoute `aml create-view-app <dossier> --empty` pour créer une application AML

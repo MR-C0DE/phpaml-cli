@@ -101,6 +101,19 @@ Partez d’une structure dédiée aux API avec configuration CORS, validation,
 accès aux données, migrations et outils OpenAPI. Explorez le
 [code de Movies API](https://github.com/MR-C0DE/phpaml-movies-api-demo).
 
+### Un programme console orienté objet
+
+```bash
+aml create-console bonjour
+cd bonjour
+aml run -- Andre
+```
+
+Apprenez et utilisez PHP sans HTTP ni HTML. La méthode générée
+`App\Program::main()` reçoit les arguments, écrit directement dans le terminal
+et retourne le code de sortie du processus. Utilisez ensuite
+`aml make:class Domain/User` et `aml test`.
+
 ## Une plateforme, des paquets spécialisés
 
 Les dépôts séparés permettent à chaque paquet d’évoluer et de s’installer
