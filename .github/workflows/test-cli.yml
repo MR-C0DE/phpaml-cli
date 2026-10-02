@@ -51,10 +51,15 @@ jobs:
         with:
           php-version: '8.4'
           extensions: curl, pdo, pdo_sqlite
-      - name: Use the PHP runtime bundled with the macOS runner
+      - name: Prepare PHP on macOS
         if: runner.os == 'macOS'
         shell: bash
         run: |
+          if ! command -v php >/dev/null 2>&1; then
+            brew install php
+            echo "$(brew --prefix php)/bin" >> "$GITHUB_PATH"
+            export PATH="$(brew --prefix php)/bin:$PATH"
+          fi
           php -v
           php -r 'exit(version_compare(PHP_VERSION, "8.2.0", ">=") ? 0 : 1);'
       - name: Validate PHP sources
