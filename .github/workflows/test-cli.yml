@@ -47,9 +47,16 @@ jobs:
           repository: MR-C0DE/phpaml-i18n
           path: .integration/i18n
       - uses: shivammathur/setup-php@v2
+        if: runner.os != 'macOS'
         with:
           php-version: '8.4'
           extensions: curl, pdo, pdo_sqlite
+      - name: Use the PHP runtime bundled with the macOS runner
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          php -v
+          php -r 'exit(version_compare(PHP_VERSION, "8.2.0", ">=") ? 0 : 1);'
       - name: Validate PHP sources
         shell: bash
         run: find cli tests -name '*.php' -print0 | xargs -0 -n1 php -l
