@@ -271,7 +271,7 @@ function showHelp(): void
             '  create-view-app <directory> Create an application with AML View [--empty]',
             '  create-api <directory>   Create a JSON API application',
             '  create-console <directory> Create an object-oriented PHP console program',
-            '  serve [host:port]        Start the development server',
+            '  serve [host:port]        Start the development server (--verbose shows every connection)',
             '  install [module]         Install the engine or an optional module',
             '  build [options]          Create a production deployment archive',
             '  deploy <profile>         Build and deploy through SSH/SFTP (--dry-run to preview)',
@@ -365,7 +365,7 @@ function showHelp(): void
     output('  create-view-app <dossier> Crée une application avec AML View [--empty]');
     output('  create-api <dossier>      Crée une application API JSON');
     output('  create-console <dossier>  Crée un programme PHP objet pour la console');
-    output('  serve [hôte:port]         Lance le serveur de développement');
+    output('  serve [hôte:port]         Lance le serveur (--verbose affiche chaque connexion)');
     output('  install [module]          Installe le moteur ou un module optionnel');
     output('  build [options]           Crée une archive de déploiement production');
     output('  deploy <profil>           Construit et déploie par SSH/SFTP (--dry-run pour prévisualiser)');
@@ -1169,7 +1169,109 @@ function compatibleProjectPhp(array $extensions): string
         : 'Aucun runtime PHP compatible trouvé. Prérequis absents : ' . $details . '.');
 }
 
-function serve(string $address): never
+function isDevelopmentServerNoise(string $line): bool
+{
+    return preg_match('/^\[[A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+.+\d{4}\]\s+\S+\s+(?:Accepted|Closing)(?:\s.*)?$/', trim($line)) === 1;
+}
+
+function sanitizeDevelopmentServerOutput(string $value): string
+{
+    $value = str_replace("\r\n", "\n", $value);
+    return preg_replace('/[\x00-\x08\x0B-\x1F\x7F]/', '�', $value) ?? '[invalid server output]';
+}
+
+/**
+ * @param resource $stream
+ * @param resource $target
+ */
+function relayDevelopmentServerOutput(
+    $stream,
+    $target,
+    string &$buffer,
+    bool &$discardingLongLine,
+    bool $filterNoise,
+): void
+{
+    $chunk = stream_get_contents($stream);
+    if (!is_string($chunk) || $chunk === '') return;
+    $buffer .= $chunk;
+
+    if ($discardingLongLine) {
+        $position = strpos($buffer, "\n");
+        if ($position === false) {
+            $buffer = '';
+            return;
+        }
+        $buffer = substr($buffer, $position + 1);
+        $discardingLongLine = false;
+    }
+
+    while (($position = strpos($buffer, "\n")) !== false) {
+        if ($position > 8192) {
+            $fragment = substr($buffer, 0, 8192);
+            $buffer = substr($buffer, $position + 1);
+            fwrite($target, sanitizeDevelopmentServerOutput($fragment) . '… [line truncated]' . PHP_EOL);
+            continue;
+        }
+        $line = substr($buffer, 0, $position + 1);
+        $buffer = substr($buffer, $position + 1);
+        $line = sanitizeDevelopmentServerOutput($line);
+        if (!$filterNoise || !isDevelopmentServerNoise($line)) fwrite($target, $line);
+    }
+
+    // A process writing an unterminated line must neither grow memory without
+    // limit nor flood the developer's terminal.
+    while (strlen($buffer) > 8192) {
+        $fragment = substr($buffer, 0, 8192);
+        $buffer = '';
+        $discardingLongLine = true;
+        fwrite($target, sanitizeDevelopmentServerOutput($fragment) . '… [line truncated]' . PHP_EOL);
+    }
+}
+
+function runDevelopmentServer(string $php, string $address, string $public, string $router, bool $verbose): int
+{
+    $pipes = [];
+    $process = proc_open(
+        [$php, '-S', $address, '-t', $public, $router],
+        [0 => STDIN, 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+        null,
+        null,
+        ['bypass_shell' => true],
+    );
+    if (!is_resource($process)) fail('Impossible de démarrer le serveur de développement.');
+
+    stream_set_blocking($pipes[1], false);
+    stream_set_blocking($pipes[2], false);
+    $standardBuffer = '';
+    $errorBuffer = '';
+    $discardingStandardLine = false;
+    $discardingErrorLine = false;
+    $lastStatus = proc_get_status($process);
+
+    while (true) {
+        relayDevelopmentServerOutput($pipes[1], STDOUT, $standardBuffer, $discardingStandardLine, false);
+        relayDevelopmentServerOutput($pipes[2], STDERR, $errorBuffer, $discardingErrorLine, !$verbose);
+
+        $lastStatus = proc_get_status($process);
+        if (!$lastStatus['running'] && feof($pipes[1]) && feof($pipes[2])) break;
+        usleep(20000);
+    }
+
+    relayDevelopmentServerOutput($pipes[1], STDOUT, $standardBuffer, $discardingStandardLine, false);
+    relayDevelopmentServerOutput($pipes[2], STDERR, $errorBuffer, $discardingErrorLine, !$verbose);
+    if ($standardBuffer !== '') fwrite(STDOUT, sanitizeDevelopmentServerOutput($standardBuffer));
+    if ($errorBuffer !== '' && ($verbose || !isDevelopmentServerNoise($errorBuffer))) {
+        fwrite(STDERR, sanitizeDevelopmentServerOutput($errorBuffer));
+    }
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    $closed = proc_close($process);
+    return $closed >= 0 ? $closed : (int) ($lastStatus['exitcode'] ?? 1);
+}
+
+function serve(string $address, bool $verbose = false): never
 {
     if (!preg_match('/^[a-zA-Z0-9.\-]+:\d{1,5}$/', $address)) {
         fail("Adresse invalide : {$address}");
@@ -1217,6 +1319,11 @@ function serve(string $address): never
     }
     output("PHPAML écoute sur http://{$address}");
     output('Utilisez Ctrl+C pour arrêter le serveur.');
+    if (!$verbose) {
+        output(currentLanguage() === 'en'
+            ? 'Clean console enabled. Use aml serve --verbose to show every connection.'
+            : 'Console épurée active. Utilisez aml serve --verbose pour afficher chaque connexion.');
+    }
     $projectIniDirectory = $root . '/configs/php';
     if (is_dir($projectIniDirectory)) {
         $scanDirectories = getenv('PHP_INI_SCAN_DIR');
@@ -1232,10 +1339,12 @@ function serve(string $address): never
             ? "Project requirements need a compatible PHP runtime; using {$serverPhp}."
             : "Les prérequis du projet nécessitent un runtime PHP compatible ; utilisation de {$serverPhp}.");
     }
-    passthru(
-        escapeshellarg($serverPhp) . ' -S ' . escapeshellarg($address)
-        . ' -t ' . escapeshellarg($root . '/public') . ' ' . escapeshellarg($root . '/public/index.php'),
-        $exitCode
+    $exitCode = runDevelopmentServer(
+        $serverPhp,
+        $address,
+        $root . '/public',
+        $root . '/public/index.php',
+        $verbose,
     );
     exit($exitCode);
 }
@@ -4976,7 +5085,10 @@ switch ($command) {
         createConsoleApplication($destination);
         break;
     case 'serve':
-        serve($arguments[1] ?? '127.0.0.1:8910');
+        $serveAddress = isset($arguments[1]) && !str_starts_with($arguments[1], '--')
+            ? $arguments[1]
+            : '127.0.0.1:8910';
+        serve($serveAddress, in_array('--verbose', $arguments, true));
     case 'build':
         buildProject(in_array('--skip-tests', $arguments, true));
     case 'deploy:configure':

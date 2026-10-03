@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.0-beta.33 — 2026-10-03
+
+- rend la sortie de `aml serve` stable en masquant par défaut les connexions
+  répétitives `Accepted` et `Closing` ;
+- ajoute `aml serve --verbose` pour restaurer tous les détails du serveur ;
+- relaie séparément les sorties applicatives du terminal et protège celui-ci
+  contre les caractères de contrôle et les lignes démesurées ;
+- distribue Template `0.5.0-beta.8` et Framework `0.3.0-beta.6`, avec console
+  serveur, capture sécurisée de `echo` et pages d’erreur personnalisables.
+
 ## 1.7.0-beta.32 — 2026-10-01
 
 - Ajoute `aml create-console` pour créer un programme PHP objet sans couche Web.
