@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.7.0-beta.34 — 2026-10-04
+
+- reconstruit automatiquement le dossier `runtime/` au lancement de
+  `aml serve` lorsqu’il est absent ;
+- ajoute `aml serve --offline` pour effectuer cette récupération depuis le
+  cache local sans accès réseau ;
+- couvre la récupération des applications classique, AML View et API dans la
+  CI publique ;
+- distribue Template `0.5.0-beta.9`, dont les nouveaux projets ne contiennent
+  plus les documents internes du dépôt à leur racine.
+
 ## 1.7.0-beta.33 — 2026-10-03
 
 - rend la sortie de `aml serve` stable en masquant par défaut les connexions

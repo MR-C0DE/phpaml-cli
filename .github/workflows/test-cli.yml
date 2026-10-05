@@ -118,6 +118,10 @@ jobs:
         env:
           PHPAML_FRAMEWORK_SOURCE: ${{ github.workspace }}/.integration/framework/src
         run: PHP_BINARY=php ./tests/view-smoke.sh
+      - name: Test automatic runtime recovery on Unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: PHP_BINARY=php ./tests/serve-runtime-recovery-smoke.sh
       - name: Test bilingual CLI on Windows
         if: runner.os == 'Windows'
         shell: bash

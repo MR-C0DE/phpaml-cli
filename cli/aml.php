@@ -271,7 +271,7 @@ function showHelp(): void
             '  create-view-app <directory> Create an application with AML View [--empty]',
             '  create-api <directory>   Create a JSON API application',
             '  create-console <directory> Create an object-oriented PHP console program',
-            '  serve [host:port]        Start the development server (--verbose shows every connection)',
+            '  serve [host:port]        Start the development server (--verbose, --offline)',
             '  install [module]         Install the engine or an optional module',
             '  build [options]          Create a production deployment archive',
             '  deploy <profile>         Build and deploy through SSH/SFTP (--dry-run to preview)',
@@ -365,7 +365,7 @@ function showHelp(): void
     output('  create-view-app <dossier> Crée une application avec AML View [--empty]');
     output('  create-api <dossier>      Crée une application API JSON');
     output('  create-console <dossier>  Crée un programme PHP objet pour la console');
-    output('  serve [hôte:port]         Lance le serveur (--verbose affiche chaque connexion)');
+    output('  serve [hôte:port]         Lance le serveur (--verbose, --offline)');
     output('  install [module]          Installe le moteur ou un module optionnel');
     output('  build [options]           Crée une archive de déploiement production');
     output('  deploy <profil>           Construit et déploie par SSH/SFTP (--dry-run pour prévisualiser)');
@@ -1271,7 +1271,36 @@ function runDevelopmentServer(string $php, string $address, string $public, stri
     return $closed >= 0 ? $closed : (int) ($lastStatus['exitcode'] ?? 1);
 }
 
-function serve(string $address, bool $verbose = false): never
+function recoverMissingProjectRuntime(string $root, bool $offline = false): void
+{
+    if (is_file($root . '/runtime/autoload.php')) {
+        return;
+    }
+
+    output(currentLanguage() === 'en'
+        ? 'The PHPAML runtime is missing. Rebuilding the environment automatically…'
+        : 'Le runtime PHPAML est absent. Reconstruction automatique de l’environnement…');
+
+    $command = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__FILE__) . ' install'
+        . ($offline ? ' --offline' : '');
+    passthru('cd ' . escapeshellarg($root) . ' && ' . $command, $exitCode);
+    if ($exitCode !== 0) {
+        fail(currentLanguage() === 'en'
+            ? "The PHPAML runtime could not be rebuilt. Run 'aml install' for more details."
+            : "Le runtime PHPAML n’a pas pu être reconstruit. Exécutez 'aml install' pour obtenir plus de détails.", $exitCode);
+    }
+    if (!is_file($root . '/runtime/autoload.php')) {
+        fail(currentLanguage() === 'en'
+            ? "The installation completed without creating runtime/autoload.php. Run 'aml doctor'."
+            : "L’installation s’est terminée sans créer runtime/autoload.php. Exécutez 'aml doctor'.");
+    }
+
+    output(currentLanguage() === 'en'
+        ? '✓ PHPAML runtime rebuilt.'
+        : '✓ Runtime PHPAML reconstruit.');
+}
+
+function serve(string $address, bool $verbose = false, bool $offline = false): never
 {
     if (!preg_match('/^[a-zA-Z0-9.\-]+:\d{1,5}$/', $address)) {
         fail("Adresse invalide : {$address}");
@@ -1283,9 +1312,7 @@ function serve(string $address, bool $verbose = false): never
         fail('Le port doit être compris entre 1 et 65535.');
     }
     $root = projectRoot();
-    if (!is_file($root . '/runtime/autoload.php')) {
-        fail("Les dépendances sont absentes. Exécutez d'abord 'aml install'.");
-    }
+    recoverMissingProjectRuntime($root, $offline);
     if (!is_file($root . '/public/index.php')) {
         fail("La racine publique public/index.php est absente.");
     }
@@ -5088,7 +5115,11 @@ switch ($command) {
         $serveAddress = isset($arguments[1]) && !str_starts_with($arguments[1], '--')
             ? $arguments[1]
             : '127.0.0.1:8910';
-        serve($serveAddress, in_array('--verbose', $arguments, true));
+        serve(
+            $serveAddress,
+            in_array('--verbose', $arguments, true),
+            in_array('--offline', $arguments, true),
+        );
     case 'build':
         buildProject(in_array('--skip-tests', $arguments, true));
     case 'deploy:configure':
