@@ -310,7 +310,8 @@ Le backend n’est contacté que par une action explicite comme
 le chargement et l’erreur peuvent être liés à des propriétés `#[State]` avec
 `storeIn()`, `loadingIn()` et `errorIn()`.
 
-Les contrôles liés avec `bindClient()` acceptent les règles frontend
+Les contrôles liés avec `model($this->state('propriété'))` — ou l’API avancée
+`bindClient()` — acceptent les règles frontend
 `required()`, `email()` et `minLength()`. PHPAML Engine affiche les erreurs de
 manière accessible et bloque la soumission invalide sans contacter le serveur.
 Le backend doit toujours valider à nouveau les données reçues par une API.
@@ -360,7 +361,7 @@ Elles créent respectivement `src/views/pages/home/page.php`,
 `src/views/components/Navigation.php` et `src/views/layouts/DashboardLayout.php`.
 
 Une version précise d’AML View peut être demandée avec
-`aml create-view-app mon-interface --view-version 0.1.0-beta.6`.
+`aml create-view-app mon-interface --view-version 0.1.0-beta.7`.
 
 `aml create` reste réservé aux projets PHPAML classiques et n’ajoute pas AML
 View.

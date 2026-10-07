@@ -1727,7 +1727,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
-    $constraint = $version === null ? '^0.1.0-beta.6' : ltrim(trim($version), 'v');
+    $constraint = $version === null ? '^0.1.0-beta.7' : ltrim(trim($version), 'v');
     if (preg_match('/^[0-9A-Za-z.*^~<>=|@+_.-]+$/', $constraint) !== 1) {
         fail('La version AML View est invalide.');
     }
@@ -1979,7 +1979,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
         fail('L’installation Composer de phpaml/view a échoué.');
     }
     $requiredRuntimeFiles = [
-        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.6 ou plus récent',
+        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.7 ou plus récent',
         'runtime/phpaml/engine/src/EngineRuntime.php' => 'phpaml/engine',
         'runtime/framework/Security/CspNonce.php' => 'phpaml/framework v0.2.1-beta.1 ou plus récent',
     ];
@@ -2026,7 +2026,6 @@ namespace App\Views\Pages\Home;
 use AML\Engine\ClientAction;
 use AML\Engine\Api;
 use AML\Engine\Actions;
-use AML\Engine\StateRef;
 use AML\View\Page;
 use AML\View\PageMetadata;
 use AML\View\Persisted;
@@ -2095,7 +2094,7 @@ final class HomePage extends Page
                     Text('The counter is rendered by AML View and updated through a signed interaction.')
                         ->class('demo-copy'),
                     Element('div',
-                        Text(StateRef::to('count', $this->count))->class('counter-value'),
+                        Text($this->state('count'))->class('counter-value'),
                         Button('Add one')
                             ->onClick(Actions::sequence(
                                 ClientAction::increment('count'),
@@ -2114,28 +2113,28 @@ final class HomePage extends Page
                                 ),
                                 ClientAction::set('counterMessage', 'Already at zero'),
                             ))
-                            ->disabledWhen(StateRef::to('count', $this->count), 0)
+                            ->disabledWhen($this->state('count'), 0)
                             ->class('button', 'button-secondary'),
-                        Text(StateRef::to('counterMessage', $this->counterMessage))->class('counter-message'),
+                        Text($this->state('counterMessage'))->class('counter-message'),
                     )->component('counter')->class('counter-card'),
                     Button('Toggle details')
-                        ->onClick(ClientAction::toggle('detailsOpen'))
-                        ->classWhen(StateRef::to('detailsOpen', $this->detailsOpen), 'is-active')
+                        ->toggles('detailsOpen')
+                        ->classWhen($this->state('detailsOpen'), 'is-active')
                         ->class('button', 'button-secondary', 'details-toggle'),
                     Element('div',
                         Heading('Reactive presentation', 3),
                         Text('Visibility and CSS classes are controlled by client state.'),
                     )
-                        ->showWhen(StateRef::to('detailsOpen', $this->detailsOpen))
+                        ->showWhen($this->state('detailsOpen'))
                         ->class('details-panel'),
                     Element('div',
                         Input('name', value: $this->name)
-                            ->bindClient('name')
+                            ->model($this->state('name'))
                             ->required('Please enter your name.')
                             ->minLength(2)
                             ->attribute('aria-label', 'Your name')
                             ->class('local-input'),
-                        Text(StateRef::to('name', $this->name))->class('local-preview'),
+                        Text($this->state('name'))->class('local-preview'),
                     )->component('profile-form')->class('local-form-card'),
                     Element('div',
                         Button('Check API')
@@ -2146,22 +2145,22 @@ final class HomePage extends Page
                                     ->loadingIn('apiLoading')
                             )
                             ->class('button', 'button-secondary'),
-                        Text(StateRef::to('apiStatus', $this->apiStatus))->class('api-status'),
-                        Text(StateRef::to('apiError', $this->apiError))->class('api-error'),
+                        Text($this->state('apiStatus'))->class('api-status'),
+                        Text($this->state('apiError'))->class('api-error'),
                     )->class('api-card'),
                     Element('div',
                         Heading('Reactive collection', 3),
                         Input('newTask')
-                            ->bindClient('newTask')
+                            ->model($this->state('newTask'))
                             ->attribute('placeholder', 'New task')
                             ->attribute('aria-label', 'New task')
                             ->class('local-input'),
                         Button('Add task')
                             ->onClick(Actions::sequence(
-                                ClientAction::append('tasks', StateRef::to('newTask')),
+                                ClientAction::append('tasks', $this->state('newTask')),
                                 ClientAction::set('newTask', ''),
                             ))
-                            ->disabledWhen(StateRef::to('newTask', $this->newTask), '')
+                            ->disabledWhen($this->state('newTask'), '')
                             ->class('button', 'button-primary'),
                         Button('Remove first')
                             ->onClick(ClientAction::removeAt('tasks', 0))
@@ -2169,7 +2168,7 @@ final class HomePage extends Page
                         Button('Clear tasks')
                             ->onClick(ClientAction::clear('tasks'))
                             ->class('button', 'button-secondary'),
-                        Each(StateRef::to('tasks', $this->tasks), label: '', key: ''),
+                        Each($this->state('tasks'), label: '', key: ''),
                     )->component('task-list')->class('task-card'),
                 )->attribute('id', 'demo')->class('view-demo', 'shell'),
                 Grid(3,
@@ -2204,7 +2203,6 @@ use AML\View\PageMetadata;
 use AML\View\Shared;
 use AML\View\State;
 use AML\View\View;
-use AML\Engine\StateRef;
 use function AML\View\{Heading, Link, Text, VStack};
 
 final class AboutPage extends Page
@@ -2223,7 +2221,7 @@ final class AboutPage extends Page
             Text('CLIENT ROUTER')->class('eyebrow'),
             Heading('Navigation without a page reload')->size(48)->bold(),
             Text('PHPAML Engine loads this route, updates the document history and keeps the frontend runtime mounted.'),
-            Text(StateRef::to('count', $this->count))->class('shared-counter'),
+            Text($this->state('count'))->class('shared-counter'),
             Link('Return home', '/')->class('button', 'button-primary'),
         )->gap(20)->padding(40)->class('shell');
     }

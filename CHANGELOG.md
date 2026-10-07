@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.0-beta.35 — 2026-10-07
+
+- installe AML View `0.1.0-beta.7` par défaut ;
+- génère des interfaces réactives plus concises avec `$this->state()`,
+  `increments()`, `toggles()` et `model()` ;
+- conserve les actions Engine détaillées pour les séquences, les conditions,
+  les collections et les appels API avancés.
+
 ## 1.7.0-beta.34 — 2026-10-04
 
 - reconstruit automatiquement le dossier `runtime/` au lancement de
