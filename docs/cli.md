@@ -361,7 +361,7 @@ Elles créent respectivement `src/views/pages/home/page.php`,
 `src/views/components/Navigation.php` et `src/views/layouts/DashboardLayout.php`.
 
 Une version précise d’AML View peut être demandée avec
-`aml create-view-app mon-interface --view-version 0.1.0-beta.7`.
+`aml create-view-app mon-interface --view-version 0.1.0-beta.8`.
 
 `aml create` reste réservé aux projets PHPAML classiques et n’ajoute pas AML
 View.

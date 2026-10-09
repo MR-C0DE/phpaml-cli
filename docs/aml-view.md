@@ -88,7 +88,8 @@ final class Home extends Page
             Text($this->state('count')),
             Progress($this->state('count'), 100)
                 ->attribute('aria-label', 'Completion'),
-            Button('Add ten')->increments('count', 10),
+            Button('Remove one')->sets('count', $this->state('count')->minus(1)),
+            Button('Add one')->sets('count', $this->state('count')->plus(1)),
         )->class('home-hero')->gap(16)->padding(40);
     }
 }

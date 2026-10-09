@@ -1727,7 +1727,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
-    $constraint = $version === null ? '^0.1.0-beta.7' : ltrim(trim($version), 'v');
+    $constraint = $version === null ? '^0.1.0-beta.8' : ltrim(trim($version), 'v');
     if (preg_match('/^[0-9A-Za-z.*^~<>=|@+_.-]+$/', $constraint) !== 1) {
         fail('La version AML View est invalide.');
     }
@@ -1979,7 +1979,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
         fail('L’installation Composer de phpaml/view a échoué.');
     }
     $requiredRuntimeFiles = [
-        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.7 ou plus récent',
+        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.8 ou plus récent',
         'runtime/phpaml/engine/src/EngineRuntime.php' => 'phpaml/engine',
         'runtime/framework/Security/CspNonce.php' => 'phpaml/framework v0.2.1-beta.1 ou plus récent',
     ];
@@ -2040,9 +2040,6 @@ final class HomePage extends Page
     public int $count = 0;
 
     #[State]
-    public string $counterMessage = 'Ready';
-
-    #[State]
     public bool $detailsOpen = false;
 
     #[State]
@@ -2095,27 +2092,17 @@ final class HomePage extends Page
                         ->class('demo-copy'),
                     Element('div',
                         Text($this->state('count'))->class('counter-value'),
+                        Button('Remove one')
+                            ->sets('count', $this->state('count')->minus(1))
+                            ->class('button', 'button-secondary', 'counter-button'),
                         Button('Add one')
-                            ->onClick(Actions::sequence(
-                                ClientAction::increment('count'),
-                                ClientAction::set('counterMessage', 'Updated locally'),
-                            ))
+                            ->sets('count', $this->state('count')->plus(1))
                             ->loadingLabel('Updating…')
                             ->class('button', 'button-primary', 'counter-button'),
                         Button('Smart reset')
-                            ->onClick(Actions::when(
-                                'count',
-                                'gt',
-                                0,
-                                Actions::sequence(
-                                    ClientAction::set('count', 0),
-                                    ClientAction::set('counterMessage', 'Reset complete'),
-                                ),
-                                ClientAction::set('counterMessage', 'Already at zero'),
-                            ))
+                            ->sets('count', 0)
                             ->disabledWhen($this->state('count'), 0)
                             ->class('button', 'button-secondary'),
-                        Text($this->state('counterMessage'))->class('counter-message'),
                     )->component('counter')->class('counter-card'),
                     Button('Toggle details')
                         ->toggles('detailsOpen')
@@ -2423,7 +2410,6 @@ CSS
 .counter-value { min-width:5rem; font:700 clamp(2.4rem,8vw,5rem)/1 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--violet); }
 .counter-button { margin-left:0; }
 .counter-button:disabled { opacity:.65; cursor:wait; }
-.counter-message { justify-self:end; color:var(--muted); font-size:.85rem; }
 .details-toggle { margin-top:1rem; }
 .details-toggle.is-active { color:var(--bg); border-color:var(--lime); background:var(--lime); }
 .details-panel { margin-top:1rem; padding:1.25rem; border-left:3px solid var(--lime); background:rgba(199,255,61,.06); }
@@ -2444,7 +2430,7 @@ CSS
 .view-feature h3 { margin:2rem 0 0; font-size:1.25rem; }
 .view-feature > span:last-child { color:var(--muted); font-size:.92rem; }
 .feature-number { color:var(--violet); font:800 .75rem/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
-@media (max-width:58rem) { .view-hero { min-height:auto; grid-template-columns:1fr; gap:2rem; text-align:center; } .hero-content { align-items:center; } .hero-copy { margin-inline:auto; } .hero-actions { justify-content:center; } .hero-logo { width:min(52vw,19rem); grid-row:1; } .counter-card { grid-template-columns:1fr 1fr; } .counter-value,.counter-message { grid-column:1/-1; justify-self:center; text-align:center; } .view-features { grid-template-columns:1fr !important; } }
+@media (max-width:58rem) { .view-hero { min-height:auto; grid-template-columns:1fr; gap:2rem; text-align:center; } .hero-content { align-items:center; } .hero-copy { margin-inline:auto; } .hero-actions { justify-content:center; } .hero-logo { width:min(52vw,19rem); grid-row:1; } .counter-card { grid-template-columns:1fr 1fr; } .counter-value { grid-column:1/-1; justify-self:center; text-align:center; } .view-features { grid-template-columns:1fr !important; } }
 @media (max-width:38rem) { .view-hero { padding-block:3.5rem; } .view-hero h1 { font-size:clamp(2.75rem,14vw,4rem); overflow-wrap:anywhere; } .hero-actions { flex-direction:column; } .hero-actions .button { width:100%; } .counter-card { align-items:stretch; flex-direction:column; } .counter-button { width:100%; margin-left:0; } .local-form-card { grid-template-columns:1fr; } }
 CSS
     );

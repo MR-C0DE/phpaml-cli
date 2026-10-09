@@ -206,7 +206,7 @@ cd ..
 cd generated
 
 test ! -e runtime/framework/Obsolete.php
-grep -q "require phpaml/view:\^0.1.0-beta.7 phpaml/engine:\^0.1@beta" composer-invocations.log
+grep -q "require phpaml/view:\^0.1.0-beta.8 phpaml/engine:\^0.1@beta" composer-invocations.log
 grep -q "AML View installed" ../create.log
 "$php_bin" -r 'require "runtime/autoload.php"; exit(class_exists("AML\\View\\FileApplication") && class_exists("AML\\Engine\\EngineRuntime") && class_exists("PHPAML\\Security\\CspNonce") ? 0 : 1);'
 test ! -d src/views/templates
@@ -273,7 +273,8 @@ grep -q "\$root . '/src', \$root . '/configs'" public/index.php
 grep -q 'meta name="aml-live-reload"' public/index.php
 ! grep -q '/_aml/view' public/index.php
 ! grep -Fq 'BrowserRuntime::script' public/index.php
-grep -q 'ClientAction::increment' src/views/pages/home/page.php
+grep -q "sets('count', \$this->state('count')->plus(1))" src/views/pages/home/page.php
+grep -q "sets('count', \$this->state('count')->minus(1))" src/views/pages/home/page.php
 grep -q "Shared('demo.count')" src/views/pages/home/page.php
 grep -q "Persisted('local', 'phpaml.demo.count')" src/views/pages/home/page.php
 grep -q "Shared('demo.count')" src/views/pages/about/page.php
@@ -281,7 +282,6 @@ grep -q "Text(\$this->state('count'))" src/views/pages/home/page.php
 grep -q "model(\$this->state('name'))" src/views/pages/home/page.php
 grep -q "Api::get('/api/health')" src/views/pages/home/page.php
 grep -q "Actions::sequence" src/views/pages/home/page.php
-grep -q "Actions::when" src/views/pages/home/page.php
 grep -q "showWhen" src/views/pages/home/page.php
 grep -q "classWhen" src/views/pages/home/page.php
 grep -q "disabledWhen" src/views/pages/home/page.php

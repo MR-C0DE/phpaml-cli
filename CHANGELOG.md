@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0-beta.36 — 2026-10-09
+
+- installe AML View `0.1.0-beta.8` et Engine `0.1.0-beta.5` par défaut ;
+- ajoute les expressions d’état sûres `plus()` et `minus()` ;
+- génère un compteur lisible avec `sets()` sans imposer les raccourcis
+  `increments()` et `decrements()`.
+
 ## 1.7.0-beta.35 — 2026-10-07
 
 - installe AML View `0.1.0-beta.7` par défaut ;

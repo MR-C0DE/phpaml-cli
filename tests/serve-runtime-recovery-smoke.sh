@@ -60,7 +60,7 @@ JSON
       application='"type":"web"'
       ;;
     view)
-      modules='{"view":"0.1.0-beta.7","engine":"0.1.0-beta.4"}'
+      modules='{"view":"0.1.0-beta.8","engine":"0.1.0-beta.5"}'
       application='"type":"view"'
       ;;
     api)
