@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0-beta.39 — 2026-10-12
+
+- installe AML View `0.1.0-beta.11` par défaut ;
+- génère des lectures et mutations réactives avec les propriétés PHP
+  `#[State]` directement ;
+- rend disponible la déclaration CSS `import('pages/home.css')` hors classe.
+
 ## 1.7.0-beta.38 — 2026-10-12
 
 - installe AML View `0.1.0-beta.10` par défaut ;

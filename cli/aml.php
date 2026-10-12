@@ -1727,7 +1727,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
-    $constraint = $version === null ? '^0.1.0-beta.10' : ltrim(trim($version), 'v');
+    $constraint = $version === null ? '^0.1.0-beta.11' : ltrim(trim($version), 'v');
     if (preg_match('/^[0-9A-Za-z.*^~<>=|@+_.-]+$/', $constraint) !== 1) {
         fail('La version AML View est invalide.');
     }
@@ -1979,7 +1979,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
         fail('L’installation Composer de phpaml/view a échoué.');
     }
     $requiredRuntimeFiles = [
-        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.10 ou plus récent',
+        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.11 ou plus récent',
         'runtime/phpaml/engine/src/EngineRuntime.php' => 'phpaml/engine',
         'runtime/framework/Security/CspNonce.php' => 'phpaml/framework v0.2.1-beta.1 ou plus récent',
     ];
@@ -2086,16 +2086,16 @@ final class HomePage extends Page
                     Text('The counter is rendered by AML View and updated through a signed interaction.')
                         ->class('demo-copy'),
                     Element('div',
-                        Text($this->state('count'))->class('counter-value'),
+                        Text($this->count)->class('counter-value'),
                         Button('Remove one')
-                            ->sets('count', $this->state('count')->minus(1))
+                            ->onClick(fn () => $this->count--)
                             ->class('button', 'button-secondary', 'counter-button'),
                         Button('Add one')
-                            ->sets('count', $this->state('count')->plus(1))
+                            ->onClick(fn () => $this->count++)
                             ->loadingLabel('Updating…')
                             ->class('button', 'button-primary', 'counter-button'),
                         Button('Smart reset')
-                            ->sets('count', 0)
+                            ->onClick(fn () => $this->count = 0)
                             ->disabledWhen($this->state('count'), 0)
                             ->class('button', 'button-secondary'),
                     )->component('counter')->class('counter-card'),
@@ -2110,13 +2110,13 @@ final class HomePage extends Page
                         ->showWhen($this->state('detailsOpen'))
                         ->class('details-panel'),
                     Element('div',
-                        Input('name', value: $this->name)
-                            ->model($this->state('name'))
+                        Input('name')
+                            ->value($this->name)
                             ->required('Please enter your name.')
                             ->minLength(2)
                             ->attribute('aria-label', 'Your name')
                             ->class('local-input'),
-                        Text($this->state('name'))->class('local-preview'),
+                        Text($this->name)->class('local-preview'),
                     )->component('profile-form')->class('local-form-card'),
                     Element('div',
                         Button('Check API')
@@ -2199,7 +2199,7 @@ final class AboutPage extends Page
             Text('CLIENT ROUTER')->class('eyebrow'),
             Heading('Navigation without a page reload')->size(48)->bold(),
             Text('PHPAML Engine loads this route, updates the document history and keeps the frontend runtime mounted.'),
-            Text($this->state('count'))->class('shared-counter'),
+            Text($this->count)->class('shared-counter'),
             Link('Return home', '/')->class('button', 'button-primary'),
         )->gap(20)->padding(40)->class('shell');
     }
