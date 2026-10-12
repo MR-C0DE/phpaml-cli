@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.0-beta.38 — 2026-10-12
+
+- installe AML View `0.1.0-beta.10` par défaut ;
+- permet d'utiliser `Console::log()`, `Console::warning()` et
+  `Console::error()` directement dans les closures PHP de `Effect()`.
+
 ## 1.7.0-beta.37 — 2026-10-12
 
 - group generated AML View class and factory imports using native PHP grouped

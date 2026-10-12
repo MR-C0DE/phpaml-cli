@@ -207,7 +207,7 @@ cd ..
 cd generated
 
 test ! -e runtime/framework/Obsolete.php
-grep -q "require phpaml/view:\^0.1.0-beta.9 phpaml/engine:\^0.1@beta" composer-invocations.log
+grep -q "require phpaml/view:\^0.1.0-beta.10 phpaml/engine:\^0.1@beta" composer-invocations.log
 grep -q "AML View installed" ../create.log
 "$php_bin" -r 'require "runtime/autoload.php"; exit(class_exists("AML\\View\\FileApplication") && class_exists("AML\\Engine\\EngineRuntime") && class_exists("PHPAML\\Security\\CspNonce") ? 0 : 1);'
 test ! -d src/views/templates
