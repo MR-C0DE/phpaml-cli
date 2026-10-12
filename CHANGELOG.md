@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0-beta.37 — 2026-10-12
+
+- group generated AML View class and factory imports using native PHP grouped
+  `use` declarations.
+- prepare AML View `0.1.0-beta.9` and Engine `0.1.0-beta.6` as the defaults for
+  newly generated View applications.
+
 ## 1.7.0-beta.36 — 2026-10-09
 
 - installe AML View `0.1.0-beta.8` et Engine `0.1.0-beta.5` par défaut ;

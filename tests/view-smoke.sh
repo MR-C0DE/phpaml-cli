@@ -146,6 +146,7 @@ AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/compos
   "$php_bin" "$root/cli/aml.php" create-view-app generated-empty --empty --offline --version 0.0.0 > empty-create.log
 test -f generated-empty/src/views/pages/home/page.php
 grep -q 'return MainContent();' generated-empty/src/views/pages/home/page.php
+grep -Fq 'use AML\View\{Page, View};' generated-empty/src/views/pages/home/page.php
 test ! -d generated-empty/src/views/pages/about
 test ! -d generated-empty/src/views/components
 test ! -d generated-empty/src/views/layouts
@@ -206,7 +207,7 @@ cd ..
 cd generated
 
 test ! -e runtime/framework/Obsolete.php
-grep -q "require phpaml/view:\^0.1.0-beta.8 phpaml/engine:\^0.1@beta" composer-invocations.log
+grep -q "require phpaml/view:\^0.1.0-beta.9 phpaml/engine:\^0.1@beta" composer-invocations.log
 grep -q "AML View installed" ../create.log
 "$php_bin" -r 'require "runtime/autoload.php"; exit(class_exists("AML\\View\\FileApplication") && class_exists("AML\\Engine\\EngineRuntime") && class_exists("PHPAML\\Security\\CspNonce") ? 0 : 1);'
 test ! -d src/views/templates
@@ -215,6 +216,8 @@ test -f src/models/HomeModel.php
 test ! -d src/server
 test ! -d app
 test -f src/views/pages/home/page.php
+grep -Fq 'use AML\View\{Page, PageMetadata, Persisted, Shared, State, View};' src/views/pages/home/page.php
+grep -Fq 'use function AML\View\{Button, Each, Element, Grid, Group, Heading, Image, Input, Link, MainContent, Section, Text, VStack};' src/views/pages/home/page.php
 test -f src/views/pages/about/page.php
 test -f src/views/layouts/AppLayout.php
 test -f src/views/states/NotFound.php

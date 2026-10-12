@@ -71,9 +71,7 @@ stored in `phpaml.json`, secrets in `.env`, and generated configuration in
 ```php
 <?php
 
-use AML\View\Page;
-use AML\View\State;
-use AML\View\View;
+use AML\View\{Page, State, View};
 use function AML\View\{Button, Heading, Progress, Text, VStack};
 
 final class Home extends Page

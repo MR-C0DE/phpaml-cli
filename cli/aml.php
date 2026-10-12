@@ -1727,7 +1727,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
-    $constraint = $version === null ? '^0.1.0-beta.8' : ltrim(trim($version), 'v');
+    $constraint = $version === null ? '^0.1.0-beta.9' : ltrim(trim($version), 'v');
     if (preg_match('/^[0-9A-Za-z.*^~<>=|@+_.-]+$/', $constraint) !== 1) {
         fail('La version AML View est invalide.');
     }
@@ -1979,7 +1979,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
         fail('L’installation Composer de phpaml/view a échoué.');
     }
     $requiredRuntimeFiles = [
-        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.8 ou plus récent',
+        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.9 ou plus récent',
         'runtime/phpaml/engine/src/EngineRuntime.php' => 'phpaml/engine',
         'runtime/framework/Security/CspNonce.php' => 'phpaml/framework v0.2.1-beta.1 ou plus récent',
     ];
@@ -2026,12 +2026,7 @@ namespace App\Views\Pages\Home;
 use AML\Engine\ClientAction;
 use AML\Engine\Api;
 use AML\Engine\Actions;
-use AML\View\Page;
-use AML\View\PageMetadata;
-use AML\View\Persisted;
-use AML\View\Shared;
-use AML\View\State;
-use AML\View\View;
+use AML\View\{Page, PageMetadata, Persisted, Shared, State, View};
 use function AML\View\{Button, Each, Element, Grid, Group, Heading, Image, Input, Link, MainContent, Section, Text, VStack};
 
 final class HomePage extends Page
@@ -2185,11 +2180,7 @@ declare(strict_types=1);
 
 namespace App\Views\Pages\About;
 
-use AML\View\Page;
-use AML\View\PageMetadata;
-use AML\View\Shared;
-use AML\View\State;
-use AML\View\View;
+use AML\View\{Page, PageMetadata, Shared, State, View};
 use function AML\View\{Heading, Link, Text, VStack};
 
 final class AboutPage extends Page
@@ -2292,8 +2283,7 @@ declare(strict_types=1);
 
 namespace App\Views\States;
 
-use AML\View\Page;
-use AML\View\View;
+use AML\View\{Page, View};
 use function AML\View\{Heading, Link, Text, VStack};
 
 final class NotFoundPage extends Page
@@ -2317,8 +2307,7 @@ declare(strict_types=1);
 
 namespace App\Views\States;
 
-use AML\View\Page;
-use AML\View\View;
+use AML\View\{Page, View};
 use function AML\View\{Text, VStack};
 
 final class LoadingPage extends Page
@@ -2340,8 +2329,7 @@ declare(strict_types=1);
 
 namespace App\Views\States;
 
-use AML\View\Page;
-use AML\View\View;
+use AML\View\{Page, View};
 use function AML\View\{Heading, Link, Text, VStack};
 
 final class ErrorPage extends Page
@@ -2527,8 +2515,7 @@ declare(strict_types=1);
 
 namespace App\Views\Pages\Home;
 
-use AML\View\Page;
-use AML\View\View;
+use AML\View\{Page, View};
 use function AML\View\MainContent;
 
 final class HomePage extends Page
