@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.0-beta.40 — 2026-10-13
+
+- installe AML View `0.1.0-beta.12` et PHPAML Engine `0.1.0-beta.7` par défaut ;
+- prend en charge les événements clavier, souris et glisser-déposer écrits en
+  PHP naturel ;
+- rend disponibles les nouvelles expressions PHP sûres pour la recherche, les
+  vérifications, les conversions et les calculs réactifs.
+
 ## 1.7.0-beta.39 — 2026-10-12
 
 - installe AML View `0.1.0-beta.11` par défaut ;

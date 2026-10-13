@@ -1727,7 +1727,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
-    $constraint = $version === null ? '^0.1.0-beta.11' : ltrim(trim($version), 'v');
+    $constraint = $version === null ? '^0.1.0-beta.12' : ltrim(trim($version), 'v');
     if (preg_match('/^[0-9A-Za-z.*^~<>=|@+_.-]+$/', $constraint) !== 1) {
         fail('La version AML View est invalide.');
     }
@@ -1979,7 +1979,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
         fail('L’installation Composer de phpaml/view a échoué.');
     }
     $requiredRuntimeFiles = [
-        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.11 ou plus récent',
+        'runtime/phpaml/view/src/FileApplication.php' => 'phpaml/view v0.1.0-beta.12 ou plus récent',
         'runtime/phpaml/engine/src/EngineRuntime.php' => 'phpaml/engine',
         'runtime/framework/Security/CspNonce.php' => 'phpaml/framework v0.2.1-beta.1 ou plus récent',
     ];
