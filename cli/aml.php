@@ -1232,11 +1232,14 @@ function relayDevelopmentServerOutput(
 function runDevelopmentServer(string $php, string $address, string $public, string $router, bool $verbose): int
 {
     $pipes = [];
+    $environment = getenv();
+    if (!is_array($environment)) $environment = [];
+    $environment['PHPAML_DEV_SERVER'] = '1';
     $process = proc_open(
         [$php, '-S', $address, '-t', $public, $router],
         [0 => STDIN, 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
         $pipes,
-        null,
+        $environment,
         null,
         ['bypass_shell' => true],
     );
@@ -2023,14 +2026,13 @@ declare(strict_types=1);
 
 namespace App\Views\Pages\Home;
 
-use AML\View\{Page, PageMetadata, State, View};
-use function AML\View\{Button, Heading, HStack, Link, MainContent, Section, Text, VStack};
+use AML\View\{Page, PageMetadata, View};
+use function AML\View\{Heading, InlineCode, MainContent, Section, Text, VStack, import};
+
+import('pages/home.css');
 
 final class HomePage extends Page
 {
-    #[State]
-    private int $count = 0;
-
     public function metadata(): PageMetadata
     {
         return (new PageMetadata())
@@ -2043,19 +2045,10 @@ final class HomePage extends Page
         return MainContent(
             Section(
                 VStack(
-                    Text('PHPAML VIEW')->class('eyebrow'),
-                    Heading('Your application is ready.')->bold(),
-                    Text('Edit src/views/pages/home/page.php to begin.'),
-                    Text('Counter: {count}')->class('counter-value'),
-                    HStack(
-                        Button('−')->onClick(fn () => $this->count--)->class('button', 'button-secondary'),
-                        Button('Reset')->onClick(fn () => $this->count = 0)->class('button', 'button-secondary'),
-                        Button('+')->onClick(fn () => $this->count++)->class('button', 'button-primary'),
-                    )->gap(10)->class('counter-actions'),
-                    HStack(
-                        Link('Documentation', 'https://phpaml.com/docs'),
-                        Link('GitHub', 'https://github.com/MR-C0DE/phpaml-view'),
-                    )->gap(18)->class('home-links'),
+                    Text('INSTALLATION COMPLETE')->class('starter-status'),
+                    Heading('Your PHPAML app is ready.')->bold(),
+                    Text('Start by editing'),
+                    InlineCode('src/views/pages/home/page.php')->class('starter-path'),
                 )->gap(20)->class('home-card'),
             )->class('home-section', 'shell'),
         )->class('view-content');
@@ -2102,18 +2095,21 @@ namespace App\Views\Components;
 
 use AML\View\Component;
 use AML\View\View;
-use function AML\View\{Element, Link, Text};
+use function AML\View\{Div, Header, Link, Text, import};
+use function AML\View\Navigation as NavigationBar;
+
+import('components/navigation.css');
 
 final class Navigation extends Component
 {
     public function body(): View
     {
-        return Element('header',
-            Element('nav',
-                Element('a', Text('PHPAML'))->attribute('href', '/')->class('view-brand'),
-                Element('div',
-                    Link('About', '/about'),
+        return Header(
+            NavigationBar(
+                Link('PHPAML', '/')->class('view-brand'),
+                Div(
                     Link('Docs', 'https://phpaml.com/docs'),
+                    Link('GitHub', 'https://github.com/MR-C0DE/phpaml-view'),
                 )->class('view-nav-links'),
             )->class('view-nav', 'shell'),
         )->class('view-header');
@@ -2136,7 +2132,9 @@ namespace App\Views\Layouts;
 use AML\View\Layout;
 use AML\View\View;
 use function App\Views\Components\Navigation;
-use function AML\View\{Element, Link, Slot, Text, VStack};
+use function AML\View\{Footer, Slot, Text, VStack, import};
+
+import('layouts/app.css');
 
 final class AppLayout extends Layout
 {
@@ -2145,9 +2143,8 @@ final class AppLayout extends Layout
         return VStack(
             Navigation(),
             Slot(),
-            Element('footer',
-                Text('Built with PHPAML View'),
-                Link('Documentation', 'https://phpaml.com/docs'),
+            Footer(
+                Text('PHPAML View'),
             )->class('view-footer', 'shell'),
         )->class('view-app');
     }
@@ -2237,7 +2234,7 @@ a { color:inherit; }
 CSS
     );
     writeNewFile($root, 'src/views/stylesheets/components/navigation.css', <<<'CSS'
-.view-header { border-bottom:1px solid var(--line); background:var(--surface); }
+.view-header { width:100%; border-bottom:1px solid var(--line); background:var(--surface); }
 .view-nav { min-height:4rem; display:flex; align-items:center; gap:1.5rem; }
 .view-brand { font-weight:850; letter-spacing:.04em; text-decoration:none; }
 .view-nav-links { min-width:0; margin-left:auto; display:flex; align-items:center; justify-content:flex-end; gap:1.15rem; }
@@ -2246,23 +2243,20 @@ CSS
     );
     writeNewFile($root, 'src/views/stylesheets/layouts/app.css', <<<'CSS'
 .view-app { min-height:100vh; display:flex; flex-direction:column; }
-.view-content { flex:1; }
-.view-footer { padding-block:1.5rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem; }
-.view-footer a { color:var(--text); text-decoration:none; }
+.view-content { width:100%; flex:1; }
+.view-footer { padding-block:1.25rem; border-top:1px solid var(--line); color:var(--muted); font-size:.82rem; }
 @media (max-width:38rem) { .view-footer { align-items:flex-start; flex-direction:column; } }
 CSS
     );
     writeNewFile($root, 'src/views/stylesheets/pages/home.css', <<<'CSS'
-.home-section { min-height:calc(100vh - 8rem); padding-block:5rem; display:flex; align-items:center; }
-.home-card { width:min(100%,40rem); align-items:flex-start; }
+.home-section { min-height:calc(100vh - 7.5rem); padding-block:6rem; display:flex; align-items:center; justify-content:center; }
+.home-card { width:min(100%,42rem); align-items:center; text-align:center; }
 .eyebrow { color:var(--accent); font:.78rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:800; letter-spacing:.12em; }
-.home-card h1 { margin:0; font-size:clamp(2.4rem,7vw,4.5rem); line-height:1.05; letter-spacing:-.05em; }
-.home-card > span:not(.eyebrow):not(.counter-value) { color:var(--muted); font-size:1.05rem; }
-.counter-value { margin-top:1rem; font:750 1.35rem/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; }
-.counter-actions { flex-wrap:wrap; }
-.home-links { margin-top:.5rem; flex-wrap:wrap; }
-.home-links a { color:var(--accent); font-weight:700; text-decoration:none; }
-@media (max-width:38rem) { .home-section { padding-block:3rem; } .counter-actions { align-items:stretch; flex-direction:column; width:100%; } .counter-actions .button { width:100%; } }
+.starter-status { color:#198754; font:.75rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:800; letter-spacing:.1em; }
+.home-card h1 { margin:0; font-size:clamp(2.35rem,6vw,4rem); line-height:1.05; letter-spacing:-.05em; }
+.home-card > span:not(.eyebrow) { color:var(--muted); font-size:1.05rem; }
+.starter-path { padding:.55rem .75rem; border:1px solid var(--line); border-radius:5px; color:var(--text); background:var(--surface); font:600 .88rem/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; }
+@media (max-width:38rem) { .home-section { padding-block:3rem; } }
 CSS
     );
     writeNewFile($root, 'src/views/stylesheets/states/route-states.css', <<<'CSS'
@@ -2293,7 +2287,7 @@ $tests = [
         if (!$result instanceof \AML\View\PageResult) {
             throw new RuntimeException('The home route did not return a page.');
         }
-        if (!str_contains($result->rootHtml(), 'Your application is ready')) {
+        if (!str_contains($result->rootHtml(), 'Your PHPAML app is ready')) {
             throw new RuntimeException('The home page content is missing.');
         }
     },
@@ -2420,10 +2414,14 @@ $config = \PHPAML\Config\ApplicationConfig::load($root);
 if (function_exists('phpamlComposeApplication')) {
     $config = phpamlComposeApplication($config, $root);
 }
+$viewDebug = getenv('PHPAML_DEV_SERVER') === '1';
+if ($viewDebug) {
+    $config['debug'] = true;
+}
 $application = new \PHPAML\WebApplication($config);
 if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
     $request = \PHPAML\Http\Request::capture();
-    $response = $application->handle($request, static function (\PHPAML\Http\Request $viewRequest) use ($application, $viewApp, $requestPath): \PHPAML\Http\Response {
+    $response = $application->handle($request, static function (\PHPAML\Http\Request $viewRequest) use ($application, $viewApp, $requestPath, $viewDebug): \PHPAML\Http\Response {
         if ($requestPath === '/_aml/' . \AML\Engine\EngineRuntime::assetFilename(true)) {
             $runtime = file_get_contents(\AML\Engine\EngineRuntime::assetPath(true));
             if ($runtime === false) {
@@ -2458,12 +2456,16 @@ if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
             $status = 404;
             $result = $viewApp->notFound($requestPath);
         } catch (Throwable $error) {
+            if ($viewDebug) {
+                throw $error;
+            }
             $status = 500;
             $result = $viewApp->error($requestPath, $error);
         }
         $session = $application->container()->get(\PHPAML\Session\Session::class);
-        $body = $result instanceof \AML\View\PageResult ? $result->rootHtml() : (string) $result;
+        $body = $result instanceof \AML\View\PageResult ? $result->rootHtml($viewDebug) : (string) $result;
         $liveReloadMeta = PHP_SAPI === 'cli-server' ? '<meta name="aml-live-reload" content="/_aml/live-reload">' : '';
+        $debugMeta = $viewDebug ? '<meta name="aml-debug" content="true">' : '';
         $cspNonce = \PHPAML\Security\CspNonce::from($viewRequest);
         $metadata = $result instanceof \AML\View\PageResult ? $viewApp->metadata($requestPath) : new \AML\View\PageMetadata();
         $head = $metadata->render($cspNonce);
@@ -2471,7 +2473,7 @@ if (!preg_match('#^/api(?:/|$)#', $requestPath)) {
         $engineScript = \AML\Engine\EngineRuntime::externalScript();
         $html = '<!doctype html><html ' . $htmlAttributes . '><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
-            . $session->csrfMeta() . $liveReloadMeta . $head
+            . $session->csrfMeta() . $liveReloadMeta . $debugMeta . $head
             . '<link rel="stylesheet" href="/_aml/styles.css">'
             . '</head><body>' . $body . $engineScript . '</body></html>';
         return \PHPAML\Http\Response::html($html, $status);

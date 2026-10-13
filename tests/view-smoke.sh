@@ -222,10 +222,12 @@ test -f src/models/HomeModel.php
 test ! -d src/server
 test ! -d app
 test -f src/views/pages/home/page.php
-grep -Fq 'use AML\View\{Page, PageMetadata, State, View};' src/views/pages/home/page.php
-grep -Fq 'use function AML\View\{Button, Heading, HStack, Link, MainContent, Section, Text, VStack};' src/views/pages/home/page.php
-grep -q 'Your application is ready' src/views/pages/home/page.php
-grep -q "Text('Counter: {count}')" src/views/pages/home/page.php
+grep -Fq 'use AML\View\{Page, PageMetadata, View};' src/views/pages/home/page.php
+grep -q "import('pages/home.css')" src/views/pages/home/page.php
+grep -q "import('components/navigation.css')" src/views/components/Navigation.php
+grep -q "import('layouts/app.css')" src/views/layouts/AppLayout.php
+grep -q 'Your PHPAML app is ready' src/views/pages/home/page.php
+! grep -q "Counter:" src/views/pages/home/page.php
 ! grep -q 'AML\\Engine\\Api\|Each(\|ThemeProvider' src/views/pages/home/page.php
 test -f src/views/pages/about/page.php
 test -f src/views/layouts/AppLayout.php
@@ -236,7 +238,7 @@ test -f src/views/components/Navigation.php
 grep -q 'function Navigation(): Navigation' src/views/components/Navigation.php
 grep -q 'Navigation(),' src/views/layouts/AppLayout.php
 ! grep -q 'new Navigation()' src/views/layouts/AppLayout.php
-! grep -q 'new Element(' src/views/pages/home/page.php
+! grep -q 'Element(' src/views/pages/home/page.php src/views/components/Navigation.php src/views/layouts/AppLayout.php
 test -d src/controllers
 test -d src/models
 test -d src/controllers
@@ -269,7 +271,9 @@ test "$(find public src -name '*.php' -exec grep -l '<!doctype html>' {} + | wc 
 grep -q '\\AML\\View\\FileApplication' public/index.php
 grep -q '\$viewApp->mount(\$requestPath)' public/index.php
 grep -q '\$application->handle(\$request' public/index.php
-grep -q 'use (\$application, \$viewApp, \$requestPath)' public/index.php
+grep -q 'use (\$application, \$viewApp, \$requestPath, \$viewDebug)' public/index.php
+grep -q "getenv('PHPAML_DEV_SERVER') === '1'" public/index.php
+grep -q 'if (\$viewDebug)' public/index.php
 grep -q '\$session->csrfMeta()' public/index.php
 ! grep -q 'method_exists(\\AML\\Engine\\EngineRuntime::class' public/index.php
 grep -q '\\PHPAML\\Http\\Response::html' public/index.php
@@ -283,12 +287,11 @@ grep -q 'application/json; charset=utf-8' public/index.php
 grep -q 'max-age=31536000, immutable' public/index.php
 grep -q "\$root . '/src', \$root . '/configs'" public/index.php
 grep -q 'meta name="aml-live-reload"' public/index.php
+grep -q 'meta name="aml-debug"' public/index.php
+grep -q 'rootHtml(\$viewDebug)' public/index.php
 ! grep -q '/_aml/view' public/index.php
 ! grep -Fq 'BrowserRuntime::script' public/index.php
-grep -q "onClick(fn () => \$this->count++)" src/views/pages/home/page.php
-grep -q "onClick(fn () => \$this->count--)" src/views/pages/home/page.php
-grep -q "onClick(fn () => \$this->count = 0)" src/views/pages/home/page.php
-grep -q "Text('Counter: {count}')" src/views/pages/home/page.php
+! grep -q "Counter:" src/views/pages/home/page.php
 ! grep -q "Shared\|Persisted\|Api::\|Actions::\|Each(" src/views/pages/home/page.php
 grep -q '\$metadata->render(\$cspNonce)' public/index.php
 grep -q -- "->class('home-section', 'shell')" src/views/pages/home/page.php

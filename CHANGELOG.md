@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.7.0-beta.42 — 2026-10-13
+
+- installe PHPAML Engine `0.1.0-beta.8` par défaut ;
+- installe PHPAML Framework `0.3.0-beta.7` et le Template `0.5.0-beta.10` ;
+- garantit que les interactions View démarrent même si un autre environnement
+  a réservé un objet global `window.AMLEngine` incomplet ;
+- remplace le compteur du starter par une page de démarrage sobre utilisant les
+  composants natifs et les imports CSS localisés de PHPAML View ;
+- affiche avec `aml serve` la cause, le fichier, la ligne et l’extrait de source
+  d’une erreur View, tout en conservant les détails masqués en production ;
+- active l’overlay de développement d’Engine pour les erreurs exécutées dans le
+  navigateur et conserve les API au format JSON.
+
 ## 1.7.0-beta.41 — 2026-10-13
 
 - ajoute `aml create-view` comme commande principale et conserve
