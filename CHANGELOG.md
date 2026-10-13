@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0-beta.43 — 2026-10-13
+
+- corrige le démarrage réel de `aml serve` dans les archives autonomes en
+  transmettant séparément le dossier de travail et l’environnement à PHP ;
+- vérifie désormais que le serveur reste actif et répond à une première
+  requête HTTP, au lieu de valider uniquement son message de démarrage.
+
 ## 1.7.0-beta.42 — 2026-10-13
 
 - installe PHPAML Engine `0.1.0-beta.8` par défaut ;

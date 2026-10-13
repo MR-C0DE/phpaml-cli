@@ -1239,8 +1239,8 @@ function runDevelopmentServer(string $php, string $address, string $public, stri
         [$php, '-S', $address, '-t', $public, $router],
         [0 => STDIN, 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
         $pipes,
-        $environment,
         null,
+        $environment,
         ['bypass_shell' => true],
     );
     if (!is_resource($process)) fail('Impossible de démarrer le serveur de développement.');

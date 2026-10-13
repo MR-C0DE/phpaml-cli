@@ -99,6 +99,16 @@ JSON
     echo "aml serve did not start after rebuilding runtime ($kind)." >&2
     exit 1
   fi
+  sleep 0.1
+  if ! kill -0 "$server_pid" 2>/dev/null; then
+    echo "aml serve exited immediately after announcing startup ($kind)." >&2
+    exit 1
+  fi
+  response="$($php_bin -r '$body=@file_get_contents($argv[1]); if ($body === false) exit(1); echo $body;' "http://127.0.0.1:$port/")"
+  if [[ "$response" != "runtime-recovered" ]]; then
+    echo "aml serve did not answer the first HTTP request ($kind)." >&2
+    exit 1
+  fi
   kill "$server_pid" 2>/dev/null || true
   wait "$server_pid" 2>/dev/null || true
   server_pid=''
