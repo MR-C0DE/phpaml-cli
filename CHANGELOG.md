@@ -2,7 +2,9 @@
 
 ## 1.7.0-beta.41 — 2026-10-13
 
-- simplifie entièrement le projet généré par `aml create-view-app` ;
+- ajoute `aml create-view` comme commande principale et conserve
+  `aml create-view-app` comme alias compatible ;
+- simplifie entièrement le projet généré par `aml create-view` ;
 - remplace la vitrine de démonstration complexe par une page de démarrage
   sobre avec un compteur réactif et des liens essentiels ;
 - conserve `--empty` pour obtenir une page totalement vide.

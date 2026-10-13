@@ -11,7 +11,7 @@ navigation dans le navigateur. Les projets classiques peuvent garder leurs vues 
 ## Create an application / Créer une application
 
 ```bash
-aml create-view-app my-project
+aml create-view my-project
 cd my-project
 aml serve
 ```
@@ -20,10 +20,10 @@ For a minimal project without demonstration pages, navigation, themes or
 interactive examples, add `--empty`:
 
 ```bash
-aml create-view-app my-project --empty
+aml create-view my-project --empty
 ```
 
-Use `aml create-view-app .` in the current directory. AML installs View and
+Use `aml create-view .` in the current directory. AML installs View and
 Engine automatically. `aml create` keeps creating a classic MVC application
 without AML View.
 

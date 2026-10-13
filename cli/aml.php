@@ -268,7 +268,7 @@ function showHelp(): void
             'AML — PHPAML command-line interface', '',
             'Usage: aml <command> [options]', '', 'Commands:',
             '  create <directory>       Create an application (use . for the current directory)',
-            '  create-view-app <directory> Create an application with AML View [--empty]',
+            '  create-view <directory>   Create an application with AML View [--empty]',
             '  create-api <directory>   Create a JSON API application',
             '  create-console <directory> Create an object-oriented PHP console program',
             '  serve [host:port]        Start the development server (--verbose, --offline)',
@@ -346,7 +346,7 @@ function showHelp(): void
             '  test                     Run automated tests',
             '  version                  Show the framework version',
             '  help                     Show this help', '', 'Examples:',
-            '  aml create .', '  aml create my-project', '  aml create-view-app my-view-app',
+            '  aml create .', '  aml create my-project', '  aml create-view my-view-app',
             '  aml create-console hello && cd hello && aml run',
             '  aml serve 127.0.0.1:8080', '  aml install', '  aml --update --check', '  aml doctor',
             '  aml env:init', '  aml env:set APP_DEBUG false',
@@ -362,7 +362,7 @@ function showHelp(): void
     output();
     output('Commandes :');
     output('  create <dossier>          Crée une application (utilisez . pour le dossier courant)');
-    output('  create-view-app <dossier> Crée une application avec AML View [--empty]');
+    output('  create-view <dossier>     Crée une application avec AML View [--empty]');
     output('  create-api <dossier>      Crée une application API JSON');
     output('  create-console <dossier>  Crée un programme PHP objet pour la console');
     output('  serve [hôte:port]         Lance le serveur (--verbose, --offline)');
@@ -444,7 +444,7 @@ function showHelp(): void
     output('Exemples :');
     output('  aml create .');
     output('  aml create mon-projet');
-    output('  aml create-view-app mon-interface');
+    output('  aml create-view mon-interface');
     output('  aml create-console bonjour && cd bonjour && aml run');
     output('  aml create mon-projet --version 0.1.0');
     output('  aml create mon-projet --offline');
@@ -1319,7 +1319,7 @@ function serve(string $address, bool $verbose = false, bool $offline = false): n
     $manifest = projectInfo($root);
     if (isset($manifest['modules']['view'])
         && !projectRuntimeLoads($root, [\AML\View\FileApplication::class, \AML\Engine\EngineRuntime::class, \PHPAML\Security\CspNonce::class])) {
-        fail("Le runtime AML View est incomplet. Exécutez 'aml install', puis recréez le projet avec 'aml create-view-app' si le problème persiste.");
+        fail("Le runtime AML View est incomplet. Exécutez 'aml install', puis recréez le projet avec 'aml create-view' si le problème persiste.");
     }
 
     $requestedPort = $port;
@@ -1989,7 +1989,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
         }
     }
     if (!projectRuntimeLoads($root, [\AML\View\FileApplication::class, \AML\Engine\EngineRuntime::class, \PHPAML\Security\CspNonce::class])) {
-        fail("Installation AML View incomplète : l’autoload du projet ne charge pas FileApplication, EngineRuntime et CspNonce. Relancez 'aml create-view-app' dans un nouveau dossier.");
+        fail("Installation AML View incomplète : l’autoload du projet ne charge pas FileApplication, EngineRuntime et CspNonce. Relancez 'aml create-view' dans un nouveau dossier.");
     }
 
     $legacyViewRoot = $root . '/src/View';
@@ -4901,6 +4901,7 @@ switch ($command) {
             !in_array('--no-install', $arguments, true)
         );
         break;
+    case 'create-view':
     case 'create-view-app':
         $destination = isset($arguments[1]) && !str_starts_with($arguments[1], '--') ? $arguments[1] : '.';
         createViewApplication(
@@ -4969,7 +4970,7 @@ switch ($command) {
             installData(array_slice($arguments, 2));
         }
         if (($arguments[1] ?? null) === 'view') {
-            fail("La commande 'aml install view' a été retirée. Utilisez 'aml create-view-app .' pour créer une application AML View.");
+            fail("La commande 'aml install view' a été retirée. Utilisez 'aml create-view .' pour créer une application AML View.");
         }
         if (($arguments[1] ?? null) === 'i18n') {
             installI18n(optionValue($arguments, '--version'));

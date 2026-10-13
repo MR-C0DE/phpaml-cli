@@ -78,7 +78,7 @@ middleware, migrations, and views as the application grows.
 ### A declarative interface
 
 ```bash
-aml create-view-app my-interface
+aml create-view my-interface
 cd my-interface
 aml doctor
 aml serve

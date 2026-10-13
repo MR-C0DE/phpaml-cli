@@ -56,7 +56,7 @@ toute modification.
 
 ## Variante AML View
 
-Une application créée avec `aml create-view-app` utilise la même racine `src/`
+Une application créée avec `aml create-view` utilise la même racine `src/`
 et ajoute le routage déclaratif de l’interface dans `src/views/pages` :
 
 ```text

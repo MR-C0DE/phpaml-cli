@@ -79,7 +79,7 @@ modèles, middlewares, migrations et vues à mesure que l’application grandit.
 ### Une interface déclarative
 
 ```bash
-aml create-view-app mon-interface
+aml create-view mon-interface
 cd mon-interface
 aml doctor
 aml serve

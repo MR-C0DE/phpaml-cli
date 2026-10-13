@@ -141,9 +141,9 @@ chmod +x "$fixture/composer"
 mkdir -p "$fixture/work"
 cd "$fixture/work"
 AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/composer" \
-  "$php_bin" "$root/cli/aml.php" create-view-app generated --offline --version 0.0.0 > create.log
+  "$php_bin" "$root/cli/aml.php" create-view generated --offline --version 0.0.0 > create.log
 AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/composer" \
-  "$php_bin" "$root/cli/aml.php" create-view-app generated-empty --empty --offline --version 0.0.0 > empty-create.log
+  "$php_bin" "$root/cli/aml.php" create-view generated-empty --empty --offline --version 0.0.0 > empty-create.log
 test -f generated-empty/src/views/pages/home/page.php
 grep -q 'return MainContent();' generated-empty/src/views/pages/home/page.php
 grep -Fq 'use AML\View\{Page, View};' generated-empty/src/views/pages/home/page.php
@@ -153,6 +153,12 @@ test ! -d generated-empty/src/views/layouts
 test ! -d generated-empty/src/views/themes
 test ! -f generated-empty/src/views/stylesheets/pages/home.css
 grep -q 'empty home page renders' generated-empty/tests/aml-view.php
+
+# The former public command remains a compatibility alias for existing scripts.
+AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/composer" \
+  "$php_bin" "$root/cli/aml.php" create-view-app generated-alias --empty --offline --version 0.0.0 > alias-create.log
+test -f generated-alias/src/views/pages/home/page.php
+grep -q 'return MainContent();' generated-alias/src/views/pages/home/page.php
 
 AML_LANG=en AML_CACHE_HOME="$fixture/cache" \
   "$php_bin" "$root/cli/aml.php" create "$fixture/absolute-project" --offline --no-install --version 0.0.0 > absolute-create.log
@@ -371,7 +377,7 @@ if AML_LANG=en "$php_bin" "$root/cli/aml.php" install view > retired.log 2>&1; t
   echo "aml install view should be retired" >&2
   exit 1
 fi
-grep -q "create-view-app" retired.log
+grep -q "create-view" retired.log
 
 AML_LANG=en "$php_bin" "$root/cli/aml.php" make:view-page Account
 AML_LANG=en "$php_bin" "$root/cli/aml.php" make:view-component UserMenu

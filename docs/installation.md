@@ -52,7 +52,7 @@ Le paquet installe AML dans `/opt/phpaml` et crée `/usr/local/bin/aml`.
 
 ## Réinstaller un projet
 
-`aml create`, `aml create-view-app` et `aml create-api` installent maintenant le
+`aml create`, `aml create-view` et `aml create-api` installent maintenant le
 projet automatiquement. Depuis la racine d’un projet existant, ou après une
 création avec `--no-install`, utilisez :
 

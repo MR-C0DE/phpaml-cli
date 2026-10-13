@@ -214,9 +214,9 @@ Créez directement une application avec la bibliothèque d’interfaces web
 déclaratives et son intégration sécurisée :
 
 ```bash
-aml create-view-app .
-aml create-view-app mon-interface
-aml create-view-app mon-interface --empty
+aml create-view .
+aml create-view mon-interface
+aml create-view mon-interface --empty
 ```
 
 `--empty` conserve uniquement une page d’accueil AML View minimale et la base
@@ -361,7 +361,7 @@ Elles créent respectivement `src/views/pages/home/page.php`,
 `src/views/components/Navigation.php` et `src/views/layouts/DashboardLayout.php`.
 
 Une version précise d’AML View peut être demandée avec
-`aml create-view-app mon-interface --view-version 0.1.0-beta.12`.
+`aml create-view mon-interface --view-version 0.1.0-beta.12`.
 
 `aml create` reste réservé aux projets PHPAML classiques et n’ajoute pas AML
 View.
