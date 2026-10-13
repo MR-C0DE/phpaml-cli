@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.0-beta.41 — 2026-10-13
+
+- simplifie entièrement le projet généré par `aml create-view-app` ;
+- remplace la vitrine de démonstration complexe par une page de démarrage
+  sobre avec un compteur réactif et des liens essentiels ;
+- conserve `--empty` pour obtenir une page totalement vide.
+
 ## 1.7.0-beta.40 — 2026-10-13
 
 - installe AML View `0.1.0-beta.12` et PHPAML Engine `0.1.0-beta.7` par défaut ;

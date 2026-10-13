@@ -2023,151 +2023,42 @@ declare(strict_types=1);
 
 namespace App\Views\Pages\Home;
 
-use AML\Engine\ClientAction;
-use AML\Engine\Api;
-use AML\Engine\Actions;
-use AML\View\{Page, PageMetadata, Persisted, Shared, State, View};
-use function AML\View\{Button, Each, Element, Grid, Group, Heading, Image, Input, Link, MainContent, Section, Text, VStack};
+use AML\View\{Page, PageMetadata, State, View};
+use function AML\View\{Button, Heading, HStack, Link, MainContent, Section, Text, VStack};
 
 final class HomePage extends Page
 {
-    #[State, Shared('demo.count'), Persisted('local', 'phpaml.demo.count')]
-    public int $count = 0;
-
     #[State]
-    public bool $detailsOpen = false;
-
-    #[State]
-    public string $name = 'Builder';
-
-    #[State]
-    public string $apiStatus = 'Not checked';
-
-    #[State]
-    public string $apiError = '';
-
-    #[State]
-    public bool $apiLoading = false;
-
-    #[State]
-    public array $tasks = ['Learn AML View', 'Build an interface'];
-
-    #[State]
-    public string $newTask = '';
+    private int $count = 0;
 
     public function metadata(): PageMetadata
     {
         return (new PageMetadata())
-            ->title('PHPAML View — Reactive interfaces in PHP')
-            ->description('A declarative PHP interface with browser-managed state and reusable components.')
-            ->openGraph(image: '/phpaml-logo-violet-lime.png')
-            ->twitter(image: '/phpaml-logo-violet-lime.png');
+            ->title('My PHPAML application')
+            ->description('A simple reactive application built with PHPAML View.');
     }
 
     public function body(): View
     {
-        return MainContent(Group(
-                Section(
-                    VStack(
-                        Text('PHPAML · AML VIEW')->class('eyebrow'),
-                        Heading('Build reactive web interfaces. In PHP.')->bold(),
-                        Text('A declarative interface layer with local reactive state, reusable components and no JavaScript framework required.')
-                            ->class('hero-copy'),
-                        Element('div',
-                            Link('Read the source', 'https://github.com/MR-C0DE/phpaml-view')->class('button', 'button-secondary'),
-                            Link('Start building', '#demo')->class('button', 'button-primary'),
-                        )->class('hero-actions'),
-                    )->gap(20)->class('hero-content'),
-                    Image('/phpaml-logo-violet-lime.png', 'PHPAML mammoth logo')->class('hero-logo'),
-                )->class('view-hero', 'shell'),
-                Section(
-                    Text('LIVE FRONTEND STATE')->class('eyebrow'),
-                    Heading('One click. One state cycle.', 2)->bold(),
-                    Text('The counter is rendered by AML View and updated through a signed interaction.')
-                        ->class('demo-copy'),
-                    Element('div',
-                        Text($this->count)->class('counter-value'),
-                        Button('Remove one')
-                            ->onClick(fn () => $this->count--)
-                            ->class('button', 'button-secondary', 'counter-button'),
-                        Button('Add one')
-                            ->onClick(fn () => $this->count++)
-                            ->loadingLabel('Updating…')
-                            ->class('button', 'button-primary', 'counter-button'),
-                        Button('Smart reset')
-                            ->onClick(fn () => $this->count = 0)
-                            ->disabledWhen($this->state('count'), 0)
-                            ->class('button', 'button-secondary'),
-                    )->component('counter')->class('counter-card'),
-                    Button('Toggle details')
-                        ->toggles('detailsOpen')
-                        ->classWhen($this->state('detailsOpen'), 'is-active')
-                        ->class('button', 'button-secondary', 'details-toggle'),
-                    Element('div',
-                        Heading('Reactive presentation', 3),
-                        Text('Visibility and CSS classes are controlled by client state.'),
-                    )
-                        ->showWhen($this->state('detailsOpen'))
-                        ->class('details-panel'),
-                    Element('div',
-                        Input('name')
-                            ->value($this->name)
-                            ->required('Please enter your name.')
-                            ->minLength(2)
-                            ->attribute('aria-label', 'Your name')
-                            ->class('local-input'),
-                        Text($this->name)->class('local-preview'),
-                    )->component('profile-form')->class('local-form-card'),
-                    Element('div',
-                        Button('Check API')
-                            ->onClick(
-                                Api::get('/api/health')
-                                    ->storeIn('apiStatus', 'status')
-                                    ->errorIn('apiError')
-                                    ->loadingIn('apiLoading')
-                            )
-                            ->class('button', 'button-secondary'),
-                        Text($this->state('apiStatus'))->class('api-status'),
-                        Text($this->state('apiError'))->class('api-error'),
-                    )->class('api-card'),
-                    Element('div',
-                        Heading('Reactive collection', 3),
-                        Input('newTask')
-                            ->model($this->state('newTask'))
-                            ->attribute('placeholder', 'New task')
-                            ->attribute('aria-label', 'New task')
-                            ->class('local-input'),
-                        Button('Add task')
-                            ->onClick(Actions::sequence(
-                                ClientAction::append('tasks', $this->state('newTask')),
-                                ClientAction::set('newTask', ''),
-                            ))
-                            ->disabledWhen($this->state('newTask'), '')
-                            ->class('button', 'button-primary'),
-                        Button('Remove first')
-                            ->onClick(ClientAction::removeAt('tasks', 0))
-                            ->class('button', 'button-secondary'),
-                        Button('Clear tasks')
-                            ->onClick(ClientAction::clear('tasks'))
-                            ->class('button', 'button-secondary'),
-                        Each($this->state('tasks'), label: '', key: ''),
-                    )->component('task-list')->class('task-card'),
-                )->attribute('id', 'demo')->class('view-demo', 'shell'),
-                Grid(3,
-                    self::feature('01', 'Declarative PHP', 'Compose pages with readable PHP objects instead of mixing templates and scripts.'),
-                    self::feature('02', 'Local interactions', 'State updates run instantly in PHPAML Engine without contacting the server.'),
-                    self::feature('03', 'Progressive adoption', 'Use AML View where it helps and keep classic PHPAML views everywhere else.'),
-                )->class('view-features', 'shell'),
-            ))->class('view-content');
-    }
-
-    private static function feature(string $number, string $title, string $description): View
-    {
-        return VStack(
-            Text($number)->class('feature-number'),
-            Heading($title, 3)->bold(),
-            Text($description),
-        )->gap(14)->class('view-feature');
+        return MainContent(
+            Section(
+                VStack(
+                    Text('PHPAML VIEW')->class('eyebrow'),
+                    Heading('Your application is ready.')->bold(),
+                    Text('Edit src/views/pages/home/page.php to begin.'),
+                    Text('Counter: {count}')->class('counter-value'),
+                    HStack(
+                        Button('−')->onClick(fn () => $this->count--)->class('button', 'button-secondary'),
+                        Button('Reset')->onClick(fn () => $this->count = 0)->class('button', 'button-secondary'),
+                        Button('+')->onClick(fn () => $this->count++)->class('button', 'button-primary'),
+                    )->gap(10)->class('counter-actions'),
+                    HStack(
+                        Link('Documentation', 'https://phpaml.com/docs'),
+                        Link('GitHub', 'https://github.com/MR-C0DE/phpaml-view'),
+                    )->gap(18)->class('home-links'),
+                )->gap(20)->class('home-card'),
+            )->class('home-section', 'shell'),
+        )->class('view-content');
     }
 }
 
@@ -2180,14 +2071,11 @@ declare(strict_types=1);
 
 namespace App\Views\Pages\About;
 
-use AML\View\{Page, PageMetadata, Shared, State, View};
+use AML\View\{Page, PageMetadata, View};
 use function AML\View\{Heading, Link, Text, VStack};
 
 final class AboutPage extends Page
 {
-    #[State, Shared('demo.count')]
-    public int $count = 0;
-
     public function metadata(): PageMetadata
     {
         return (new PageMetadata())->title('About — PHPAML View')->description('Frontend navigation powered by PHPAML Engine.');
@@ -2196,10 +2084,9 @@ final class AboutPage extends Page
     public function body(): View
     {
         return VStack(
-            Text('CLIENT ROUTER')->class('eyebrow'),
-            Heading('Navigation without a page reload')->size(48)->bold(),
-            Text('PHPAML Engine loads this route, updates the document history and keeps the frontend runtime mounted.'),
-            Text($this->count)->class('shared-counter'),
+            Text('ABOUT')->class('eyebrow'),
+            Heading('A second page.')->bold(),
+            Text('This route is rendered with PHPAML View.'),
             Link('Return home', '/')->class('button', 'button-primary'),
         )->gap(20)->padding(40)->class('shell');
     }
@@ -2215,7 +2102,7 @@ namespace App\Views\Components;
 
 use AML\View\Component;
 use AML\View\View;
-use function AML\View\{Element, Image, Link, Text, ThemeSwitcher};
+use function AML\View\{Element, Link, Text};
 
 final class Navigation extends Component
 {
@@ -2223,15 +2110,10 @@ final class Navigation extends Component
     {
         return Element('header',
             Element('nav',
-                Element('a',
-                    Image('/phpaml-logo-violet-lime.png', '')->class('view-brand-logo'),
-                    Element('strong', Text('PHPAML')),
-                )->attribute('href', '/')->class('view-brand')->attribute('aria-label', 'PHPAML home'),
+                Element('a', Text('PHPAML'))->attribute('href', '/')->class('view-brand'),
                 Element('div',
                     Link('About', '/about'),
                     Link('Docs', 'https://phpaml.com/docs'),
-                    Link('GitHub', 'https://github.com/MR-C0DE/phpaml-view')->class('nav-github'),
-                    ThemeSwitcher('light', 'dark', 'system')->class('theme-switcher'),
                 )->class('view-nav-links'),
             )->class('view-nav', 'shell'),
         )->class('view-header');
@@ -2254,24 +2136,20 @@ namespace App\Views\Layouts;
 use AML\View\Layout;
 use AML\View\View;
 use function App\Views\Components\Navigation;
-use function AML\View\{Element, Link, Slot, Text, ThemeProvider, VStack};
+use function AML\View\{Element, Link, Slot, Text, VStack};
 
 final class AppLayout extends Layout
 {
     public function body(): View
     {
-        return ThemeProvider(
-            default: 'system',
-            content: VStack(
-                Navigation(),
-                Slot(),
-                Element('footer',
-                    Text('PHPAML View · Built with PHPAML')->class('footer-copy'),
-                    Link('Documentation', 'https://phpaml.com/docs'),
-                )->class('view-footer', 'shell'),
-            )->class('view-app'),
-            themes: ['light', 'dark'],
-        );
+        return VStack(
+            Navigation(),
+            Slot(),
+            Element('footer',
+                Text('Built with PHPAML View'),
+                Link('Documentation', 'https://phpaml.com/docs'),
+            )->class('view-footer', 'shell'),
+        )->class('view-app');
     }
 }
 PHP
@@ -2347,79 +2225,44 @@ final class ErrorPage extends Page
 PHP
     );
     writeNewFile($root, 'src/views/stylesheets/base.css', <<<'CSS'
-:root { color-scheme:dark; --bg:#09070d; --panel:#15111f; --panel-soft:#100d17; --ink:#f8f7ff; --muted:#aaa6ba; --line:rgba(255,255,255,.11); --violet:#9b72ff; --lime:#c7ff3d; --header-bg:rgba(9,7,13,.82); --soft-fill:rgba(255,255,255,.04); --shadow:0 24px 70px rgba(0,0,0,.28); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+:root { color-scheme:light; --bg:#f7f7f8; --surface:#fff; --text:#19191d; --muted:#686872; --line:#dedee3; --accent:#5b42e8; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 * { box-sizing:border-box; }
-html { scroll-behavior:smooth; }
-body { margin:0; min-width:20rem; overflow-x:hidden; color:var(--ink); background:radial-gradient(circle at 78% 8%,rgba(139,92,246,.18),transparent 32rem),radial-gradient(circle at 10% 48%,rgba(199,255,61,.055),transparent 28rem),var(--bg); line-height:1.65; transition:color .2s ease,background-color .2s ease; }
+body { margin:0; min-width:20rem; color:var(--text); background:var(--bg); line-height:1.6; }
 a { color:inherit; }
-.shell { width:min(74rem,calc(100% - 3rem)); margin-inline:auto; }
-.button { min-height:3.1rem; padding:0 1.25rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); border-radius:.65rem; font:inherit; font-size:.9rem; font-weight:800; text-decoration:none; cursor:pointer; transition:transform .18s ease,filter .18s ease,border-color .18s ease,background .18s ease; }
-.button:hover { transform:translateY(-2px); }
-.button-primary { border-color:var(--lime); color:#17110d; background:var(--lime); }
-.button-secondary { background:var(--soft-fill); }
-@media (max-width:38rem) { .shell { width:min(100% - 1.4rem,74rem); } }
+.shell { width:min(62rem,calc(100% - 2rem)); margin-inline:auto; }
+.button { min-height:2.75rem; padding:0 1rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); border-radius:5px; color:var(--text); background:var(--surface); font:inherit; font-weight:700; cursor:pointer; }
+.button:hover { border-color:#b9b9c1; }
+.button-primary { border-color:var(--accent); color:#fff; background:var(--accent); }
+.button-secondary { background:var(--surface); }
 CSS
     );
     writeNewFile($root, 'src/views/stylesheets/components/navigation.css', <<<'CSS'
-.view-header { position:sticky; top:0; z-index:50; border-bottom:1px solid var(--line); background:var(--header-bg); backdrop-filter:blur(20px) saturate(150%); }
-.view-nav { min-height:4.75rem; display:flex; align-items:center; gap:1.5rem; }
-.view-brand { display:inline-flex; align-items:center; gap:.7rem; font-weight:900; letter-spacing:.055em; text-decoration:none; }
-.view-brand-logo { width:2.35rem; height:2.35rem; object-fit:contain; }
+.view-header { border-bottom:1px solid var(--line); background:var(--surface); }
+.view-nav { min-height:4rem; display:flex; align-items:center; gap:1.5rem; }
+.view-brand { font-weight:850; letter-spacing:.04em; text-decoration:none; }
 .view-nav-links { min-width:0; margin-left:auto; display:flex; align-items:center; justify-content:flex-end; gap:1.15rem; }
-.view-nav-links a { color:var(--muted); font-size:.9rem; font-weight:750; text-decoration:none; }
-.view-nav-links .nav-github { padding:.6rem .85rem; border:1px solid var(--line); border-radius:.6rem; color:var(--ink); background:var(--soft-fill); }
-.theme-switcher { display:flex; gap:.2rem; padding:.2rem; border:1px solid var(--line); border-radius:.65rem; background:color-mix(in srgb,var(--panel) 72%,transparent); }
-.theme-switcher button { padding:.4rem .55rem; border:0; border-radius:.35rem; color:var(--muted); background:transparent; cursor:pointer; }
-.theme-switcher button[aria-pressed="true"] { color:var(--ink); background:var(--panel); }
-@media (max-width:48rem) { .view-nav { gap:.75rem; } .view-nav-links { gap:.65rem; } .view-nav-links > a:not(.nav-github) { display:none; } }
-@media (max-width:32rem) { .view-brand strong,.view-nav-links .nav-github { display:none; } .view-nav { min-height:4.25rem; } }
+.view-nav-links a { color:var(--muted); font-size:.92rem; font-weight:650; text-decoration:none; }
 CSS
     );
     writeNewFile($root, 'src/views/stylesheets/layouts/app.css', <<<'CSS'
 .view-app { min-height:100vh; display:flex; flex-direction:column; }
 .view-content { flex:1; }
-.view-footer { padding-block:2.25rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.8rem; }
-.view-footer a { color:var(--ink); text-decoration:none; }
+.view-footer { padding-block:1.5rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem; }
+.view-footer a { color:var(--text); text-decoration:none; }
 @media (max-width:38rem) { .view-footer { align-items:flex-start; flex-direction:column; } }
 CSS
     );
     writeNewFile($root, 'src/views/stylesheets/pages/home.css', <<<'CSS'
-.view-hero { min-height:calc(100vh - 4.75rem); padding-block:clamp(4.5rem,9vw,8rem); display:grid; grid-template-columns:minmax(0,1.15fr) minmax(17rem,.85fr); align-items:center; gap:clamp(2.5rem,7vw,6.5rem); }
-.hero-content { min-width:0; }
-.eyebrow { color:var(--lime); font:.76rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:850; letter-spacing:.15em; }
-.view-hero h1 { max-width:49rem; margin:0; font-size:clamp(3.25rem,6.6vw,6.25rem); line-height:.94; letter-spacing:-.067em; text-wrap:balance; }
-.hero-copy,.demo-copy { max-width:42rem; color:var(--muted); font-size:clamp(1rem,2vw,1.15rem); }
-.hero-actions { display:flex; flex-wrap:wrap; gap:.8rem; }
-.hero-logo { width:min(100%,25rem); height:auto; justify-self:center; filter:drop-shadow(0 2rem 4rem rgba(0,0,0,.45)); }
-.view-demo { padding-block:clamp(4.5rem,8vw,7rem); border-top:1px solid var(--line); }
-.view-demo > .eyebrow,.view-demo > h2,.view-demo > .demo-copy { display:block; max-width:47rem; margin-inline:auto; text-align:center; }
-.view-demo h2 { margin:.75rem 0 1rem; font-size:clamp(2.2rem,5vw,4rem); letter-spacing:-.055em; }
-.counter-card { max-width:58rem; margin:3rem auto 0; padding:1.5rem; display:grid; grid-template-columns:minmax(5rem,.65fr) auto auto minmax(7rem,1fr); align-items:center; gap:1rem; border:1px solid color-mix(in srgb,var(--violet) 45%,var(--line)); border-radius:1rem; background:linear-gradient(145deg,color-mix(in srgb,var(--panel) 86%,var(--violet) 14%),var(--panel-soft)); box-shadow:var(--shadow); }
-.counter-value { min-width:5rem; font:700 clamp(2.4rem,8vw,5rem)/1 ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--violet); }
-.counter-button { margin-left:0; }
-.counter-button:disabled { opacity:.65; cursor:wait; }
-.details-toggle { margin-top:1rem; }
-.details-toggle.is-active { color:var(--bg); border-color:var(--lime); background:var(--lime); }
-.details-panel { margin-top:1rem; padding:1.25rem; border-left:3px solid var(--lime); background:rgba(199,255,61,.06); }
-.local-form-card { max-width:58rem; margin:1rem auto 0; padding:1.5rem; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:center; gap:1rem; border:1px solid var(--line); border-radius:1rem; background:var(--panel-soft); box-shadow:var(--shadow); }
-.local-input { width:100%; padding:.85rem 1rem; border:1px solid var(--line); border-radius:.55rem; color:var(--ink); background:var(--panel); font:inherit; }
-.local-preview { color:var(--lime); font-weight:800; }
-.local-form-card [role="alert"] { grid-column:1/-1; color:#ff8585; font-size:.82rem; }
-.api-card { max-width:58rem; margin:1rem auto 0; display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:1rem; }
-.api-status { color:var(--lime); font-weight:800; }
-.api-error { color:#ff8585; }
-.task-card { max-width:58rem; margin:1rem auto 0; padding:1.5rem; display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; border:1px solid var(--line); border-radius:1rem; background:var(--panel-soft); box-shadow:var(--shadow); }
-.task-card h3 { width:100%; margin:0; }
-.task-card ul { width:100%; margin:.5rem 0 0; padding-left:1.25rem; color:var(--muted); }
-.task-card li { padding:.25rem 0; }
-.view-features { padding-block:1rem 6rem; gap:1rem !important; }
-.view-feature { min-height:15rem; padding:1.7rem; border:1px solid var(--line); border-radius:1rem; background:linear-gradient(145deg,var(--soft-fill),transparent),var(--panel-soft); transition:transform .2s ease,border-color .2s ease; }
-.view-feature:hover { transform:translateY(-4px); border-color:color-mix(in srgb,var(--violet) 42%,var(--line)); }
-.view-feature h3 { margin:2rem 0 0; font-size:1.25rem; }
-.view-feature > span:last-child { color:var(--muted); font-size:.92rem; }
-.feature-number { color:var(--violet); font:800 .75rem/1 ui-monospace,SFMono-Regular,Menlo,monospace; }
-@media (max-width:58rem) { .view-hero { min-height:auto; grid-template-columns:1fr; gap:2rem; text-align:center; } .hero-content { align-items:center; } .hero-copy { margin-inline:auto; } .hero-actions { justify-content:center; } .hero-logo { width:min(52vw,19rem); grid-row:1; } .counter-card { grid-template-columns:1fr 1fr; } .counter-value { grid-column:1/-1; justify-self:center; text-align:center; } .view-features { grid-template-columns:1fr !important; } }
-@media (max-width:38rem) { .view-hero { padding-block:3.5rem; } .view-hero h1 { font-size:clamp(2.75rem,14vw,4rem); overflow-wrap:anywhere; } .hero-actions { flex-direction:column; } .hero-actions .button { width:100%; } .counter-card { align-items:stretch; flex-direction:column; } .counter-button { width:100%; margin-left:0; } .local-form-card { grid-template-columns:1fr; } }
+.home-section { min-height:calc(100vh - 8rem); padding-block:5rem; display:flex; align-items:center; }
+.home-card { width:min(100%,40rem); align-items:flex-start; }
+.eyebrow { color:var(--accent); font:.78rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:800; letter-spacing:.12em; }
+.home-card h1 { margin:0; font-size:clamp(2.4rem,7vw,4.5rem); line-height:1.05; letter-spacing:-.05em; }
+.home-card > span:not(.eyebrow):not(.counter-value) { color:var(--muted); font-size:1.05rem; }
+.counter-value { margin-top:1rem; font:750 1.35rem/1.3 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.counter-actions { flex-wrap:wrap; }
+.home-links { margin-top:.5rem; flex-wrap:wrap; }
+.home-links a { color:var(--accent); font-weight:700; text-decoration:none; }
+@media (max-width:38rem) { .home-section { padding-block:3rem; } .counter-actions { align-items:stretch; flex-direction:column; width:100%; } .counter-actions .button { width:100%; } }
 CSS
     );
     writeNewFile($root, 'src/views/stylesheets/states/route-states.css', <<<'CSS'
@@ -2450,7 +2293,7 @@ $tests = [
         if (!$result instanceof \AML\View\PageResult) {
             throw new RuntimeException('The home route did not return a page.');
         }
-        if (!str_contains($result->rootHtml(), 'Build reactive web interfaces')) {
+        if (!str_contains($result->rootHtml(), 'Your application is ready')) {
             throw new RuntimeException('The home page content is missing.');
         }
     },
@@ -2462,7 +2305,7 @@ $tests = [
     },
     'stylesheets are collected' => static function () use ($root): void {
         $styles = (new \AML\View\FileApplication($root . '/src/views'))->styles();
-        if (!str_contains($styles, '.view-hero') || !str_contains($styles, '.view-nav')) {
+        if (!str_contains($styles, '.home-section') || !str_contains($styles, '.view-nav')) {
             throw new RuntimeException('AML View stylesheets were not collected.');
         }
     },

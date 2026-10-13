@@ -216,8 +216,11 @@ test -f src/models/HomeModel.php
 test ! -d src/server
 test ! -d app
 test -f src/views/pages/home/page.php
-grep -Fq 'use AML\View\{Page, PageMetadata, Persisted, Shared, State, View};' src/views/pages/home/page.php
-grep -Fq 'use function AML\View\{Button, Each, Element, Grid, Group, Heading, Image, Input, Link, MainContent, Section, Text, VStack};' src/views/pages/home/page.php
+grep -Fq 'use AML\View\{Page, PageMetadata, State, View};' src/views/pages/home/page.php
+grep -Fq 'use function AML\View\{Button, Heading, HStack, Link, MainContent, Section, Text, VStack};' src/views/pages/home/page.php
+grep -q 'Your application is ready' src/views/pages/home/page.php
+grep -q "Text('Counter: {count}')" src/views/pages/home/page.php
+! grep -q 'AML\\Engine\\Api\|Each(\|ThemeProvider' src/views/pages/home/page.php
 test -f src/views/pages/about/page.php
 test -f src/views/layouts/AppLayout.php
 test -f src/views/states/NotFound.php
@@ -278,24 +281,13 @@ grep -q 'meta name="aml-live-reload"' public/index.php
 ! grep -Fq 'BrowserRuntime::script' public/index.php
 grep -q "onClick(fn () => \$this->count++)" src/views/pages/home/page.php
 grep -q "onClick(fn () => \$this->count--)" src/views/pages/home/page.php
-grep -q "Shared('demo.count')" src/views/pages/home/page.php
-grep -q "Persisted('local', 'phpaml.demo.count')" src/views/pages/home/page.php
-grep -q "Shared('demo.count')" src/views/pages/about/page.php
-grep -q "Text(\$this->count)" src/views/pages/home/page.php
-grep -q "value(\$this->name)" src/views/pages/home/page.php
-grep -q "Api::get('/api/health')" src/views/pages/home/page.php
-grep -q "Actions::sequence" src/views/pages/home/page.php
-grep -q "showWhen" src/views/pages/home/page.php
-grep -q "classWhen" src/views/pages/home/page.php
-grep -q "disabledWhen" src/views/pages/home/page.php
-grep -q "Each(\$this->state('tasks')" src/views/pages/home/page.php
-grep -q "ClientAction::append" src/views/pages/home/page.php
+grep -q "onClick(fn () => \$this->count = 0)" src/views/pages/home/page.php
+grep -q "Text('Counter: {count}')" src/views/pages/home/page.php
+! grep -q "Shared\|Persisted\|Api::\|Actions::\|Each(" src/views/pages/home/page.php
 grep -q '\$metadata->render(\$cspNonce)' public/index.php
-grep -q "Image('/phpaml-logo-violet-lime.png'" src/views/pages/home/page.php
-grep -q 'MainContent(Group(' src/views/pages/home/page.php
-grep -q -- "->class('view-hero', 'shell')" src/views/pages/home/page.php
-grep -q 'ThemeProvider(' src/views/layouts/AppLayout.php
-grep -q "ThemeSwitcher('light', 'dark', 'system')" src/views/components/Navigation.php
+grep -q -- "->class('home-section', 'shell')" src/views/pages/home/page.php
+! grep -q 'ThemeProvider(' src/views/layouts/AppLayout.php
+! grep -q 'ThemeSwitcher(' src/views/components/Navigation.php
 grep -q '\$viewApp->styles()' public/index.php
 grep -q '"App\\\\": "src/"' composer.json
 grep -q '"App\\\\Views\\\\": "src/views/"' composer.json
@@ -407,7 +399,7 @@ find src -name '*.php' -print0 | xargs -0 -n1 "$php_bin" -l >/dev/null
 
 AML_LANG=en "$php_bin" "$root/cli/aml.php" build --skip-tests > build.log
 test -f output/phpaml-build.zip
-unzip -p output/phpaml-build.zip public/_aml/styles.css | grep -q '.view-hero'
+unzip -p output/phpaml-build.zip public/_aml/styles.css | grep -q '.home-section'
 unzip -p output/phpaml-build.zip public/_aml/styles.css | grep -q '\[data-theme="light"\]'
 unzip -p output/phpaml-build.zip build-manifest.json > build-manifest.json
 "$php_bin" -r '$m=json_decode(file_get_contents("build-manifest.json"),true,512,JSON_THROW_ON_ERROR); if (($m["generated_assets"] ?? null) !== ["public/_aml/styles.css"] || !isset($m["hashes"]["public/_aml/styles.css"])) exit(1);'
