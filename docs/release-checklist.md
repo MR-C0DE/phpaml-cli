@@ -27,6 +27,10 @@ open-source positioning and for later public releases.
 - [ ] `VERSIONING.md`, `CHANGELOG.md`, installer metadata, and website release
   data agree on the version.
 - [ ] Framework and Template versions selected by the CLI are compatible.
+- [ ] The [frontend distribution check](frontend-release.md) passes with the
+  candidate Engine and View ZIPs, both runtimes and all three browser engines.
+- [ ] The generated application's production ZIP contains and serves every
+  file in Engine's public asset manifest.
 - [ ] Linux x64, macOS ARM64, and Windows x64 workflows pass.
 - [ ] Installer artifacts and SHA-256 files are present for every platform.
 - [ ] A clean installation succeeds without global PHP or Composer.

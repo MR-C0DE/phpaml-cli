@@ -3,16 +3,21 @@
 PHPAML uses Semantic Versioning independently for each component:
 
 - AML CLI stable: `1.6.0`
-- AML CLI preview: `1.7.0-beta.44`
+- AML CLI preview: `1.7.0-beta.45`
 - PHPAML Framework preview: `0.3.0-beta.7`
 - PHPAML Template preview: `0.5.0-beta.10`
-- AML View preview: `0.1.0-beta.12`
-- PHPAML Engine preview: `0.1.0-beta.8`
+- AML View preview: `0.1.0-beta.13`
+- PHPAML Engine preview: `0.1.0-beta.9`
 
 These preview values are checked against the package manifests by the CLI test
 workflow. A version bump that leaves this document behind fails CI.
 
-The CLI release manifest selects compatible framework and template versions. A CLI update does not imply that all three components share the same number.
+The CLI release manifest selects compatible framework and template versions.
+`create-view` selects View `^0.1.0-beta.13` and Engine `^0.1.0-beta.9`;
+View also requires Engine `^0.1.0-beta.9`. These are minimum compatible
+versions, not a shared version number. The integration test installs the
+exact candidate archives and records the resolved versions in `composer.lock`.
+See [frontend release verification](docs/frontend-release.md).
 
 Before `1.0.0`, framework and template minor versions may contain breaking changes and must include migration notes. After `1.0.0`, incompatible public API changes are reserved for major versions; minor versions add backward-compatible features and patch versions contain compatible fixes. Deprecations must be documented for at least one minor release before removal.
 

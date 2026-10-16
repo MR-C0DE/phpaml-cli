@@ -12,12 +12,18 @@ $readJson = static function (string $path): array {
 $cli = $readJson($root . '/phpaml.json');
 $templateRoot = getenv('PHPAML_TEMPLATE_SOURCE') ?: $root . '/.integration/template';
 $template = $readJson($templateRoot . '/phpaml.json');
+$viewRoot = getenv('PHPAML_VIEW_SOURCE') ?: $root . '/.integration/view';
+$engineRoot = getenv('PHPAML_ENGINE_SOURCE') ?: $root . '/.integration/engine';
+$view = $readJson($viewRoot . '/composer.json');
+$engine = $readJson($engineRoot . '/composer.json');
 $policy = (string) file_get_contents($root . '/VERSIONING.md');
 
 $versions = [
     'AML CLI preview' => $cli['version'] ?? null,
     'PHPAML Template preview' => $template['version'] ?? null,
     'PHPAML Framework preview' => $template['runtime']['framework'] ?? null,
+    'AML View preview' => $view['extra']['phpaml']['version'] ?? null,
+    'PHPAML Engine preview' => $engine['extra']['phpaml']['version'] ?? null,
 ];
 
 foreach ($versions as $label => $version) {
@@ -26,4 +32,13 @@ foreach ($versions as $label => $version) {
     }
 }
 
-echo "Version policy matches CLI, Template and Framework manifests.\n";
+$source = (string) file_get_contents($root . '/cli/aml.php');
+$viewVersion = $versions['AML View preview'];
+$engineVersion = $versions['PHPAML Engine preview'];
+if (!str_contains($source, "\$version === null ? '^{$viewVersion}'")
+    || !str_contains($source, "escapeshellarg('phpaml/engine:^{$engineVersion}')")
+    || ($view['require']['phpaml/engine'] ?? null) !== '^' . $engineVersion) {
+    throw new RuntimeException('CLI and View must select the compatible frontend package versions.');
+}
+
+echo "Version policy matches CLI, Template, Framework, View and Engine; frontend constraints agree.\n";

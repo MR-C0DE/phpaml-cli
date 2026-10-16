@@ -59,3 +59,15 @@ removed.
 namespace references. CI rejects any new dependency that violates this table.
 The known compatibility bridge is limited to one exact file so the debt cannot
 spread silently.
+
+## Engine Core and optional browser modules
+
+Core is the shared browser foundation inside `phpaml/engine`, not a separate
+Composer dependency and not `phpaml/framework`. View produces HTML and the
+instructions consumed by Engine. The CLI installs the compatible packages and
+writes their HTTP integration; Framework supplies the server routing/security.
+
+The modular entry loads Files (local import/download), Browser APIs (requests,
+persistence, drafts and remote validation) and Animations (existing transitions)
+on demand. The complete entry includes the same implementations. Module
+boundaries change delivery, not the public PHP component API.

@@ -1,0 +1,74 @@
+name: Verify CLI frontend distributions
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      engine_ref:
+        description: Matching Engine revision
+        type: string
+        required: false
+      view_ref:
+        description: Matching View revision
+        type: string
+        required: false
+
+jobs:
+  generated-application:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: MR-C0DE/phpaml-engine
+          ref: ${{ inputs.engine_ref || vars.PHPAML_ENGINE_TEST_REF || 'main' }}
+          path: .integration/engine
+      - uses: actions/checkout@v5
+        with:
+          repository: MR-C0DE/phpaml-view
+          ref: ${{ inputs.view_ref || vars.PHPAML_VIEW_TEST_REF || 'main' }}
+          path: .integration/view
+      - uses: actions/checkout@v5
+        with:
+          repository: MR-C0DE/phpaml-template
+          path: .integration/template
+      - uses: actions/checkout@v5
+        with:
+          repository: MR-C0DE/phpaml-framework
+          path: .integration/framework
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: curl, mbstring, openssl, pdo, pdo_sqlite, phar, tokenizer, zip
+          tools: composer:v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: .integration/engine/package-lock.json
+      - name: Install browser test tools
+        working-directory: .integration/engine
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium firefox webkit
+      - name: Verify archives, generated application and production build
+        env:
+          PHPAML_ENGINE_SOURCE: ${{ github.workspace }}/.integration/engine
+          PHPAML_VIEW_SOURCE: ${{ github.workspace }}/.integration/view
+          PHPAML_TEMPLATE_SOURCE: ${{ github.workspace }}/.integration/template
+          PHPAML_FRAMEWORK_SOURCE: ${{ github.workspace }}/.integration/framework
+        run: node scripts/test-frontend-release.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-distribution-verification
+          path: |
+            dist/frontend-*/verification.json
+            dist/frontend-*/SHA256SUMS
+            dist/frontend-*/verification-*/logs/
+            dist/frontend-*/verification-*/browsers/

@@ -213,7 +213,7 @@ cd ..
 cd generated
 
 test ! -e runtime/framework/Obsolete.php
-grep -q "require phpaml/view:\^0.1.0-beta.12 phpaml/engine:\^0.1@beta" composer-invocations.log
+grep -q "require phpaml/view:\^0.1.0-beta.13 phpaml/engine:\^0.1.0-beta.9" composer-invocations.log
 grep -q "AML View installed" ../create.log
 "$php_bin" -r 'require "runtime/autoload.php"; exit(class_exists("AML\\View\\FileApplication") && class_exists("AML\\Engine\\EngineRuntime") && class_exists("PHPAML\\Security\\CspNonce") ? 0 : 1);'
 test ! -d src/views/templates
@@ -271,11 +271,16 @@ test "$(find public src -name '*.php' -exec grep -l '<!doctype html>' {} + | wc 
 grep -q '\\AML\\View\\FileApplication' public/index.php
 grep -q '\$viewApp->mount(\$requestPath)' public/index.php
 grep -q '\$application->handle(\$request' public/index.php
-grep -q 'use (\$application, \$viewApp, \$requestPath, \$viewDebug)' public/index.php
+grep -q 'use (\$application, \$viewApp, \$requestPath, \$viewDebug, &\$viewErrorResponse)' public/index.php
 grep -q "getenv('PHPAML_DEV_SERVER') === '1'" public/index.php
 grep -q 'if (\$viewDebug)' public/index.php
 grep -q '\$session->csrfMeta()' public/index.php
-! grep -q 'method_exists(\\AML\\Engine\\EngineRuntime::class' public/index.php
+! grep -q "method_exists(\\\\AML\\\\Engine\\\\EngineRuntime::class, 'assetFilename')" public/index.php
+grep -q 'EngineRuntime::evalAssetFilename()' public/index.php
+grep -q 'EngineRuntime::evalAssetPath()' public/index.php
+grep -Fq 'EngineRuntime::publicAssetPath(substr($requestPath, 6))' public/index.php
+grep -Fq 'EngineRuntime::externalScript(modular: true)' public/index.php
+"$php_bin" -l public/index.php > /dev/null
 grep -q '\\PHPAML\\Http\\Response::html' public/index.php
 grep -q '/_aml/styles.css' public/index.php
 grep -q 'AML\\Engine\\EngineRuntime::externalScript' public/index.php

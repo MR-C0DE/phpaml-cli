@@ -2,6 +2,7 @@ name: Build macOS ARM64
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     tags:
       - "v*"
@@ -9,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: macos-14
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -27,9 +29,22 @@ jobs:
           test -f /usr/local/lib/aml/runtime/bin/deploy.php
           test -f /usr/local/lib/aml/runtime/bin/console.php
           test -f /usr/local/lib/aml/runtime/bin/console-import-example.php
+          /usr/local/lib/aml/runtime/php/bin/php tests/package-integrity.php /usr/local/lib/aml
           /usr/local/lib/aml/runtime/php/bin/php tests/console-package.php /usr/local/lib/aml /usr/local/bin/aml
           env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml version
           env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml doctor --offline
+      - name: Verify checksums and extracted portable archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd dist && shasum -a 256 --check aml-macos-arm64.tar.gz.sha256 phpaml-*-macos-arm64.pkg.sha256)
+          extracted="$(mktemp -d "$RUNNER_TEMP/aml-macos-extracted.XXXXXX")"
+          trap 'rm -rf "$extracted"' EXIT
+          tar -xzf dist/aml-macos-arm64.tar.gz -C "$extracted"
+          package="$extracted/aml-macos-arm64"
+          env -i PATH=/usr/bin:/bin HOME="$RUNNER_TEMP" "$package/bin/aml" version
+          "$package/runtime/php/bin/php" tests/package-integrity.php "$package"
+          "$package/runtime/php/bin/php" tests/console-package.php "$package"
       - uses: actions/upload-artifact@v4
         with:
           name: aml-macos-arm64

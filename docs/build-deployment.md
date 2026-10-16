@@ -26,6 +26,12 @@ documentation are also removed while executable `runtime/phpaml/*/src`
 directories remain available. The public document root is `public/`; routes
 must be exposed as `/about`, never `/index.php/about`.
 
+For AML View, keep the entire installed `runtime/phpaml/engine/assets/` tree,
+including `public-assets.json`, module chunks and source maps. The generated
+`/_aml/` route resolves these files through Engine’s allowlist. The
+[frontend release test](frontend-release.md) checks their HTTP bytes again
+after extracting the production ZIP.
+
 If ZIP finalization, checksum creation, disk space, or output permissions fail,
 AML removes incomplete build artifacts and exits with an error.
 
