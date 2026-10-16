@@ -25,6 +25,9 @@ jobs:
         run: |
           sudo installer -pkg dist/phpaml-*-macos-arm64.pkg -target /
           test -f /usr/local/lib/aml/runtime/bin/deploy.php
+          test -f /usr/local/lib/aml/runtime/bin/console.php
+          test -f /usr/local/lib/aml/runtime/bin/console-import-example.php
+          /usr/local/lib/aml/runtime/php/bin/php tests/console-package.php /usr/local/lib/aml /usr/local/bin/aml
           env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml version
           env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml doctor --offline
       - uses: actions/upload-artifact@v4

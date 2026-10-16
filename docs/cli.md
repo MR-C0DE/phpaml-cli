@@ -463,6 +463,44 @@ aml test
 Dans un projet console, `aml run` exécute `Program::main()`. Dans les autres
 projets, `aml run <nom>` exécute une entrée de `scripts` déclarée dans
 `phpaml.json`.
+
+Le `bootstrap.php` généré charge l’autoloader Composer s’il existe, puis fournit
+un chargement des classes `App\` depuis `src/`. Le dossier Composer est `vendor/`
+par défaut ou celui indiqué dans `config.vendor-dir` de `composer.json`.
+`aml run`, `aml test` et le test généré exécuté directement avec
+`php tests/run.php` utilisent ce même démarrage. La création reste disponible
+sans téléchargement ni installation de dépendances.
+
+Les anciens projets console sans `bootstrap.php` bénéficient du même chargement
+avec `aml run` et `aml test`, sans réécriture de leurs fichiers.
+`aml doctor --offline`, y compris avec `--production`, les reconnaît sans exiger
+de dossier `public/`, de configuration HTTP, de stockage Web ou de framework.
+
+Les nouveaux projets incluent `lib/console.php` : `AML\Console\Input` déclare
+les arguments, options, types, défauts et bornes, puis génère l’aide `--help`.
+`AML\Console\Console` fournit `ask()`, `confirm()`, `select()` et `secret()`.
+Le programme généré accepte `aml run -- André --repeat=2` et `aml run -- -i`.
+Les erreurs de saisie retournent le code 2 et les invites utilisent `STDERR`.
+Consultez le [guide console](console.md) pour les exemples et l’adoption dans
+un projet existant.
+
+`aml make:command ImportUsers` ajoute une classe dans `src/Commands/` et
+l’enregistre dans `phpaml.json`. Utilisez `aml run import-users --help` pour
+son aide et `aml run list` pour le catalogue. `aml run` conserve le programme
+principal ; `aml run -- <arguments>` lui transmet explicitement des arguments,
+même lorsque des commandes sont enregistrées.
+
+L’affichage inclut `Console::table()`, les couleurs de `Console::line()`, les
+messages `info()`, `success()`, `warning()`, `error()` et `Console::progress()`.
+Les nouveaux projets proposent `php examples/display.php` pour les essayer.
+Les résultats utilisent `STDOUT`, les diagnostics et la progression `STDERR` ;
+les sorties redirigées restent sans séquences de terminal.
+
+L’exemple `php examples/import-csv.php examples/contacts.csv --dry-run` valide
+un CSV de contacts et affiche son bilan. Retirez `--dry-run` et ajoutez
+`--output=contacts.json` pour créer un fichier JSON. Les lignes invalides
+empêchent tout enregistrement ; les fichiers existants sont conservés.
+
 Une entrée de script possède les mêmes droits que votre compte utilisateur et
 peut lancer n'importe quelle commande. Inspectez toujours `phpaml.json` avant
 d'exécuter un script provenant d'un projet téléchargé ou d'une source inconnue.

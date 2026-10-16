@@ -29,6 +29,8 @@ cp "$SOURCE/runtime/composer/composer.phar" "$INSTALLATION/runtime/composer/comp
 cp "$SOURCE/runtime/bin/aml.php" "$INSTALLATION/runtime/bin/aml.php"
 cp "$SOURCE/runtime/bin/ai-debug.php" "$INSTALLATION/runtime/bin/ai-debug.php"
 cp "$SOURCE/runtime/bin/deploy.php" "$INSTALLATION/runtime/bin/deploy.php"
+cp "$SOURCE/runtime/bin/console.php" "$INSTALLATION/runtime/bin/console.php"
+cp "$SOURCE/runtime/bin/console-import-example.php" "$INSTALLATION/runtime/bin/console-import-example.php"
 cp "$SOURCE/phpaml.json" "$INSTALLATION/phpaml.json"
 ln -s ../lib/aml/bin/aml "$COMMANDS/aml"
 xattr -cr "$STAGING"

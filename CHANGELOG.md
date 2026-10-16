@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.7.0-beta.44 — 2026-10-16
+
+- improve `aml create-console` with shared application and Composer autoloading,
+  typed arguments, generated help, interactive prompts, and hidden input;
+- add `aml make:command` and `aml run list` for applications with several
+  console commands, while preserving explicit `aml run -- ...` execution;
+- provide terminal tables, colors, status messages, progress bars, and a CSV
+  import example that validates all rows before creating its JSON output;
+- recognize console applications in `aml doctor` without Web requirements;
+- include the console library and examples in each platform package, with
+  dedicated PHP 8.2/8.4 tests and launcher checks before and after installation.
+
+Cette version concerne uniquement la console : création, commandes, saisie,
+affichage, exemple CSV, documentation et validation des paquets. Les versions
+des autres composants PHPAML restent inchangées. Les applications console
+existantes ne sont pas réécrites automatiquement.
+
 ## 1.7.0-beta.43 — 2026-10-13
 
 - corrige le démarrage réel de `aml serve` dans les archives autonomes en

@@ -1,0 +1,64 @@
+name: Test AML Console
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'cli/aml.php'
+      - 'cli/console*.php'
+      - 'tests/console-*'
+      - '.github/workflows/test-console.yml'
+  pull_request:
+    paths:
+      - 'cli/aml.php'
+      - 'cli/console*.php'
+      - 'tests/console-*'
+      - '.github/workflows/test-console.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  console:
+    name: Console / ${{ matrix.os }} / PHP ${{ matrix.php }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+        php: ['8.2', '8.4']
+    steps:
+      - uses: actions/checkout@v5
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring
+          coverage: none
+      - name: Validate console PHP sources
+        shell: bash
+        run: |
+          php -l cli/aml.php
+          php -l cli/console.php
+          php -l cli/console-import-example.php
+          for test in tests/console-*.php; do php -l "$test"; done
+      - name: Test console creation, input, display and commands
+        shell: bash
+        run: |
+          php tests/console-input.php
+          php tests/console-display.php
+          php tests/console-smoke.php
+          php tests/console-commands.php
+          php tests/console-import.php
+      - uses: actions/setup-python@v5
+        if: runner.os != 'Windows'
+        with:
+          python-version: '3.12'
+      - name: Test console in a Unix terminal
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          export PHP_BINARY="$(command -v php)"
+          python tests/console-secret-tty.py
+          python tests/console-display-tty.py

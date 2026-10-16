@@ -114,6 +114,31 @@ Apprenez et utilisez PHP sans HTTP ni HTML. La méthode générée
 et retourne le code de sortie du processus. Utilisez ensuite
 `aml make:class Domain/User` et `aml test`.
 
+Le fichier généré `bootstrap.php` charge les classes de l’application et les
+dépendances Composer installées, y compris avec un `config.vendor-dir`
+personnalisé. L’exécution et les tests utilisent ce même démarrage.
+`aml doctor` reconnaît ces projets sans exiger de serveur Web, de configuration
+HTTP ou d’installation du framework.
+
+Les nouveaux projets incluent les arguments typés, l’aide `--help` et les
+questions interactives avec `AML\Console\Input` et `AML\Console\Console`.
+Essayez `aml run -- André --repeat=2` ou `aml run -- -i`.
+Le [guide console](docs/console.md) détaille la validation, les confirmations,
+les choix et la saisie masquée des mots de passe.
+
+Ajoutez plusieurs commandes avec `aml make:command ImportUsers`, puis utilisez
+`aml run import-users --help` et `aml run list`. Chacune possède sa classe et ses
+arguments. `aml run -- ...` continue d’appeler explicitement le programme principal.
+
+Les tableaux, couleurs, messages d’état et barres de progression sont disponibles
+avec `AML\Console\Console`. Essayez `php examples/display.php` dans un nouveau
+projet. Les sorties redirigées restent lisibles et `NO_COLOR` désactive les couleurs.
+
+Essayez l’import CSV complet avec
+`php examples/import-csv.php examples/contacts.csv --dry-run`. Il valide les
+contacts avant l’enregistrement JSON, signale les lignes invalides et refuse
+d’écraser un fichier existant.
+
 ## Une plateforme, des paquets spécialisés
 
 Les dépôts séparés permettent à chaque paquet d’évoluer et de s’installer

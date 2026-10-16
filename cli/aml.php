@@ -302,6 +302,7 @@ function showHelp(): void
             '  api:client               Generate the TypeScript API client',
             '  make:controller <name>   Generate a controller',
             '  make:class <name>        Generate a plain PHP class',
+            '  make:command <name>      Generate and register a console command',
             '  make:model <name>        Generate a plain PHP model',
             '  make:entity <name>       Generate a persistent phpaml/data entity',
             '  make:middleware <name>   Generate middleware',
@@ -342,7 +343,7 @@ function showHelp(): void
             '  env:set <key> <value>    Create or update an .env variable',
             '  language [en|fr]         Show or change the CLI language',
             '  cache:clear              Clear the application cache',
-            '  run [script|-- args]     Run a console program or a declared script',
+            '  run [command|-- args]    Run a console command, program or declared script',
             '  test                     Run automated tests',
             '  version                  Show the framework version',
             '  help                     Show this help', '', 'Examples:',
@@ -396,6 +397,7 @@ function showHelp(): void
     output('  api:client                Génère le client TypeScript');
     output('  make:controller <nom>     Génère un contrôleur');
     output('  make:class <nom>          Génère une classe PHP simple');
+    output('  make:command <nom>        Génère et enregistre une commande console');
     output('  make:model <nom>          Génère un modèle PHP simple');
     output('  make:entity <nom>         Génère une entité persistante phpaml/data');
     output('  make:middleware <nom>     Génère un middleware');
@@ -436,7 +438,7 @@ function showHelp(): void
     output('  env:set <clé> <valeur>    Crée ou modifie une variable de .env');
     output('  language [en|fr]          Affiche ou change la langue du CLI');
     output('  cache:clear               Vide le cache de l’application');
-    output('  run [script|-- arguments] Exécute un programme console ou un script déclaré');
+    output('  run [commande|-- arguments] Exécute une commande console, un programme ou un script');
     output('  test                      Exécute les tests automatisés');
     output('  version                   Affiche la version du framework');
     output('  help                      Affiche cette aide');
@@ -742,6 +744,56 @@ function creationTarget(string $destination): string
             : $base . DIRECTORY_SEPARATOR . trim($destination, '/\\'));
 }
 
+/** PHP source shared by standalone console projects and the legacy fallback. */
+function consoleAutoloadCode(): string
+{
+    return <<<'PHP'
+$composerPath = $root . '/composer.json';
+$composer = is_file($composerPath) ? json_decode((string) file_get_contents($composerPath), true) : [];
+$vendorDirectory = $composer['config']['vendor-dir'] ?? 'vendor';
+if (is_string($vendorDirectory) && $vendorDirectory !== '') {
+    $normalized = str_replace('\\', '/', $vendorDirectory);
+    $absolute = str_starts_with($normalized, '/') || preg_match('/^[A-Za-z]:\//', $normalized) === 1;
+    $autoload = ($absolute ? $vendorDirectory : $root . '/' . $vendorDirectory) . '/autoload.php';
+    if (is_file($autoload)) require_once $autoload;
+}
+if (is_file($root . '/lib/console.php')) require_once $root . '/lib/console.php';
+spl_autoload_register(static function (string $class) use ($root): void {
+    $prefix = 'App\\';
+    if (!str_starts_with($class, $prefix)) return;
+    $relative = str_replace('\\', '/', substr($class, strlen($prefix)));
+    $path = $root . '/src/' . $relative . '.php';
+    if (is_file($path)) require_once $path;
+});
+PHP;
+}
+
+/** Load the project bootstrap, also supporting console projects created before it existed. */
+function consoleBootstrapCode(): string
+{
+    return "if (is_file(\$root . '/bootstrap.php')) {\n"
+        . "    require_once \$root . '/bootstrap.php';\n"
+        . "} else {\n" . consoleAutoloadCode() . "\n}\n"
+        . "if (is_file(\$root . '/lib/console.php')) require_once \$root . '/lib/console.php';\n";
+}
+
+/** @param list<string> $arguments */
+function executeConsolePhp(array $arguments): int
+{
+    $process = proc_open(
+        [PHP_BINARY, ...$arguments],
+        [0 => STDIN, 1 => STDOUT, 2 => STDERR],
+        $pipes,
+        null,
+        array_merge(getenv(), ['AML_LANG' => currentLanguage()]),
+        ['bypass_shell' => true],
+    );
+    if (!is_resource($process)) {
+        fail(currentLanguage() === 'fr' ? 'Impossible de lancer le programme console.' : 'Unable to start the console program.');
+    }
+    return proc_close($process);
+}
+
 function createConsoleApplication(string $destination): void
 {
     $target = creationTarget($destination);
@@ -764,11 +816,33 @@ function createConsoleApplication(string $destination): void
         'description' => 'Programme PHP console créé avec AML',
         'type' => 'project',
         'require' => ['php' => '^8.2'],
-        'autoload' => ['psr-4' => ['App\\' => 'src/']],
+        'autoload' => ['psr-4' => ['App\\' => 'src/'], 'files' => ['lib/console.php']],
     ];
+    $consoleLibrary = @file_get_contents(__DIR__ . '/console.php');
+    if ($consoleLibrary === false) {
+        fail(currentLanguage() === 'fr' ? 'La bibliothèque console est absente de l’installation AML.' : 'The console library is missing from the AML installation.');
+    }
+    $importExample = @file_get_contents(__DIR__ . '/console-import-example.php');
+    if ($importExample === false) {
+        fail(currentLanguage() === 'fr' ? 'L’exemple d’import console est absent de l’installation AML.' : 'The console import example is missing from the AML installation.');
+    }
     $files = [
         'phpaml.json' => json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL,
         'composer.json' => json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL,
+        'bootstrap.php' => "<?php\n\ndeclare(strict_types=1);\n\n\$root = __DIR__;\n" . consoleAutoloadCode() . PHP_EOL,
+        'lib/console.php' => $consoleLibrary,
+        'src/Examples/ImportCsv.php' => $importExample,
+        'examples/contacts.csv' => "name,email\nAndré,andre@example.com\n\"Martin, Alice\",alice@example.com\nMarie,marie@example.com\n",
+        'examples/import-csv.php' => <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+require_once dirname(__DIR__) . '/bootstrap.php';
+
+exit(\App\Examples\ImportCsv::main(array_slice($argv, 1)));
+PHP
+        . PHP_EOL,
         'src/Program.php' => <<<'PHP'
 <?php
 
@@ -776,13 +850,30 @@ declare(strict_types=1);
 
 namespace App;
 
+use AML\Console\Console;
+use AML\Console\Input;
+
 final class Program
 {
     /** @param list<string> $arguments */
     public static function main(array $arguments): int
     {
-        $name = $arguments[0] ?? 'PHP';
-        echo "Bonjour, {$name} !" . PHP_EOL;
+        $input = Input::define('Un premier programme console avec AML.')
+            ->argument('name', 'Nom à saluer', default: 'PHP')
+            ->option('repeat', 'Nombre de salutations', type: 'int', default: 1, shortcut: 'r', min: 1, max: 100)
+            ->flag('interactive', 'Demander le nom dans le terminal', shortcut: 'i')
+            ->parse($arguments);
+
+        if ($input->helpRequested()) {
+            Console::line($input->help());
+            return 0;
+        }
+
+        $name = $input->argument('name');
+        if ($input->option('interactive')) $name = Console::ask('Votre nom', $name);
+        for ($index = 0; $index < $input->option('repeat'); $index++) {
+            Console::line("Bonjour, {$name} !");
+        }
 
         return 0;
     }
@@ -794,7 +885,7 @@ PHP
 
 declare(strict_types=1);
 
-require dirname(__DIR__) . '/src/Program.php';
+require_once dirname(__DIR__) . '/bootstrap.php';
 
 $status = \App\Program::main(['test']);
 if ($status !== 0) {
@@ -805,7 +896,52 @@ if ($status !== 0) {
 echo "✓ Program::main() fonctionne.\n";
 PHP
         . PHP_EOL,
-        '.gitignore' => "/runtime/\n/.phpunit.cache/\n",
+        'examples/display.php' => <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+use AML\Console\Console;
+use AML\Console\Input;
+
+require_once dirname(__DIR__) . '/bootstrap.php';
+
+try {
+    $input = Input::define('Démonstration de l’affichage console.', usage: 'php examples/display.php')
+        ->flag('fail', 'Simuler une interruption du traitement')
+        ->parse(array_slice($argv, 1));
+} catch (\AML\Console\InputException $error) {
+    Console::error($error->getMessage());
+    exit(2);
+}
+if ($input->helpRequested()) {
+    Console::line($input->help());
+    exit(0);
+}
+
+Console::line('PHPAML Console', color: 'cyan');
+Console::table(['Exemple', 'Lignes'], [
+    ['clients.csv', 120],
+    ['commandes.csv', 48],
+    ['produits.csv', 36],
+]);
+Console::info('Démonstration sur trois éléments.');
+$progress = Console::progress(3, 'Démonstration');
+for ($index = 0; $index < 3; $index++) {
+    usleep(100_000);
+    if ($input->option('fail') && $index === 1) {
+        $progress->abort();
+        Console::error('Interruption simulée après un élément.');
+        exit(2);
+    }
+    $progress->advance();
+}
+$progress->finish();
+Console::success('Démonstration terminée.');
+Console::warning('Les données du tableau sont des exemples.');
+PHP
+        . PHP_EOL,
+        '.gitignore' => "/runtime/\n/vendor/\n/.phpunit.cache/\n",
     ];
 
     $conflicts = [];
@@ -2856,15 +2992,78 @@ function runScript(string $name): never
     exit($exitCode);
 }
 
+/** Read command metadata without loading application classes. */
+function consoleCommands(array $manifest): array
+{
+    $commands = array_key_exists('commands', $manifest['application'] ?? []) ? $manifest['application']['commands'] : [];
+    if (!is_array($commands)) {
+        fail(currentLanguage() === 'fr' ? 'application.commands doit être un objet dans phpaml.json.' : 'application.commands must be an object in phpaml.json.');
+    }
+    $registry = [];
+    foreach ($commands as $name => $definition) {
+        if (!is_string($name) || preg_match('/^[a-z][a-z0-9]*(?:[-:][a-z0-9]+)*$/D', $name) !== 1 || $name === 'list') {
+            fail(currentLanguage() === 'fr' ? 'Nom de commande invalide ou réservé dans application.commands.' : 'Invalid or reserved command name in application.commands.');
+        }
+        if (is_string($definition)) $definition = ['class' => $definition];
+        if (!is_array($definition) || !is_string($definition['class'] ?? null)
+            || preg_match('/^(?:[A-Za-z_][A-Za-z0-9_]*\\\\)*[A-Za-z_][A-Za-z0-9_]*$/D', $definition['class']) !== 1
+            || (array_key_exists('description', $definition) && !is_string($definition['description']))) {
+            fail(currentLanguage() === 'fr'
+                ? "Configuration invalide pour la commande '{$name}' : indiquez class et, facultativement, description."
+                : "Invalid configuration for command '{$name}': provide class and, optionally, description.");
+        }
+        $registry[$name] = ['class' => $definition['class'], 'description' => $definition['description'] ?? ''];
+    }
+    ksort($registry);
+    return $registry;
+}
+
+function showConsoleCommands(array $commands): void
+{
+    $fr = currentLanguage() === 'fr';
+    output($fr ? 'Utilisation : aml run <commande> [arguments]' : 'Usage: aml run <command> [arguments]');
+    output();
+    output($fr ? 'Commandes :' : 'Commands:');
+    output($fr ? '  list  Afficher les commandes disponibles' : '  list  Show available commands');
+    foreach ($commands as $name => $definition) {
+        $description = preg_replace('/[\x00-\x1F\x7F]/', ' ', $definition['description']);
+        output('  ' . $name . ($description !== '' ? '  ' . $description : ''));
+    }
+    if ($commands === []) output($fr ? '  Aucune commande créée. Utilisez aml make:command <Nom>.' : '  No commands yet. Use aml make:command <Name>.');
+    output();
+    output($fr ? 'aml run : exécuter Program::main() sans arguments.' : 'aml run: execute Program::main() without arguments.');
+    output($fr ? 'aml run -- <arguments> : transmettre les arguments à Program::main().' : 'aml run -- <arguments>: pass arguments to Program::main().');
+    output($fr ? 'aml run <commande> --help : afficher l’aide de cette commande.' : 'aml run <command> --help: show help for that command.');
+}
+
 /** @param list<string> $arguments */
-function runConsoleProgram(array $arguments): never
+function runConsoleProgram(array $arguments, bool $forceProgram = false): never
 {
     $root = projectRoot();
     $manifest = projectInfo($root);
     if (($manifest['application']['type'] ?? null) !== 'console') {
         fail("Ce projet n'est pas une application console PHPAML.");
     }
+    $commands = consoleCommands($manifest);
+    $name = $arguments[0] ?? null;
+    if (!$forceProgram && ($name === 'list' || ($commands !== [] && in_array($name, ['--help', '-h'], true)))) {
+        if (count($arguments) !== 1 && !($name === 'list' && count($arguments) === 2 && in_array($arguments[1], ['--help', '-h'], true))) {
+            fail(currentLanguage() === 'fr' ? 'Utilisation : aml run list' : 'Usage: aml run list', 2);
+        }
+        showConsoleCommands($commands);
+        exit(0);
+    }
     $entry = $manifest['application']['entry'] ?? 'App\\Program';
+    if (!$forceProgram && $name !== null && $commands !== []) {
+        if (!isset($commands[$name])) {
+            $displayName = preg_replace('/[\x00-\x1F\x7F]/', '?', $name);
+            fail(currentLanguage() === 'fr'
+                ? "Commande '{$displayName}' inconnue. Consultez aml run list. Pour Program::main(), utilisez aml run -- <arguments>."
+                : "Unknown command '{$displayName}'. See aml run list. For Program::main(), use aml run -- <arguments>.", 2);
+        }
+        $entry = $commands[$name]['class'];
+        $arguments = array_slice($arguments, 1);
+    }
     if (!is_string($entry) || preg_match('/^[A-Za-z_][A-Za-z0-9_\\\\]*$/', $entry) !== 1) {
         fail("La classe d'entrée console est invalide dans phpaml.json.");
     }
@@ -2873,15 +3072,11 @@ function runConsoleProgram(array $arguments): never
 $root = $argv[1];
 $entry = $argv[2];
 $programArguments = array_slice($argv, 3);
-spl_autoload_register(static function (string $class) use ($root): void {
-    $prefix = 'App\\';
-    if (!str_starts_with($class, $prefix)) return;
-    $relative = str_replace('\\', '/', substr($class, strlen($prefix)));
-    $path = $root . '/src/' . $relative . '.php';
-    if (is_file($path)) require_once $path;
-});
+try {
+PHP;
+    $runner .= "\n" . consoleBootstrapCode() . <<<'PHP'
 if (!class_exists($entry) || !method_exists($entry, 'main')) {
-    fwrite(STDERR, "La classe {$entry} doit déclarer public static function main(array $arguments): int.\n");
+    fwrite(STDERR, "La classe {$entry} doit déclarer public static function main(array \$arguments): int.\n");
     exit(1);
 }
 $method = new ReflectionMethod($entry, 'main');
@@ -2890,7 +3085,7 @@ if (!$method->isPublic() || !$method->isStatic()) {
     exit(1);
 }
 $parameters = $method->getParameters();
-$parameterType = $parameters[0]->getType() ?? null;
+$parameterType = isset($parameters[0]) ? $parameters[0]->getType() : null;
 $returnType = $method->getReturnType();
 if (count($parameters) !== 1
     || !$parameterType instanceof ReflectionNamedType
@@ -2900,28 +3095,22 @@ if (count($parameters) !== 1
     fwrite(STDERR, "{$entry}::main() doit respecter main(array \$arguments): int.\n");
     exit(1);
 }
-try {
     $status = $entry::main($programArguments);
     if (!is_int($status)) {
         fwrite(STDERR, "{$entry}::main() doit retourner un entier.\n");
         exit(1);
     }
     exit($status);
+} catch (\AML\Console\InputException $error) {
+    fwrite(STDERR, $error->getMessage() . PHP_EOL);
+    exit(2);
 } catch (Throwable $error) {
     fwrite(STDERR, get_class($error) . ': ' . $error->getMessage() . PHP_EOL);
     exit(1);
 }
 PHP;
 
-    $command = escapeshellarg(PHP_BINARY)
-        . ' -r ' . escapeshellarg($runner)
-        . ' -- ' . escapeshellarg($root)
-        . ' ' . escapeshellarg($entry);
-    foreach ($arguments as $argument) {
-        $command .= ' ' . escapeshellarg($argument);
-    }
-    passthru($command, $exitCode);
-    exit($exitCode);
+    exit(executeConsolePhp(['-r', $runner, '--', $root, $entry, ...$arguments]));
 }
 
 /** @param list<string> $arguments */
@@ -3706,6 +3895,137 @@ function generatePlainClass(string $name): void
     }
 }
 
+function generateConsoleCommand(string $name): void
+{
+    $root = projectRoot();
+    $manifest = projectInfo($root);
+    $fr = currentLanguage() === 'fr';
+    if (($manifest['application']['type'] ?? null) !== 'console') {
+        fail($fr ? 'make:command nécessite un projet créé avec aml create-console.' : 'make:command requires a project created with aml create-console.');
+    }
+    $commands = consoleCommands($manifest);
+    $segments = explode('/', str_replace('\\', '/', $name));
+    foreach ($segments as $segment) {
+        if (preg_match('/^[A-Za-z][A-Za-z0-9]*(?:[-_][A-Za-z0-9]+)*$/D', $segment) !== 1) {
+            fail($fr ? 'Nom invalide. Exemples : ImportUsers, import-users, Admin/ImportUsers.' : 'Invalid name. Examples: ImportUsers, import-users, Admin/ImportUsers.', 2);
+        }
+    }
+    $classes = array_map(static fn (string $segment): string => className($segment), $segments);
+    foreach ($classes as $segment) {
+        // Reject device names even on Unix so generated commands stay portable.
+        if (preg_match('/^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/iD', $segment) === 1) {
+            fail($fr ? "Le nom '{$segment}' est réservé sous Windows. Choisissez un autre nom de commande ou de dossier." : "Name '{$segment}' is reserved on Windows. Choose another command or directory name.", 2);
+        }
+    }
+    $names = array_map(static function (string $class): string {
+        $class = (string) preg_replace('/([A-Z]+)([A-Z][a-z])/', '$1-$2', $class);
+        return strtolower((string) preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $class));
+    }, $classes);
+    $commandName = implode(':', $names);
+    $class = (string) array_pop($classes);
+    $namespace = 'App\\Commands' . ($classes === [] ? '' : '\\' . implode('\\', $classes));
+    $entry = $namespace . '\\' . $class;
+    $relative = 'src/Commands/' . ($classes === [] ? '' : implode('/', $classes) . '/') . $class . '.php';
+    if ($commandName === 'list' || isset($commands[$commandName])) {
+        fail($fr ? "La commande '{$commandName}' existe déjà ou est réservée." : "Command '{$commandName}' already exists or is reserved.");
+    }
+    foreach ($commands as $definition) {
+        if (strcasecmp($definition['class'], $entry) === 0) {
+            fail($fr ? "La classe '{$entry}' est déjà enregistrée." : "Class '{$entry}' is already registered.");
+        }
+    }
+    $description = $fr ? "Commande {$commandName}." : "The {$commandName} command.";
+    $message = $fr ? "{$commandName} : ajoutez votre logique dans {$relative}." : "{$commandName}: add your logic in {$relative}.";
+    $template = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace {{namespace}};
+
+final class {{class}}
+{
+    /** @param list<string> $arguments */
+    public static function main(array $arguments): int
+    {
+        $input = \AML\Console\Input::define({{description}}, usage: {{usage}})
+            ->parse($arguments);
+
+        if ($input->helpRequested()) {
+            \AML\Console\Console::line($input->help());
+            return 0;
+        }
+
+        \AML\Console\Console::line({{message}});
+        return 0;
+    }
+}
+PHP;
+    $source = strtr($template, [
+        '{{namespace}}' => $namespace, '{{class}}' => $class,
+        '{{description}}' => var_export($description, true),
+        '{{usage}}' => var_export('aml run ' . $commandName, true),
+        '{{message}}' => var_export($message, true),
+    ]) . PHP_EOL;
+    try {
+        token_get_all($source, TOKEN_PARSE);
+    } catch (ParseError) {
+        fail($fr ? 'Ce nom utilise un mot réservé de PHP. Choisissez un autre nom de classe.' : 'This name uses a reserved PHP word. Choose another class name.', 2);
+    }
+
+    $files = [$relative => $source];
+    if (!is_file($root . '/lib/console.php')) {
+        $library = @file_get_contents(__DIR__ . '/console.php');
+        if ($library === false) fail($fr ? 'La bibliothèque console est absente de l’installation AML.' : 'The console library is missing from the AML installation.');
+        $files['lib/console.php'] = $library;
+    }
+    foreach ($files as $path => $content) {
+        if (file_exists($root . '/' . $path) || is_link($root . '/' . $path)) {
+            fail($fr ? "Le chemin '{$path}' existe déjà. Aucun fichier n’a été modifié." : "Path '{$path}' already exists. No files were changed.");
+        }
+    }
+
+    $manifestPath = projectManifestPath($root);
+    $original = (string) file_get_contents($manifestPath);
+    // Preserve other manifest fields, including empty JSON objects.
+    $document = json_decode($original, false, 512, JSON_THROW_ON_ERROR);
+    $document->application->commands = (object) ($document->application->commands ?? []);
+    $document->application->commands->{$commandName} = (object) ['class' => $entry, 'description' => $description];
+    $encoded = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL;
+    $created = [];
+    $temporary = null;
+    try {
+        foreach ($files as $path => $content) {
+            $target = $root . '/' . $path;
+            if (!is_dir(dirname($target)) && !@mkdir(dirname($target), 0755, true) && !is_dir(dirname($target))) {
+                throw new RuntimeException($fr ? "Impossible de créer le dossier de {$path}." : "Unable to create the directory for {$path}.");
+            }
+            $handle = @fopen($target, 'x');
+            if ($handle === false) throw new RuntimeException($fr ? "Impossible de créer {$path}." : "Unable to create {$path}.");
+            $created[] = $target;
+            try {
+                if (fwrite($handle, $content) !== strlen($content)) throw new RuntimeException($fr ? "Écriture incomplète de {$path}." : "Incomplete write of {$path}.");
+            } finally {
+                fclose($handle);
+            }
+        }
+        $temporary = $root . '/.phpaml-command-' . bin2hex(random_bytes(8)) . '.json';
+        if (@file_put_contents($temporary, $encoded, LOCK_EX) !== strlen($encoded)) {
+            throw new RuntimeException($fr ? 'Impossible de préparer phpaml.json.' : 'Unable to prepare phpaml.json.');
+        }
+        @chmod($temporary, fileperms($manifestPath) & 0777);
+        if (file_get_contents($manifestPath) !== $original || !@rename($temporary, $manifestPath)) {
+            throw new RuntimeException($fr ? 'phpaml.json a changé ou ne peut pas être modifié. Relancez la génération.' : 'phpaml.json changed or cannot be updated. Retry generation.');
+        }
+    } catch (Throwable $error) {
+        foreach ($created as $path) @unlink($path);
+        if ($temporary !== null && is_file($temporary)) @unlink($temporary);
+        fail($error->getMessage());
+    }
+    output($fr ? "Créé : {$relative}" : "Created: {$relative}");
+    output($fr ? "Commande enregistrée. Lancez : aml run {$commandName} --help" : "Command registered. Run: aml run {$commandName} --help");
+}
+
 function generateViewClass(string $type, string $name): void
 {
     $root = projectRoot();
@@ -3898,10 +4218,15 @@ function executeProjectTests(string $root): int
             output($error->getMessage());
             return 1;
         }
-        $command = escapeshellarg(PHP_BINARY)
-            . ' -d ' . escapeshellarg('session.save_path=' . $temporaryRoot)
-            . ' ' . escapeshellarg($suite);
-        passthru($command, $exitCode);
+        if (($manifest['application']['type'] ?? null) === 'console') {
+            $runner = '$root = $argv[1];' . "\n" . consoleBootstrapCode() . 'require $argv[2];';
+            $exitCode = executeConsolePhp(['-d', 'session.save_path=' . $temporaryRoot, '-r', $runner, '--', $root, $suite]);
+        } else {
+            $command = escapeshellarg(PHP_BINARY)
+                . ' -d ' . escapeshellarg('session.save_path=' . $temporaryRoot)
+                . ' ' . escapeshellarg($suite);
+            passthru($command, $exitCode);
+        }
         if ($exitCode !== 0) {
             return $exitCode;
         }
@@ -3982,6 +4307,10 @@ function doctorDirectoryStatus(string $directory): array
 function doctor(?string $requestedPort, bool $offline, bool $json, bool $production = false): never
 {
     $checks = [];
+    $current = getcwd() ?: '';
+    $projectInfoContent = is_file($current . '/phpaml.json') ? file_get_contents($current . '/phpaml.json') : false;
+    $projectInfo = json_decode($projectInfoContent ?: '', true);
+    $isConsole = is_array($projectInfo) && ($projectInfo['application']['type'] ?? null) === 'console';
     $infoPath = PHPAML_FRAMEWORK_ROOT . '/phpaml.json';
     $infoContent = is_file($infoPath) ? file_get_contents($infoPath) : false;
     $info = json_decode($infoContent ?: '', true);
@@ -4047,44 +4376,48 @@ function doctor(?string $requestedPort, bool $offline, bool $json, bool $product
         );
     }
 
-    $port = $requestedPort === null ? 8910 : filter_var($requestedPort, FILTER_VALIDATE_INT);
-    if ($port === false || $port < 1 || $port > 65535) {
-        doctorAdd($checks, 'error', 'Port de développement', 'le port doit être compris entre 1 et 65535');
-    } else {
-        $errno = 0;
-        $error = '';
-        $socket = @stream_socket_server("tcp://127.0.0.1:{$port}", $errno, $error);
-        $portStatus = 'ok';
-        $portMessage = "127.0.0.1:{$port} disponible";
-        if (!is_resource($socket)) {
-            $portStatus = 'warning';
-            if (stripos($error, 'Address already in use') !== false) {
-                $portMessage = "127.0.0.1:{$port} occupé";
-            } elseif (stripos($error, 'Operation not permitted') !== false
-                || stripos($error, 'Permission denied') !== false) {
-                $portMessage = "127.0.0.1:{$port} — ouverture interdite par l’environnement ({$error})";
-            } else {
-                $portMessage = "127.0.0.1:{$port} indisponible ({$error})";
+    if (!$isConsole || $requestedPort !== null) {
+        $port = $requestedPort === null ? 8910 : filter_var($requestedPort, FILTER_VALIDATE_INT);
+        if ($port === false || $port < 1 || $port > 65535) {
+            doctorAdd($checks, 'error', 'Port de développement', 'le port doit être compris entre 1 et 65535');
+        } else {
+            $errno = 0;
+            $error = '';
+            $socket = @stream_socket_server("tcp://127.0.0.1:{$port}", $errno, $error);
+            $portStatus = 'ok';
+            $portMessage = "127.0.0.1:{$port} disponible";
+            if (!is_resource($socket)) {
+                $portStatus = 'warning';
+                if (stripos($error, 'Address already in use') !== false) {
+                    $portMessage = "127.0.0.1:{$port} occupé";
+                } elseif (stripos($error, 'Operation not permitted') !== false
+                    || stripos($error, 'Permission denied') !== false) {
+                    $portMessage = "127.0.0.1:{$port} — ouverture interdite par l’environnement ({$error})";
+                } else {
+                    $portMessage = "127.0.0.1:{$port} indisponible ({$error})";
+                }
             }
-        }
-        doctorAdd(
-            $checks,
-            $portStatus,
-            'Port de développement',
-            $portMessage
-        );
-        if (is_resource($socket)) {
-            fclose($socket);
+            doctorAdd(
+                $checks,
+                $portStatus,
+                'Port de développement',
+                $portMessage
+            );
+            if (is_resource($socket)) {
+                fclose($socket);
+            }
         }
     }
 
-    $current = getcwd() ?: '';
-    $isProject = is_file($current . '/phpaml.json') && is_file($current . '/public/index.php');
+    $isProject = is_file($current . '/phpaml.json') && ($isConsole || is_file($current . '/public/index.php'));
     if (!$isProject) {
         doctorAdd($checks, 'info', 'Projet', 'aucun projet PHPAML dans le dossier courant');
+    } elseif ($isConsole) {
+        doctorAdd($checks, 'ok', 'Projet', $current);
+        doctorAdd($checks, 'ok', 'Configuration', currentLanguage() === 'fr'
+            ? 'phpaml.json — application console'
+            : 'phpaml.json — console application');
     } else {
-        $projectInfoContent = file_get_contents($current . '/phpaml.json');
-        $projectInfo = json_decode($projectInfoContent ?: '', true);
         doctorAdd($checks, is_array($projectInfo) ? 'ok' : 'error', 'Projet', $current);
         if (is_array($projectInfo) && isset($projectInfo['modules']['view'])) {
             foreach (['views', 'models', 'controllers'] as $requiredDirectory) {
@@ -5001,8 +5334,9 @@ switch ($command) {
         $runManifest = projectInfo(projectRoot());
         if (($runManifest['application']['type'] ?? null) === 'console') {
             $programArguments = array_slice($arguments, 1);
-            if (($programArguments[0] ?? null) === '--') array_shift($programArguments);
-            runConsoleProgram(array_values($programArguments));
+            $forceProgram = ($programArguments[0] ?? null) === '--';
+            if ($forceProgram) array_shift($programArguments);
+            runConsoleProgram(array_values($programArguments), $forceProgram);
         }
         isset($arguments[1]) ? runScript($arguments[1]) : fail('Indiquez le nom du script.');
     case 'routes':
@@ -5040,6 +5374,14 @@ switch ($command) {
         break;
     case 'make:class':
         isset($arguments[1]) ? generatePlainClass($arguments[1]) : fail('Indiquez le nom de la classe à générer.');
+        break;
+    case 'make:command':
+        if (count($arguments) !== 2) fail(currentLanguage() === 'fr' ? 'Utilisation : aml make:command <Nom>' : 'Usage: aml make:command <Name>', 2);
+        if (in_array($arguments[1], ['--help', '-h'], true)) {
+            output(currentLanguage() === 'fr' ? 'Utilisation : aml make:command <Nom>' : 'Usage: aml make:command <Name>');
+            break;
+        }
+        generateConsoleCommand($arguments[1]);
         break;
     case 'make:model':
         isset($arguments[1]) ? generateClass('model', $arguments[1]) : fail('Indiquez le nom de la classe à générer.');

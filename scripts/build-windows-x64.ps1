@@ -50,10 +50,15 @@ Copy-Item $Composer "$Package\runtime\composer\composer.phar" -Force
 Copy-Item "$Root\cli\aml.php" "$Package\runtime\bin\aml.php" -Force
 Copy-Item "$Root\cli\ai-debug.php" "$Package\runtime\bin\ai-debug.php" -Force
 Copy-Item "$Root\cli\deploy.php" "$Package\runtime\bin\deploy.php" -Force
+Copy-Item "$Root\cli\console.php" "$Package\runtime\bin\console.php" -Force
+Copy-Item "$Root\cli\console-import-example.php" "$Package\runtime\bin\console-import-example.php" -Force
 Copy-Item "$Root\phpaml.json" "$Package\phpaml.json" -Force
 
 & "$Package\bin\aml.exe" version
 if ($LASTEXITCODE -ne 0) { throw 'Le test du paquet AML Windows a échoué.' }
+
+& "$Package\runtime\php\php.exe" "$Root\tests\console-package.php" $Package
+if ($LASTEXITCODE -ne 0) { throw 'Le test de la console embarquée a échoué.' }
 
 $Zip = Join-Path $Root 'dist\aml-windows-x64.zip'
 Compress-Archive -Path "$Package\*" -DestinationPath $Zip -CompressionLevel Optimal -Force

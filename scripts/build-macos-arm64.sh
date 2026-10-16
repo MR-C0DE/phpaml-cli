@@ -38,8 +38,11 @@ cp "$TOOLS/composer.phar" "$PACKAGE/runtime/composer/composer.phar"
 cp "$ROOT/cli/aml.php" "$PACKAGE/runtime/bin/aml.php"
 cp "$ROOT/cli/ai-debug.php" "$PACKAGE/runtime/bin/ai-debug.php"
 cp "$ROOT/cli/deploy.php" "$PACKAGE/runtime/bin/deploy.php"
+cp "$ROOT/cli/console.php" "$PACKAGE/runtime/bin/console.php"
+cp "$ROOT/cli/console-import-example.php" "$PACKAGE/runtime/bin/console-import-example.php"
 cp "$ROOT/phpaml.json" "$PACKAGE/phpaml.json"
 chmod 755 "$PACKAGE/bin/aml" "$PACKAGE/runtime/php/bin/php"
+"$PACKAGE/runtime/php/bin/php" "$ROOT/tests/console-package.php" "$PACKAGE"
 
 tar -czf "$ROOT/dist/aml-macos-arm64.tar.gz" -C "$ROOT/dist" aml-macos-arm64
 (cd "$ROOT/dist" && shasum -a 256 aml-macos-arm64.tar.gz > aml-macos-arm64.tar.gz.sha256)

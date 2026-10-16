@@ -25,6 +25,30 @@ jobs:
         run: ./scripts/build-windows-x64.ps1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test console after Windows installation
+        shell: pwsh
+        timeout-minutes: 5
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installers = @(Get-ChildItem 'dist/phpaml-*-windows-x64.exe')
+          if ($installers.Count -ne 1) { throw 'Expected one Windows installer.' }
+          $destination = Join-Path $env:RUNNER_TEMP ('console install-' + [guid]::NewGuid().ToString('N'))
+          $arguments = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/NOICONS', '/NOCLOSEAPPLICATIONS', '/NORESTARTAPPLICATIONS', '/LANG=english', ('/DIR="{0}"' -f $destination))
+          try {
+            $setup = Start-Process -FilePath $installers[0].FullName -ArgumentList $arguments -Wait -PassThru
+            if ($setup.ExitCode -ne 0) { throw "Installer failed: $($setup.ExitCode)" }
+            $php = Join-Path $destination 'runtime/php/php.exe'
+            $launcher = Join-Path $destination 'bin/aml.exe'
+            & $php tests/console-package.php $destination $launcher
+            if ($LASTEXITCODE -ne 0) { throw 'Installed console validation failed.' }
+          } finally {
+            $uninstaller = Join-Path $destination 'unins000.exe'
+            if (Test-Path $uninstaller) {
+              $removed = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+              if ($removed.ExitCode -ne 0) { throw "Uninstaller failed: $($removed.ExitCode)" }
+            }
+          }
+          if (Test-Path (Join-Path $destination 'bin/aml.exe')) { throw 'The test installation was not removed.' }
       - uses: actions/upload-artifact@v4
         with:
           name: aml-windows-x64

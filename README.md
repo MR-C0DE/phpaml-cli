@@ -113,6 +113,29 @@ receives command-line arguments, writes directly to the terminal, and returns
 the process exit code. Use `aml make:class Domain/User` and `aml test` as the
 program grows.
 
+The generated `bootstrap.php` loads application classes and installed Composer
+dependencies, including a custom `config.vendor-dir`. Both execution and tests
+use this bootstrap. `aml doctor` recognizes console projects without requiring
+a Web server, HTTP configuration, or a framework installation.
+
+New console projects include typed arguments, automatic `--help`, and interactive
+questions through `AML\Console\Input` and `AML\Console\Console`. Try
+`aml run -- Andre --repeat=2` or `aml run -- -i`.
+See the [console guide](docs/console.en.md) for validation, confirmations, choices,
+and hidden password input.
+
+Add multiple commands with `aml make:command ImportUsers`, then use
+`aml run import-users --help` and `aml run list`. Each command has its own class
+and input schema. `aml run -- ...` still calls the main program explicitly.
+
+`AML\Console\Console` also provides tables, colors, status messages, and progress
+bars. Try `php examples/display.php` in a new project. Redirected output stays
+plain, and `NO_COLOR` disables colors.
+
+Try the complete CSV example with
+`php examples/import-csv.php examples/contacts.csv --dry-run`. It validates
+contacts before saving JSON, reports row errors, and never overwrites a file.
+
 ## One platform, focused packages
 
 PHPAML is presented through separate repositories so each package can evolve

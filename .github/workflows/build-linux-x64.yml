@@ -31,8 +31,11 @@ jobs:
       - name: Test Debian installation
         run: |
           sudo dpkg -i dist/phpaml-*-linux-x64.deb
+          trap 'sudo dpkg -r phpaml' EXIT
           env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml version
+          /opt/phpaml/runtime/php/bin/php tests/console-package.php /opt/phpaml /usr/local/bin/aml
           sudo dpkg -r phpaml
+          trap - EXIT
           test ! -e /usr/local/bin/aml
       - uses: actions/upload-artifact@v4
         with:
