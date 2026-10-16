@@ -7,7 +7,7 @@ $fixture = sys_get_temp_dir() . '/phpaml-console-' . bin2hex(random_bytes(6));
 $installation = $fixture . '/installation AML';
 $project = $fixture . '/console app André';
 $assertions = 0;
-foreach (['runtime/bin', 'runtime/cache', 'runtime/tmp', 'runtime/composer'] as $directory) {
+foreach (['runtime/bin', 'runtime/cache', 'runtime/tmp~console', 'runtime/composer'] as $directory) {
     mkdir($installation . '/' . $directory, 0755, true);
 }
 foreach (glob($repository . '/cli/*.php') ?: [] as $source) {
@@ -19,7 +19,8 @@ $cli = $installation . '/runtime/bin/aml.php';
 $environment = array_merge(getenv(), [
     'AML_LANG' => 'fr',
     'AML_CACHE_HOME' => $installation . '/runtime/cache',
-    'TMPDIR' => $installation . '/runtime/tmp',
+    'AML_TMPDIR' => $installation . '/runtime/tmp~console',
+    'TMPDIR' => $installation . '/runtime/tmp~console',
 ]);
 
 $expect = static function (bool $condition, string $message) use (&$assertions): void {
@@ -77,6 +78,12 @@ try {
     }
     $succeeded($run(['test']), 'Run the generated tests');
     $succeeded($runPhp(['tests/run.php'], $project), 'Run generated standalone tests without Composer');
+    $generatedTest = file_get_contents($project . '/tests/run.php');
+    file_put_contents($project . '/tests/run.php', '<?php echo ini_get("session.save_path");');
+    $sessionPath = $run(['test']);
+    $succeeded($sessionPath, 'Run tests with a temporary path containing a tilde');
+    $expect($sessionPath['out'] === $environment['AML_TMPDIR'], 'Session paths must remain literal, including Windows short names.');
+    file_put_contents($project . '/tests/run.php', $generatedTest);
     $display = $runPhp(['examples/display.php'], $project);
     $expect($display['code'] === 0 && str_contains($display['out'], 'clients.csv') && str_contains($display['err'], '[OK]') && str_contains($display['err'], '3/3 (100%)'), 'Run the generated terminal display example');
     $expect(!str_contains($display['out'] . $display['err'], "\033"), 'Redirected generated output contains no terminal sequences');

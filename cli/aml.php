@@ -4219,8 +4219,9 @@ function executeProjectTests(string $root): int
             return 1;
         }
         if (($manifest['application']['type'] ?? null) === 'console') {
-            $runner = '$root = $argv[1];' . "\n" . consoleBootstrapCode() . 'require $argv[2];';
-            $exitCode = executeConsolePhp(['-d', 'session.save_path=' . $temporaryRoot, '-r', $runner, '--', $root, $suite]);
+            $runner = '$root = $argv[1]; ini_set("session.save_path", $argv[3]);' . "\n"
+                . consoleBootstrapCode() . 'require $argv[2];';
+            $exitCode = executeConsolePhp(['-r', $runner, '--', $root, $suite, $temporaryRoot]);
         } else {
             $command = escapeshellarg(PHP_BINARY)
                 . ' -d ' . escapeshellarg('session.save_path=' . $temporaryRoot)
