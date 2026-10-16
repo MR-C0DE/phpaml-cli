@@ -2,6 +2,7 @@ name: Build Linux x64
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     tags:
       - "v*"
@@ -9,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -33,10 +35,23 @@ jobs:
           sudo dpkg -i dist/phpaml-*-linux-x64.deb
           trap 'sudo dpkg -r phpaml' EXIT
           env -i PATH=/usr/local/bin:/usr/bin:/bin HOME="$RUNNER_TEMP" aml version
+          /opt/phpaml/runtime/php/bin/php tests/package-integrity.php /opt/phpaml
           /opt/phpaml/runtime/php/bin/php tests/console-package.php /opt/phpaml /usr/local/bin/aml
           sudo dpkg -r phpaml
           trap - EXIT
           test ! -e /usr/local/bin/aml
+      - name: Verify checksums and extracted portable archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd dist && sha256sum --check aml-linux-x64.tar.gz.sha256 phpaml-*-linux-x64.deb.sha256)
+          extracted="$(mktemp -d "$RUNNER_TEMP/aml-linux-extracted.XXXXXX")"
+          trap 'rm -rf "$extracted"' EXIT
+          tar -xzf dist/aml-linux-x64.tar.gz -C "$extracted"
+          package="$extracted/aml-linux-x64"
+          env -i PATH=/usr/bin:/bin HOME="$RUNNER_TEMP" "$package/bin/aml" version
+          "$package/runtime/php/bin/php" tests/package-integrity.php "$package"
+          "$package/runtime/php/bin/php" tests/console-package.php "$package"
       - uses: actions/upload-artifact@v4
         with:
           name: aml-linux-x64

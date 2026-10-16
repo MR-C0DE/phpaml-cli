@@ -1,5 +1,8 @@
 # PHPAML
 
+> Frontend candidate: CLI **1.7.0-beta.45**, View **0.1.0-beta.13**, Engine **0.1.0-beta.9**.
+> See [compatibility, modules and release verification](docs/frontend-release.md).
+
 [![Latest release](https://img.shields.io/github/v/release/MR-C0DE/phpaml-cli?include_prereleases&label=release)](https://github.com/MR-C0DE/phpaml-cli/releases/latest)
 [![CLI tests](https://github.com/MR-C0DE/phpaml-cli/actions/workflows/test-cli.yml/badge.svg?branch=main)](https://github.com/MR-C0DE/phpaml-cli/actions/workflows/test-cli.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-7c3aed.svg)](LICENSE)

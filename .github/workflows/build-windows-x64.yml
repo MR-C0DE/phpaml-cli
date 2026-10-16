@@ -2,6 +2,7 @@ name: Build Windows x64
 
 on:
   workflow_dispatch:
+  workflow_call:
   push:
     tags:
       - "v*"
@@ -9,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: windows-2022
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
@@ -39,6 +41,10 @@ jobs:
             if ($setup.ExitCode -ne 0) { throw "Installer failed: $($setup.ExitCode)" }
             $php = Join-Path $destination 'runtime/php/php.exe'
             $launcher = Join-Path $destination 'bin/aml.exe'
+            & $launcher version
+            if ($LASTEXITCODE -ne 0) { throw 'Installed launcher failed.' }
+            & $php tests/package-integrity.php $destination
+            if ($LASTEXITCODE -ne 0) { throw 'Installed package integrity failed.' }
             & $php tests/console-package.php $destination $launcher
             if ($LASTEXITCODE -ne 0) { throw 'Installed console validation failed.' }
           } finally {
@@ -49,6 +55,30 @@ jobs:
             }
           }
           if (Test-Path (Join-Path $destination 'bin/aml.exe')) { throw 'The test installation was not removed.' }
+      - name: Verify checksums and extracted portable archive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($checksum in Get-ChildItem 'dist/*.sha256') {
+            $line = (Get-Content $checksum.FullName -Raw).Trim()
+            if ($line -notmatch '^([a-fA-F0-9]{64})\s+(.+)$') { throw "Invalid checksum file: $checksum" }
+            $expected = $Matches[1].ToLowerInvariant()
+            $archive = Join-Path $checksum.DirectoryName $Matches[2]
+            if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw "Checksum mismatch: $archive" }
+          }
+          $extracted = Join-Path $env:RUNNER_TEMP ('aml portable-' + [guid]::NewGuid().ToString('N'))
+          try {
+            Expand-Archive 'dist/aml-windows-x64.zip' -DestinationPath $extracted
+            $php = Join-Path $extracted 'runtime/php/php.exe'
+            & (Join-Path $extracted 'bin/aml.exe') version
+            if ($LASTEXITCODE -ne 0) { throw 'Extracted launcher failed.' }
+            & $php tests/package-integrity.php $extracted
+            if ($LASTEXITCODE -ne 0) { throw 'Extracted package integrity failed.' }
+            & $php tests/console-package.php $extracted
+            if ($LASTEXITCODE -ne 0) { throw 'Extracted console validation failed.' }
+          } finally {
+            if (Test-Path $extracted) { Remove-Item -Recurse -Force $extracted }
+          }
       - uses: actions/upload-artifact@v4
         with:
           name: aml-windows-x64

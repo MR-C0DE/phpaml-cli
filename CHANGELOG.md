@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.7.0-beta.45 — Unreleased
+
+- align generated AML View applications with View `^0.1.0-beta.13` and Engine
+  `^0.1.0-beta.9`, preserving existing commands and component APIs;
+- serve the complete modular asset graph and select the modular runtime in new
+  View applications, while retaining the complete compatibility bundle;
+- verify real CLI-created applications from local distribution ZIPs, including
+  production archives, routing, styles and all Engine assets with both runtimes
+  on Chromium, Firefox and WebKit;
+- document Core, optional frontend modules and the coordinated release process.
+- preserve View's rendered 404/error pages through the server middleware,
+  retaining HTTP status and security headers instead of replacing the body
+  with a generic server error page.
+
+No new application features. See [candidate release notes](docs/frontend-release.md).
+
 ## 1.7.0-beta.44 — 2026-10-16
 
 - improve `aml create-console` with shared application and Composer autoloading,

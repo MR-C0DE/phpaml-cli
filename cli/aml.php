@@ -1866,7 +1866,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
-    $constraint = $version === null ? '^0.1.0-beta.12' : ltrim(trim($version), 'v');
+    $constraint = $version === null ? '^0.1.0-beta.13' : ltrim(trim($version), 'v');
     if (preg_match('/^[0-9A-Za-z.*^~<>=|@+_.-]+$/', $constraint) !== 1) {
         fail('La version AML View est invalide.');
     }
@@ -2111,7 +2111,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
     output('Installation de phpaml/view…');
     $command = 'cd ' . escapeshellarg($root) . ' && ' . composerCommand()
         . ' require ' . escapeshellarg('phpaml/view:' . $constraint)
-        . ' ' . escapeshellarg('phpaml/engine:^0.1@beta')
+        . ' ' . escapeshellarg('phpaml/engine:^0.1.0-beta.9')
         . ' --no-interaction --prefer-dist --no-progress';
     passthru($command, $exitCode);
     if ($exitCode !== 0) {
@@ -2650,6 +2650,83 @@ PHP;
             output('Migré : intégration public/index.php vers app/UI');
         }
     }
+
+    // Upgrade both new and existing View integrations with the optional parser route.
+    $index = (string) file_get_contents($indexPath);
+    if (!str_contains($index, 'EngineRuntime::evalAssetFilename')) {
+        $evalRoute = <<<'PHP'
+        if (method_exists(\AML\Engine\EngineRuntime::class, 'evalAssetFilename')
+            && in_array($requestPath, ['/_aml/' . \AML\Engine\EngineRuntime::evalAssetFilename(), '/_aml/' . \AML\Engine\EngineRuntime::evalAssetFilename() . '.map'], true)) {
+            $isMap = str_ends_with($requestPath, '.map');
+            $parser = file_get_contents(\AML\Engine\EngineRuntime::evalAssetPath() . ($isMap ? '.map' : ''));
+            if ($parser === false) {
+                return new \PHPAML\Http\Response('AML Engine eval parser unavailable.', 404);
+            }
+            return new \PHPAML\Http\Response($parser, 200, [
+                'Content-Type' => ($isMap ? 'application/json' : 'text/javascript') . '; charset=utf-8',
+                'Cache-Control' => 'public, max-age=31536000, immutable',
+            ]);
+        }
+
+PHP;
+        $anchor = "        if (\$requestPath === '/_aml/styles.css') {";
+        $updated = str_replace($anchor, $evalRoute . $anchor, $index);
+        if ($updated !== $index && file_put_contents($indexPath, $updated, LOCK_EX) === false) {
+            fail('Impossible de brancher l’analyseur eval de AML Engine.');
+        }
+    }
+
+    // Publish the modular runtime and enable it only with a compatible asset route.
+    $index = (string) file_get_contents($indexPath);
+    if (!str_contains($index, 'EngineRuntime::publicAssetPath')) {
+        $moduleRoute = <<<'PHPAML_MODULE_ROUTE'
+        if (method_exists(\AML\Engine\EngineRuntime::class, 'publicAssetPath') && str_starts_with($requestPath, '/_aml/')) {
+            $moduleAsset = \AML\Engine\EngineRuntime::publicAssetPath(substr($requestPath, 6));
+            if ($moduleAsset !== null) {
+                $moduleBody = file_get_contents($moduleAsset);
+                if ($moduleBody === false) return new \PHPAML\Http\Response('AML Engine module unavailable.', 404);
+                return new \PHPAML\Http\Response($moduleBody, 200, [
+                    'Content-Type' => (str_ends_with($moduleAsset, '.map') ? 'application/json' : 'text/javascript') . '; charset=utf-8',
+                    'Cache-Control' => 'public, no-cache',
+                ]);
+            }
+        }
+
+PHPAML_MODULE_ROUTE;
+        $index = str_replace("        if (\$requestPath === '/_aml/styles.css') {", $moduleRoute . "        if (\$requestPath === '/_aml/styles.css') {", $index);
+    }
+    if (str_contains($index, 'EngineRuntime::publicAssetPath') && !str_contains($index, 'EngineRuntime::externalScript(modular: true)')) {
+        $index = str_replace('\\AML\\Engine\\EngineRuntime::externalScript()',
+            "(method_exists(\\AML\\Engine\\EngineRuntime::class, 'moduleAssetFilename') ? \\AML\\Engine\\EngineRuntime::externalScript(modular: true) : \\AML\\Engine\\EngineRuntime::externalScript())", $index);
+    }
+    // Framework supplies generic error pages after middleware processing. View
+    // has already rendered its own declarative states; keep that body while
+    // preserving the final status and all middleware/security headers.
+    $viewErrorAnchors = [
+        '    $response = $application->handle($request, static function (\\PHPAML\\Http\\Request $viewRequest) use ($application, $viewApp, $requestPath, $viewDebug): \\PHPAML\\Http\\Response {',
+        '        return \\PHPAML\\Http\\Response::html($html, $status);',
+        "    \$response->send();\n    return;",
+    ];
+    if (!str_contains($index, '$viewErrorResponse')
+        && count(array_filter($viewErrorAnchors, static fn (string $anchor): bool => substr_count($index, $anchor) === 1)) === count($viewErrorAnchors)) {
+        $index = str_replace(
+            $viewErrorAnchors,
+            [
+                "    \$viewErrorResponse = null;\n    \$response = \$application->handle(\$request, static function (\\PHPAML\\Http\\Request \$viewRequest) use (\$application, \$viewApp, \$requestPath, \$viewDebug, &\$viewErrorResponse): \\PHPAML\\Http\\Response {",
+                "        \$pageResponse = \\PHPAML\\Http\\Response::html(\$html, \$status);\n        if (\$status >= 400) \$viewErrorResponse = \$pageResponse;\n        return \$pageResponse;",
+                <<<'PHPAML_VIEW_ERRORS'
+    if ($viewErrorResponse !== null && $response->status() === $viewErrorResponse->status()) {
+        $headers = array_filter($response->headers(), static fn (string $name): bool => !in_array(strtolower($name), ['content-type', 'content-length'], true), ARRAY_FILTER_USE_KEY);
+        $response = \PHPAML\Http\Response::html($viewErrorResponse->content(), $response->status(), $headers);
+    }
+    $response->send();
+    return;
+PHPAML_VIEW_ERRORS,
+            ],
+            $index,
+        );
+    }
+    if (file_put_contents($indexPath, $index, LOCK_EX) === false) fail('Impossible de brancher les modules de AML Engine.');
 
     $manifest = projectInfo($root);
     $manifest['modules'] = is_array($manifest['modules'] ?? null) ? $manifest['modules'] : [];
@@ -3233,7 +3310,7 @@ return [
     'cors' => [
         'origins' => $origins,
         'methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        'headers' => ['Accept', 'Content-Type', 'Authorization'],
+        'headers' => ['Accept', 'Content-Type', 'Authorization', 'Idempotency-Key'],
     ],
     'tokens' => [
         'storage_path' => dirname(__DIR__) . '/runtime/storage/api-tokens.json',
@@ -3315,7 +3392,7 @@ function apiManifestDefaults(): array
         'cors' => [
             'origins' => ['http://localhost:5173'],
             'methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-            'headers' => ['Accept', 'Content-Type', 'Authorization'],
+            'headers' => ['Accept', 'Content-Type', 'Authorization', 'Idempotency-Key'],
         ],
         'tokens' => ['storage_path' => 'runtime/storage/api-tokens.json', 'ttl' => 86400],
         'auth' => ['enabled' => true],

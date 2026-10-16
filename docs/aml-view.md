@@ -27,6 +27,27 @@ Use `aml create-view .` in the current directory. AML installs View and
 Engine automatically. `aml create` keeps creating a classic MVC application
 without AML View.
 
+## Runtime and compatible packages / Runtime et paquets compatibles
+
+CLI `1.7.0-beta.45` selects View `^0.1.0-beta.13` and Engine
+`^0.1.0-beta.9`. The new application's entrypoint uses
+`EngineRuntime::externalScript(modular: true)` and serves every allowlisted
+asset through `EngineRuntime::publicAssetPath()` under `/_aml/`.
+
+Core handles State, events, DOM bindings, conditions, lists, navigation,
+lifecycle, local forms, diagnostics and module loading. Files, Browser APIs
+and Animations are optional chunks of the **same Engine Composer package**;
+no additional package, JavaScript setup or component syntax is required.
+Unicode, Intl, BCMath, Regex, Date, SPL and Reflection are also optional.
+They load when the compiled interface needs them. Charts, Realtime, Media,
+Canvas 2D and 3D are not part of this extraction.
+
+The complete bundle and the default `externalScript()` remain compatible.
+Existing projects can keep that integration. When opting into modules, deploy
+the entrypoint, its relative chunks, the asset manifest and source maps from
+one build together. Do not copy only `engine.js` or rename hashed chunks.
+See [the coordinated release guide](frontend-release.md).
+
 ## Project structure / Structure du projet
 
 ```text
