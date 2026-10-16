@@ -34,7 +34,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: mbstring
+          extensions: curl, mbstring, openssl, pdo, pdo_sqlite, zip
           coverage: none
       - name: Validate console PHP sources
         shell: bash
