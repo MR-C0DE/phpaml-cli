@@ -87,6 +87,7 @@ for (const [family, version, zip] of [['templates', template.version, templateZi
 const cliExtract = resolve(work, 'cli-source'); extract(cliZip, cliExtract);
 const cliSource = resolve(cliExtract, readdirSync(cliExtract)[0]);
 const cliHome = resolve(work, 'cli'); mkdirSync(resolve(cliHome, 'runtime/bin'), {recursive: true});
+mkdirSync(resolve(cliHome, 'runtime/tmp'), {recursive: true});
 for (const file of readdirSync(resolve(cliSource, 'cli')).filter(file => file.endsWith('.php'))) {
   cpSync(resolve(cliSource, 'cli', file), resolve(cliHome, 'runtime/bin', file));
 }
