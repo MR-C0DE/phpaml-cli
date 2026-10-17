@@ -32,6 +32,10 @@ open-source positioning and for later public releases.
 - [ ] The generated application's production ZIP contains and serves every
   file in Engine's public asset manifest.
 - [ ] Linux x64, macOS ARM64, and Windows x64 workflows pass.
+- [ ] [macOS signing secrets](macos-signing.md) are configured; Developer ID
+      signatures, Apple notarization, attached ticket and Gatekeeper pass on the
+      exact artifacts being published. The signing report matches their digests.
+- [ ] Beta releases remain prereleases and do not replace the latest stable release.
 - [ ] Installer artifacts and SHA-256 files are present for every platform.
 - [ ] A clean installation succeeds without global PHP or Composer.
 - [ ] Upgrade from the current stable CLI succeeds.

@@ -12,6 +12,7 @@ permissions:
 jobs:
   macos:
     uses: ./.github/workflows/build-macos-arm64.yml
+    secrets: inherit
   linux:
     uses: ./.github/workflows/build-linux-x64.yml
   windows:

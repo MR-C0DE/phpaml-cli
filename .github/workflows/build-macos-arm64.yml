@@ -3,6 +3,17 @@ name: Build macOS ARM64
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      MACOS_APPLICATION_P12_BASE64:
+        required: true
+      MACOS_INSTALLER_P12_BASE64:
+        required: true
+      MACOS_P12_PASSWORD:
+        required: true
+      APPLE_ID:
+        required: true
+      APPLE_APP_SPECIFIC_PASSWORD:
+        required: true
   push:
     tags:
       - "v*"
@@ -10,11 +21,27 @@ on:
 jobs:
   build:
     runs-on: macos-14
-    timeout-minutes: 60
+    timeout-minutes: 90
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - name: Check signing configuration
+        env:
+          MACOS_APPLICATION_P12_BASE64: ${{ secrets.MACOS_APPLICATION_P12_BASE64 }}
+          MACOS_INSTALLER_P12_BASE64: ${{ secrets.MACOS_INSTALLER_P12_BASE64 }}
+          MACOS_P12_PASSWORD: ${{ secrets.MACOS_P12_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import os
+          required = ('MACOS_APPLICATION_P12_BASE64', 'MACOS_INSTALLER_P12_BASE64',
+                      'MACOS_P12_PASSWORD', 'APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD')
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit('Missing signing secrets: ' + ', '.join(missing))
+          PY
       - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
@@ -23,6 +50,16 @@ jobs:
         run: ./scripts/build-macos-arm64.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Sign, notarize and verify the macOS distribution
+        env:
+          MACOS_APPLICATION_P12_BASE64: ${{ secrets.MACOS_APPLICATION_P12_BASE64 }}
+          MACOS_INSTALLER_P12_BASE64: ${{ secrets.MACOS_INSTALLER_P12_BASE64 }}
+          MACOS_P12_PASSWORD: ${{ secrets.MACOS_P12_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        run: |
+          version="$(python3 -c 'import json; print(json.load(open("phpaml.json"))["version"])')"
+          python3 scripts/macos-signing.py sign --directory dist --version "$version" --commit "$GITHUB_SHA"
       - name: Test installed macOS package
         run: |
           sudo installer -pkg dist/phpaml-*-macos-arm64.pkg -target /
@@ -53,3 +90,5 @@ jobs:
             dist/aml-macos-arm64.tar.gz.sha256
             dist/phpaml-*-macos-arm64.pkg
             dist/phpaml-*-macos-arm64.pkg.sha256
+            dist/macos-signing.json
+          if-no-files-found: error

@@ -19,7 +19,7 @@ concurrency:
 jobs:
   publish:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    runs-on: macos-14
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +33,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: python3 scripts/prepare-release.py "$RELEASE_TAG"
+      - name: Independently verify Apple signatures and notarization
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          SOURCE_COMMIT: ${{ steps.release.outputs.sha }}
+        run: |
+          python3 scripts/macos-signing.py verify --directory release-assets \
+            --version "$RELEASE_VERSION" --commit "$SOURCE_COMMIT"
       - name: Publish the verified version
         env:
           GH_TOKEN: ${{ github.token }}
@@ -46,7 +53,7 @@ jobs:
             exit 1
           fi
           args=()
-          if [[ "$PRERELEASE" == true ]]; then args+=(--prerelease); fi
+          if [[ "$PRERELEASE" == true ]]; then args+=(--prerelease --latest=false); fi
           gh release create "$RELEASE_TAG" release-assets/* release-provenance.json \
             --verify-tag "${args[@]}" --notes-file RELEASE-NOTES.md \
             --title "PHPAML CLI ${RELEASE_TAG#v}"
