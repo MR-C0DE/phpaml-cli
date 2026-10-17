@@ -25,7 +25,10 @@ avertissement.
 
 ## macOS ARM64
 
-Le paquet actuel cible les Mac Apple Silicon (`arm64`).
+Le paquet actuel cible les Mac Apple Silicon (`arm64`). La
+[bêta 1.7.0-beta.45](https://github.com/MR-C0DE/phpaml-cli/releases/tag/v1.7.0-beta.45)
+propose un paquet signé avec Developer ID, notarié par Apple et accompagné de
+son ticket de notarisation. Elle reste distincte du canal stable.
 
 1. Téléchargez `phpaml-<version>-macos-arm64.pkg`.
 2. Ouvrez le paquet et suivez l’assistant.
@@ -37,8 +40,10 @@ aml doctor
 ```
 
 AML est installé dans `/usr/local/lib/aml` et la commande est exposée dans
-`/usr/local/bin/aml`. Le paquet n’étant pas encore signé par Apple, macOS peut
-demander une confirmation dans Réglages Système > Confidentialité et sécurité.
+`/usr/local/bin/aml`. L’installation demande les droits administrateur du Mac.
+Le paquet signé de la bêta 1.7.0-beta.45 est accepté par Gatekeeper sans
+désactiver les protections de macOS. Les anciennes distributions non signées
+ne bénéficient pas de cette notarisation.
 
 ## Linux x64 — Debian et Ubuntu
 
@@ -102,3 +107,15 @@ aml --update
 
 `aml --update` choisit le paquet natif, le télécharge depuis GitHub et vérifie son
 SHA-256 avant de lancer l’installation.
+
+La commande sans version explicite suit le canal stable. Pour installer la
+bêta signée, y compris pour remplacer une copie non signée portant déjà le
+même numéro :
+
+```bash
+aml update --version 1.7.0-beta.45 --force
+```
+
+Sur macOS, saisissez le mot de passe administrateur lorsque `sudo` le demande.
+Une installation portable télécharge et vérifie le paquet, puis indique son
+chemin pour permettre de lancer l’installateur manuellement.
