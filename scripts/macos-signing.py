@@ -240,7 +240,7 @@ def sign(args):
         response = run("xcrun", "notarytool", "submit", directory / installer, *authentication,
                        "--wait", "--timeout", "20m", "--output-format", "json")
         notary = json.loads(response.stdout)
-        if notary.get("id") or notary.get("status") != "Accepted":
+        if not notary.get("id") or notary.get("status") != "Accepted":
             raise ValueError("Apple did not accept the installer: " + json.dumps(notary))
         run("xcrun", "stapler", "staple", directory / installer)
     with tarfile.open(directory / portable, "w:gz") as archive:

@@ -1,4 +1,5 @@
 import hashlib
+from contextlib import redirect_stdout
 import importlib.util
 import io
 import json
@@ -149,6 +150,45 @@ class ReleaseIntegrity(unittest.TestCase):
                 with release.signing.signing_credentials(args):
                     self.fail("Signing must not continue without credentials")
             command.assert_not_called()
+
+    def test_accepted_notarization_finishes_distribution_and_rejected_results_stop(self):
+        accepted = {"id": "d32d75f2-5521-4710-ab44-bf04e4a54e0e", "status": "Accepted"}
+        for response in [accepted, {"status": "Accepted"},
+                         {**accepted, "status": "Invalid"},
+                         {**accepted, "status": "In Progress"}]:
+            with self.subTest(response=response), tempfile.TemporaryDirectory() as temporary:
+                directory = Path(temporary)
+                root = directory / "aml-macos-arm64"
+                root.mkdir()
+                (root / "fixture").write_bytes(b"payload")
+                evidence = directory / release.signing.REPORT
+                evidence.write_text("old successful report")
+                args = SimpleNamespace(directory=directory, version=self.version, commit=self.sha,
+                                       keychain="test.keychain", notary_profile="test-profile")
+
+                def native_command(*arguments):
+                    if arguments[0] == "pkgbuild":
+                        Path(arguments[-1]).write_bytes(b"signed installer")
+                    output = json.dumps(response).encode() if arguments[:3] == ("xcrun", "notarytool", "submit") else b""
+                    return SimpleNamespace(stdout=output, stderr=b"")
+
+                with patch.object(release.signing, "run", side_effect=native_command) as command, \
+                     patch.object(release.signing, "verify", return_value=dict.fromkeys(release.signing.CHECKS, True)) as verify, \
+                     redirect_stdout(io.StringIO()):
+                    if response == accepted:
+                        release.signing.sign(args)
+                        report = release.signing.validate_report(directory, self.version, self.sha)
+                        self.assertEqual(report["notarization"], accepted)
+                        verify.assert_called_once()
+                        command.assert_any_call("xcrun", "stapler", "staple", directory / release.signing.names(self.version)[1])
+                        for name in release.signing.names(self.version):
+                            self.assertTrue((directory / (name + ".sha256")).is_file())
+                    else:
+                        with self.assertRaisesRegex(ValueError, "Apple did not accept"):
+                            release.signing.sign(args)
+                        verify.assert_not_called()
+                        self.assertFalse(evidence.exists())
+                        self.assertFalse(any(call.args[:2] == ("xcrun", "stapler") for call in command.call_args_list))
 
 if __name__ == "__main__":
     unittest.main()
