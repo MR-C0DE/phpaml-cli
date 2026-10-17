@@ -38,7 +38,9 @@ do {
         let phrase = password as CFString
         parameters.passphrase = Unmanaged.passUnretained(phrase)
         var exported: CFData?
-        try checked(SecItemExport(matches[0], .formatPKCS12, [], &parameters, &exported))
+        try checked(withExtendedLifetime(phrase) {
+            SecItemExport(matches[0], .formatPKCS12, [], &parameters, &exported)
+        })
         let target = URL(fileURLWithPath: CommandLine.arguments[2]).appendingPathComponent(kind + ".p12")
         try (exported! as Data).write(to: target, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: target.path)
