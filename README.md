@@ -1,6 +1,6 @@
 # PHPAML
 
-> Frontend candidate: CLI **1.7.0-beta.45**, View **0.1.0-beta.13**, Engine **0.1.0-beta.9**.
+> Frontend candidate: CLI **1.7.0-beta.46**, View **0.1.0-beta.14**, Engine **0.1.0-beta.10**.
 > See [compatibility, modules and release verification](docs/frontend-release.md).
 
 [![Latest release](https://img.shields.io/github/v/release/MR-C0DE/phpaml-cli?include_prereleases&label=release)](https://github.com/MR-C0DE/phpaml-cli/releases/latest)

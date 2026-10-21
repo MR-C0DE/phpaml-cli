@@ -151,6 +151,19 @@ class ReleaseIntegrity(unittest.TestCase):
                     self.fail("Signing must not continue without credentials")
             command.assert_not_called()
 
+    def test_signing_verifier_rejects_unpatched_or_wrong_php(self):
+        for expected in [None, "", "8.4", "8.4.27\n"]:
+            with self.subTest(expected=expected), patch.object(release.signing, "run") as command:
+                with self.assertRaises(ValueError):
+                    release.signing.verify_php_runtime(Path("package"), expected)
+                command.assert_not_called()
+        for actual in ["8.4.26", "8.4.11", "8.5.12", "8.4.27-dev", ""]:
+            with self.subTest(actual=actual), patch.object(release.signing, "run", return_value=SimpleNamespace(stdout=actual.encode())):
+                with self.assertRaisesRegex(ValueError, "Bundled PHP version mismatch"):
+                    release.signing.verify_php_runtime(Path("package"), "8.4.27")
+        with patch.object(release.signing, "run", return_value=SimpleNamespace(stdout=b"8.4.27")):
+            release.signing.verify_php_runtime(Path("package"), "8.4.27")
+
     def test_accepted_notarization_finishes_distribution_and_rejected_results_stop(self):
         accepted = {"id": "d32d75f2-5521-4710-ab44-bf04e4a54e0e", "status": "Accepted"}
         for response in [accepted, {"status": "Accepted"},

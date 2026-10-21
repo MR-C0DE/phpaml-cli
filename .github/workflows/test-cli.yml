@@ -84,6 +84,9 @@ jobs:
       - name: Test PHP runtime selection
         shell: bash
         run: php ./tests/php-runtime-smoke.php
+      - name: Test stable and explicit beta update selection
+        shell: bash
+        run: php ./tests/update-channel-smoke.php
       - name: Test aml doctor on Unix
         if: runner.os != 'Windows'
         shell: bash
@@ -120,6 +123,8 @@ jobs:
         shell: bash
         env:
           PHPAML_FRAMEWORK_SOURCE: ${{ github.workspace }}/.integration/framework/src
+          PHPAML_VIEW_SOURCE: ${{ github.workspace }}/.integration/view
+          PHPAML_ENGINE_SOURCE: ${{ github.workspace }}/.integration/engine
         run: PHP_BINARY=php ./tests/view-smoke.sh
       - name: Test automatic runtime recovery on Unix
         if: runner.os != 'Windows'

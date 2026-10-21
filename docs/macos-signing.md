@@ -6,6 +6,8 @@ verifies Gatekeeper acceptance, compares the installer with the portable archive
 and checks the PHP sources against the exact build commit. SHA-256 manifests
 are generated only after signing and stapling. Native installation and console
 tests then run on the signed distribution before artifacts are uploaded.
+The verifier also executes the signed PHP binary and requires the exact
+`runtime.php_version` from the commit's `phpaml.json` (`8.4.27` for beta.46).
 
 `Publish CLI release` runs on macOS and repeats the Apple signature, entitlement,
 ticket, Gatekeeper and payload checks on the downloaded artifacts. It also

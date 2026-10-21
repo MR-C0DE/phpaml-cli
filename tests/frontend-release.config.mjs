@@ -15,7 +15,7 @@ for (const [build, app] of [['development', process.env.PHPAML_CREATED_APP], ['p
     for (const browserName of ['chromium', 'firefox', 'webkit']) {
       projects.push({name: `${build}-${runtime}-${browserName}`, metadata: {build, runtime, app},
         // HTTP byte checks are browser-independent; run them once per integration.
-        ...(browserName === 'chromium' ? {} : {grep: /generated routes/}), use: {baseURL, browserName,
+        ...(browserName === 'chromium' ? {} : {grep: /generated (?:routes|styles)/}), use: {baseURL, browserName,
         ...(browserName === 'chromium' && process.env.CHROMIUM_EXECUTABLE_PATH ? {launchOptions: {executablePath: process.env.CHROMIUM_EXECUTABLE_PATH}} : {})}});
     }
   }

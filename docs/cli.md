@@ -264,10 +264,17 @@ Les dossiers placés sous `src/views/pages/` deviennent automatiquement les URL
 du site. Les layouts et états sont associés depuis leurs dossiers dédiés.
 Aucun registre manuel n’est nécessaire.
 
-Les styles suivent la même organisation que les vues. Le moteur regroupe
-automatiquement tous les fichiers de `src/views/stylesheets/` et les expose à
+Les styles suivent la même organisation que les vues. View regroupe les feuilles
+déclarées avec `import('pages/home.css')`, relativement à `src/views/stylesheets/`,
+ainsi que `stylesheets/base.css` et les CSS de `themes/`, puis les expose à
 `/_aml/styles.css`. `public/index.php` charge uniquement cette feuille générée :
 aucun CSS applicatif n’est dispersé dans `public/`.
+L’import se déclare en haut du fichier PHP de la vue, avant la classe, avec
+`use function AML\View\import;`. Retirer le dernier import retire la feuille au
+prochain rechargement ou build de production. Les imports restent globaux entre
+les routes. `aml build` utilise le View installé dans l’application pour obtenir
+le même résultat qu’en développement. Les applications existantes doivent
+importer explicitement leurs feuilles autres que les styles de base et les thèmes.
 Le dossier `public/assets/` reçoit les images et ressources ajoutées par
 l’application. Les documents qui doivent conserver une URL directe restent à
 la racine de `public/` : logo, favicon, `robots.txt`, `sitemap.xml`, etc.

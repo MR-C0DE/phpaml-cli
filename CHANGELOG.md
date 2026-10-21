@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### 1.7.0-beta.46 candidate
+
+- Pin bundled PHP to `8.4.27` on macOS, Linux and Windows for the security
+  fixes for CVE-2026-109618 and CVE-2026-109619. Refuse a different PHP version
+  during packaging, installed/portable checks and the macOS publication verifier.
+
+- Select View `^0.1.0-beta.14` and Engine `^0.1.0-beta.10` for new View
+  applications, including Picker, Toggle and Calendar. Preserve beta/stable
+  publication channels and the signed macOS release workflow.
+- Verify the installed View Style API and colocated CSS module through the
+  distributed example, including the production archive and both runtimes.
+- Finalize the Style/CSS candidate with installed regressions for reactive
+  values, CSS-wide keywords, clearing, `!important`, composition, conditions and keyframes in
+  development and production. Verify TestView from the archive, and test stable
+  versus explicit beta update selection with mocked release metadata.
+
+- Generate production CSS through the application's installed View runtime,
+  matching development import selection, errors and ordering. Preserve empty
+  bundles to replace stale public CSS. Declare starter state stylesheet imports
+  and verify that removing an import removes CSS from the production archive.
+
 ## 1.7.0-beta.45 — 2026-10-16
 
 - align generated AML View applications with View `^0.1.0-beta.13` and Engine

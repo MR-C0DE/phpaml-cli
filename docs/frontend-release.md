@@ -1,18 +1,32 @@
-# Frontend release — CLI 1.7.0-beta.45
+# Frontend release candidate — CLI 1.7.0-beta.46
 
-This release aligns applications created by the CLI with the modular Engine
-distribution. It adds no application feature and preserves the current View,
-Engine and CLI APIs. The packages remain independently versioned:
+This candidate finalizes explicit CSS imports, Style and the existing beta.46
+Picker, Toggle and Calendar work. The Style API scope is frozen for beta.46;
+finalization fixes declaration clearing, reactive priority, CSS-wide keywords
+and PHP test parity.
+The verification app includes the distributed `/controls`, `/style-check` and
+`/style-conditions` fixtures in development and production. These test pages are
+not inserted into normal starters.
+
+The finalization preserves the current View, Engine and CLI APIs. The packages
+remain independently versioned:
 
 | Component | Version | Selection |
 |---|---|---|
-| CLI | `1.7.0-beta.45` | Scaffolding, installation and build |
-| View | `0.1.0-beta.13` | CLI requires `^0.1.0-beta.13` |
-| Engine | `0.1.0-beta.9` | CLI and View require `^0.1.0-beta.9` |
+| CLI | `1.7.0-beta.46` | Scaffolding, installation and build |
+| View | `0.1.0-beta.14` | CLI requires `^0.1.0-beta.14` |
+| Engine | `0.1.0-beta.10` | CLI and View require `^0.1.0-beta.10` |
 | Template | `0.5.0-beta.10` | Existing starter, unchanged |
 | Framework | `0.3.0-beta.7` | Existing server foundation, unchanged |
 
 ## Release notes
+
+Style supports fluent/named/composed PHP styles, local CSS files, reactive
+values, native pseudo states/elements, media/supports/container conditions and
+scoped keyframes. The finalization adds no Style API. Empty ordinary values
+restore the surrounding CSS cascade; important priority belongs to the
+declaration, not its storage variable. Malformed updates retain the prior value
+and report a recoverable error. TestView follows the same binding contracts.
 
 New View applications serve the full Engine asset manifest and use the modular
 entry by default. State, events, DOM rendering, conditions, lists, navigation,
@@ -78,10 +92,17 @@ test, not a claim that a particular installed Safari version was tested.
 
 `--prepare-only` performs packaging and PHP checks without browsers. It leaves
 `browsers: not-run` in the report and is not a complete release validation.
-The default output is `dist/frontend-1.7.0-beta.45/` (override with
+The default output is `dist/frontend-1.7.0-beta.46/` (override with
 `PHPAML_RELEASE_OUTPUT`). It contains ZIPs, `SHA256SUMS`, `verification.json`,
 logs, the created application, its production copy and browser reports.
 Failed runs exit nonzero and preserve their logs for diagnosis.
+
+The installed Style regressions exercise reactive priority, empty declarations,
+composition, error recovery, container/supports rules and keyframes. Their PHP
+counterparts run against the installed autoloader, including TestView. Update
+channel checks execute the extracted CLI resolver against mocked stable/beta
+release metadata for macOS, Linux and Windows; they do not publish a release,
+install an operating-system package or establish live update availability.
 
 On macOS, after enabling Safari's remote automation once, supplement the
 Playwright run with the installed Safari:
@@ -95,10 +116,15 @@ checks navigation/history, CSS, 404 pages and runtime selection in development
 and production, and writes `safari.json` with the actual browser version.
 The script closes only the sessions and servers it created.
 
+For a local finalization run, set `CHROMIUM_EXECUTABLE_PATH` to the installed
+Google Chrome binary to verify Chrome itself, and keep the Safari report beside
+the same archive checksums. A fresh source edit requires rebuilding the archive
+before treating its previous verification as evidence for that edit.
+
 ## Publication order
 
 These commands prepare local candidates; they do not tag, upload or publish.
-Publish Engine beta.9 before View beta.13, then CLI beta.45 after dependency
+Publish Engine beta.10 before View beta.14, then CLI beta.46 after dependency
 resolution against the published packages succeeds. Keep Template and Framework
 at their validated versions. Before a public CLI release, also run the existing
 Linux, macOS and Windows standalone packaging workflows and installation tests.
@@ -106,6 +132,13 @@ Local macOS archives do not establish Windows/Linux installation compatibility.
 Use the [release checklist](release-checklist.md) for the remaining release gates.
 
 ## Native packages and publication
+
+Beta.46 pins PHP `8.4.27` in both native build configurations and in
+`phpaml.json`. It includes the upstream fixes for CVE-2026-109618 and
+CVE-2026-109619. Package checks execute the bundled binary and reject an older
+or different version, including after installation and portable extraction.
+The macOS publication verifier repeats this check on the signed payload.
+See the [PHP security release](https://www.php.net/releases/8_4_27.php).
 
 `Validate native packages` invokes the Linux, macOS and Windows build workflows
 without publishing. Each platform checks its actual installation, portable

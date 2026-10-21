@@ -24,7 +24,7 @@ APPLICATION = f"Developer ID Application: Andre Mulaja ({TEAM})"
 INSTALLER = f"Developer ID Installer: Andre Mulaja ({TEAM})"
 REPORT = "macos-signing.json"
 CHECKS = ("codeSignatures", "hardenedRuntime", "entitlements", "installerSignature",
-          "stapledTicket", "gatekeeper", "matchingPayloads", "taggedSources")
+          "stapledTicket", "gatekeeper", "matchingPayloads", "taggedSources", "phpRuntime")
 SECRET_NAMES = ("MACOS_APPLICATION_P12_BASE64", "MACOS_INSTALLER_P12_BASE64",
                 "MACOS_P12_PASSWORD", "APPLE_ID", "APPLE_APP_SPECIFIC_PASSWORD")
 REDACT = []
@@ -116,6 +116,14 @@ def verify_binary(path, identifier, jit):
         raise ValueError(f"Unexpected entitlements: {path.name}")
 
 
+def verify_php_runtime(root, expected):
+    if not isinstance(expected, str) or not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", expected):
+        raise ValueError("An exact bundled PHP version is required.")
+    actual = run(root / "runtime/php/bin/php", "-n", "-r", "echo PHP_VERSION;").stdout.decode().strip()
+    if actual != expected:
+        raise ValueError(f"Bundled PHP version mismatch: expected {expected}, got {actual}.")
+
+
 def verify(directory, version, commit):
     portable, installer = names(version)
     if not re.fullmatch(r"[a-f0-9]{40}", commit):
@@ -160,8 +168,10 @@ def verify(directory, version, commit):
                 raise ValueError(f"Installed source differs from {commit}: {source}")
         if set(tree_files(archive_root)) != expected_files:
             raise ValueError("Unexpected files in the AML distribution.")
-        if json.loads((archive_root / "phpaml.json").read_text())["version"] != version:
+        metadata = json.loads((archive_root / "phpaml.json").read_text())
+        if metadata["version"] != version:
             raise ValueError("Installed version mismatch.")
+        verify_php_runtime(archive_root, metadata.get("runtime", {}).get("php_version"))
     return dict.fromkeys(CHECKS, True)
 
 

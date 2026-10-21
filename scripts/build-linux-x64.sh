@@ -48,6 +48,7 @@ cp "$ROOT/phpaml.json" "$PACKAGE/phpaml.json"
 chmod 755 "$PACKAGE/bin/aml" "$PACKAGE/runtime/php/bin/php"
 
 env -i PATH=/usr/bin:/bin HOME="${TMPDIR:-/tmp}" "$PACKAGE/bin/aml" version
+"$PACKAGE/runtime/php/bin/php" "$ROOT/tests/package-integrity.php" "$PACKAGE"
 "$PACKAGE/runtime/php/bin/php" "$ROOT/tests/console-package.php" "$PACKAGE"
 
 tar -czf "$ROOT/dist/aml-linux-x64.tar.gz" -C "$ROOT/dist" aml-linux-x64

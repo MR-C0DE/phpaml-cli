@@ -122,6 +122,7 @@ if (process.env.PHPAML_COMPOSER_CACHE_SOURCE) {
 }
 const application = resolve(work, 'created-app');
 step('cli-version', php, [cli, 'version'], {env});
+step('update-channel-selection', php, [resolve(root, 'tests/update-channel-smoke.php'), cli], {env});
 step('create-view', php, [cli, 'create-view', application, '--offline'], {cwd: work, env});
 const lock = json(resolve(application, 'composer.lock'));
 for (const candidate of packages) {
@@ -133,6 +134,52 @@ for (const candidate of packages) {
 }
 step('app-tests', php, [cli, 'test'], {cwd: application, env});
 step('app-doctor', php, [cli, 'doctor', '--offline', '--json'], {cwd: application, env});
+// Add the distributed View example to this verification app, not to the CLI
+// starter. Its CSS and controls must survive the same production build.
+const exampleViews = resolve(application, 'runtime/phpaml/view/examples/aml-tasks/src/views');
+for (const file of ['pages/controls/page.php', 'pages/controls/controls.style.css', 'stylesheets/pages/controls.css']) {
+  const destination = resolve(application, 'src/views', file);
+  mkdirSync(dirname(destination), {recursive: true});
+  cpSync(resolve(exampleViews, file), destination);
+}
+for (const [fixture, page, css] of [['finalization', 'style-check', 'finalization.style.css'], ['conditions', 'style-conditions', 'conditions.style.css']]) {
+  const from = resolve(application, 'runtime/phpaml/view/tests/fixtures/styles', fixture);
+  const to = resolve(application, 'src/views/pages', page); mkdirSync(to, {recursive: true});
+  for (const file of ['page.php', css]) cpSync(resolve(from, file), resolve(to, file));
+}
+for (const name of ['styles', 'reactive-styles', 'style-conditions', 'style-finalization']) {
+  step(`installed-${name}`, php, ['-r', 'require $argv[1]; require $argv[2];', resolve(application, 'runtime/autoload.php'),
+    resolve(application, 'runtime/phpaml/view/tests', `${name}.php`)], {env});
+}
+// Exercise CSS through the installed ZIPs and real CLI, including a rebuild
+// after removing an import while leaving its stylesheet on disk.
+const homePage = resolve(application, 'src/views/pages/home/page.php');
+const homeSource = readFileSync(homePage, 'utf8');
+const homeImport = "import('pages/home.css');";
+if (!homeSource.includes(homeImport)) throw new Error('The generated home page must explicitly import its stylesheet.');
+const unusedStyles = resolve(application, 'src/views/stylesheets/release-unused.css');
+writeFileSync(unusedStyles, '.release-unused-css { color: red; }\n');
+const developmentCSS = () => run(php, ['-r', 'require $argv[1]; echo (new \\AML\\View\\FileApplication($argv[2]))->styles();',
+  resolve(application, 'runtime/autoload.php'), resolve(application, 'src/views')], {env});
+const productionCSS = () => run(php, ['-r', '$z=new ZipArchive; if($z->open($argv[1])!==true) exit(1); $css=$z->getFromName("public/_aml/styles.css"); if($css===false) exit(1); echo $css;',
+  resolve(application, 'output/phpaml-build.zip')], {env});
+try {
+  for (const imported of [true, false]) {
+    writeFileSync(homePage, imported ? homeSource : homeSource.replace(homeImport, ''));
+    step(`css-${imported ? 'imported' : 'removed'}-build`, php, [cli, 'build', '--skip-tests'], {cwd: application, env});
+    const development = developmentCSS(), production = productionCSS();
+    if (development !== production) throw new Error('Development and production CSS differ.');
+    if (production.includes('.home-section') !== imported || production.includes('.release-unused-css')) {
+      throw new Error('Installed distribution ignored stylesheet import ownership.');
+    }
+    if (!production.includes('.route-state') || !existsSync(resolve(application, 'src/views/stylesheets/pages/home.css'))) {
+      throw new Error('State styles or the original unimported stylesheet disappeared.');
+    }
+  }
+} finally {
+  writeFileSync(homePage, homeSource);
+  rmSync(unusedStyles, {force: true});
+}
 step('app-build', php, [cli, 'build'], {cwd: application, env});
 const production = resolve(work, 'production'); extract(resolve(application, 'output/phpaml-build.zip'), production);
 const manifest = json(resolve(production, 'build-manifest.json'));
@@ -150,7 +197,7 @@ writeFileSync(resolve(production, '.env'), `APP_ENV=production\nAPP_DEBUG=false\
 step('production-doctor', php, [cli, 'doctor', '--offline', '--production', '--json'], {cwd: production, env});
 
 const report = {status: 'prepared', cli: cliVersion, packages: packages.map(({name, version}) => ({name, version})), archives,
-  application, production, logs, assetCount: assets.length, productionFiles: manifest.files.length, browsers: 'not-run'};
+  application, production, logs, fixtures: ['View /controls example', 'Style /style-check regression', 'Style /style-conditions regression'], assetCount: assets.length, productionFiles: manifest.files.length, browsers: 'not-run'};
 writeFileSync(reportFile, JSON.stringify(report, null, 2) + '\n');
 writeFileSync(resolve(output, 'SHA256SUMS'), archives.map(({file, sha256}) => `${sha256}  ${file.slice(output.length + 1)}`).join('\n') + '\n');
 if (!process.argv.includes('--prepare-only')) {

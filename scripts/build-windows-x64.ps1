@@ -57,6 +57,9 @@ Copy-Item "$Root\phpaml.json" "$Package\phpaml.json" -Force
 & "$Package\bin\aml.exe" version
 if ($LASTEXITCODE -ne 0) { throw 'Le test du paquet AML Windows a échoué.' }
 
+& "$Package\runtime\php\php.exe" "$Root\tests\package-integrity.php" $Package
+if ($LASTEXITCODE -ne 0) { throw 'La version PHP ou le contenu du paquet Windows est incorrect.' }
+
 & "$Package\runtime\php\php.exe" "$Root\tests\console-package.php" $Package
 if ($LASTEXITCODE -ne 0) { throw 'Le test de la console embarquée a échoué.' }
 

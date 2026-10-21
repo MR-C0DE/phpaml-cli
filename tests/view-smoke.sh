@@ -213,7 +213,7 @@ cd ..
 cd generated
 
 test ! -e runtime/framework/Obsolete.php
-grep -q "require phpaml/view:\^0.1.0-beta.13 phpaml/engine:\^0.1.0-beta.9" composer-invocations.log
+grep -q "require phpaml/view:\^0.1.0-beta.14 phpaml/engine:\^0.1.0-beta.10" composer-invocations.log
 grep -q "AML View installed" ../create.log
 "$php_bin" -r 'require "runtime/autoload.php"; exit(class_exists("AML\\View\\FileApplication") && class_exists("AML\\Engine\\EngineRuntime") && class_exists("PHPAML\\Security\\CspNonce") ? 0 : 1);'
 test ! -d src/views/templates
@@ -226,6 +226,9 @@ grep -Fq 'use AML\View\{Page, PageMetadata, View};' src/views/pages/home/page.ph
 grep -q "import('pages/home.css')" src/views/pages/home/page.php
 grep -q "import('components/navigation.css')" src/views/components/Navigation.php
 grep -q "import('layouts/app.css')" src/views/layouts/AppLayout.php
+for state in Loading Error NotFound; do
+  grep -q "import('states/route-states.css')" "src/views/states/$state.php"
+done
 grep -q 'Your PHPAML app is ready' src/views/pages/home/page.php
 ! grep -q "Counter:" src/views/pages/home/page.php
 ! grep -q 'AML\\Engine\\Api\|Each(\|ThemeProvider' src/views/pages/home/page.php
@@ -411,13 +414,65 @@ test -f src/views/states/dashboard/NotFound.php
 test -f src/controllers/ApiUserController.php
 find src -name '*.php' -print0 | xargs -0 -n1 "$php_bin" -l >/dev/null
 
+# Build with the real View implementation: the Composer stub above only tests
+# installation plumbing and cannot establish CSS parity with development.
+view_source="${PHPAML_VIEW_SOURCE:-$root/../phpaml-view}"
+engine_source="${PHPAML_ENGINE_SOURCE:-$root/../phpaml-engine}"
+cp -R "$view_source/src"/. runtime/phpaml/view/src/
+cp -R "$engine_source/src"/. runtime/phpaml/engine/src/
+cat >> runtime/autoload.php <<'PHP'
+\PHPAML\Autoloader::register([
+    'AML\\View\\' => __DIR__ . '/phpaml/view/src',
+    'AML\\Engine\\' => __DIR__ . '/phpaml/engine/src',
+    'App\\Views\\Components\\' => dirname(__DIR__) . '/src/views/components',
+    'App\\Views\\Layouts\\' => dirname(__DIR__) . '/src/views/layouts',
+]);
+require_once __DIR__ . '/phpaml/view/src/functions.php';
+PHP
+printf '%s\n' '.unimported-css-probe { color:red; }' > src/views/stylesheets/unused.css
+"$php_bin" -r 'require "runtime/autoload.php"; echo (new \AML\View\FileApplication(__DIR__ . "/src/views"))->styles();' > "$fixture/development.css"
 AML_LANG=en "$php_bin" "$root/cli/aml.php" build --skip-tests > build.log
 test -f output/phpaml-build.zip
 unzip -p output/phpaml-build.zip public/_aml/styles.css | grep -q '.home-section'
 unzip -p output/phpaml-build.zip public/_aml/styles.css | grep -q '\[data-theme="light"\]'
+unzip -p output/phpaml-build.zip public/_aml/styles.css > "$fixture/production.css"
+cmp "$fixture/development.css" "$fixture/production.css"
+! grep -q 'unimported-css-probe' "$fixture/production.css"
+grep -q '.route-state' "$fixture/production.css"
 unzip -p output/phpaml-build.zip build-manifest.json > build-manifest.json
 "$php_bin" -r '$m=json_decode(file_get_contents("build-manifest.json"),true,512,JSON_THROW_ON_ERROR); if (($m["generated_assets"] ?? null) !== ["public/_aml/styles.css"] || !isset($m["hashes"]["public/_aml/styles.css"])) exit(1);'
 rm build-manifest.json
+
+# Keep the physical file, remove its import, and verify a fresh build drops it.
+cp src/views/pages/home/page.php "$fixture/home-page.php"
+"$php_bin" -r '$p="src/views/pages/home/page.php"; $s=file_get_contents($p); $s=preg_replace("/import\([^;]*\);/", "", $s); file_put_contents($p,$s);'
+AML_LANG=en "$php_bin" "$root/cli/aml.php" build --skip-tests > build-without-import.log
+unzip -p output/phpaml-build.zip public/_aml/styles.css > "$fixture/without-import.css"
+! grep -q '.home-section' "$fixture/without-import.css"
+test -f src/views/stylesheets/pages/home.css
+cp "$fixture/home-page.php" src/views/pages/home/page.php
+
+# A bad import must stop the build rather than silently package incomplete CSS.
+mv src/views/stylesheets/pages/home.css "$fixture/home.css"
+if AML_LANG=en "$php_bin" "$root/cli/aml.php" build --skip-tests > missing-css.log 2>&1; then
+  echo 'Build accepted a missing stylesheet import.' >&2
+  exit 1
+fi
+grep -q 'pages/home.css' missing-css.log
+mv "$fixture/home.css" src/views/stylesheets/pages/home.css
+
+# Removing all included styles must overwrite a stale public bundle with an
+# empty generated asset instead of accidentally reusing the previous CSS.
+mv src/views "$fixture/views-with-imports"
+mkdir -p src/views/pages/home public/_aml
+cp "$fixture/home-page.php" src/views/pages/home/page.php
+"$php_bin" -r '$p="src/views/pages/home/page.php"; file_put_contents($p,preg_replace("/import\([^;]*\);/", "", file_get_contents($p)));'
+printf '%s\n' '.stale-public-style { color:red; }' > public/_aml/styles.css
+AML_LANG=en "$php_bin" "$root/cli/aml.php" build --skip-tests > empty-css.log
+"$php_bin" -r '$z=new ZipArchive(); $z->open("output/phpaml-build.zip"); if ($z->getFromName("public/_aml/styles.css") !== "") exit(1);'
+rm -rf src/views
+mv "$fixture/views-with-imports" src/views
+rm public/_aml/styles.css
 
 AML_LANG=en AML_CACHE_HOME="$fixture/cache" AML_COMPOSER_BINARY="$fixture/composer" \
   "$php_bin" "$root/cli/aml.php" install i18n > i18n-install.log

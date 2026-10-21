@@ -1540,13 +1540,13 @@ function buildProject(bool $skipTests = false): never
         fail('Impossible de créer le dossier output.');
     }
     $archive = $outputRoot . '/phpaml-build.zip';
+    $generatedAssets = buildGeneratedAssets($root);
     $zip = new ZipArchive();
     if ($zip->open($archive, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
         fail('Impossible de créer output/phpaml-build.zip.');
     }
     $excludedRoots = ['.git', '.github', '.env', 'tests', 'output', 'tmp', 'tools', 'readme', 'deliverables'];
     $excludedExtensions = ['log', 'sqlite', 'sqlite3', 'bak'];
-    $generatedAssets = buildGeneratedAssets($root);
     $iterator = new RecursiveIteratorIterator(
         new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
     );
@@ -1632,32 +1632,62 @@ function buildGeneratedAssets(string $root): array
     }
 
     $source = $root . '/' . trim((string) ($manifest['application']['views'] ?? 'src/views'), '/');
-    $files = [];
-    foreach ([$source . '/stylesheets', $source . '/themes'] as $directory) {
-        if (!is_dir($directory)) continue;
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
-        foreach ($iterator as $file) {
-            if ($file->isFile() && strtolower($file->getExtension()) === 'css') {
-                $files[] = $file->getPathname();
-            }
-        }
-    }
-    sort($files);
-    if ($files === []) {
-        return [];
+    $autoload = projectRuntimePath($root) . '/autoload.php';
+    if (!is_file($autoload)) {
+        fail("Impossible de générer les styles : runtime absent. Exécutez 'aml install'.");
     }
 
-    $styles = [];
-    foreach ($files as $file) {
-        $contents = file_get_contents($file);
-        if (!is_string($contents)) {
-            fail("Impossible de lire la feuille de style {$file}.");
+    // Use the application's installed View implementation in isolation, so
+    // production and development select exactly the same stylesheet imports.
+    $script = <<<'PHP'
+ob_start();
+try {
+    require $argv[1];
+    $styles = (new \AML\View\FileApplication($argv[2]))->styles();
+    ob_end_clean();
+    fwrite(STDOUT, $styles);
+} catch (\Throwable $error) {
+    ob_end_clean();
+    fwrite(STDERR, $error->getMessage() . PHP_EOL);
+    exit(1);
+}
+PHP;
+    $output = tmpfile();
+    $errors = tmpfile();
+    if ($output === false || $errors === false) {
+        if (is_resource($output)) fclose($output);
+        if (is_resource($errors)) fclose($errors);
+        fail('Impossible de créer les fichiers temporaires des styles.');
+    }
+    $status = 1;
+    $diagnostic = '';
+    $styles = false;
+    try {
+        $process = proc_open(
+            [PHP_BINARY, '-d', 'display_errors=stderr', '-r', $script, $autoload, $source],
+            [0 => ['pipe', 'r'], 1 => $output, 2 => $errors],
+            $pipes,
+            $root,
+        );
+        if (is_resource($process)) {
+            fclose($pipes[0]);
+            $status = proc_close($process);
+            rewind($output);
+            $styles = stream_get_contents($output);
+            rewind($errors);
+            $diagnostic = trim((string) stream_get_contents($errors, 8192));
         }
-        $relative = ltrim(str_replace('\\', '/', substr($file, strlen($source))), '/');
-        $styles[] = "/* {$relative} */\n" . trim($contents);
+    } finally {
+        fclose($output);
+        fclose($errors);
+    }
+    if ($status !== 0 || !is_string($styles)) {
+        fail('Impossible de générer les styles AML View.' . ($diagnostic === '' ? '' : "\n" . $diagnostic));
     }
 
-    return ['public/_aml/styles.css' => implode("\n\n", $styles) . "\n"];
+    // Keep an empty asset too: an old public copy must never survive a rebuild
+    // after the final stylesheet import has been removed.
+    return ['public/_aml/styles.css' => $styles];
 }
 
 function productionBuildDevelopmentFile(string $relative): bool
@@ -1866,7 +1896,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
     if (!is_file($root . '/composer.json')) {
         fail('Le fichier composer.json est introuvable.');
     }
-    $constraint = $version === null ? '^0.1.0-beta.13' : ltrim(trim($version), 'v');
+    $constraint = $version === null ? '^0.1.0-beta.14' : ltrim(trim($version), 'v');
     if (preg_match('/^[0-9A-Za-z.*^~<>=|@+_.-]+$/', $constraint) !== 1) {
         fail('La version AML View est invalide.');
     }
@@ -2111,7 +2141,7 @@ function installView(?string $version = null, bool $offline = false, bool $empty
     output('Installation de phpaml/view…');
     $command = 'cd ' . escapeshellarg($root) . ' && ' . composerCommand()
         . ' require ' . escapeshellarg('phpaml/view:' . $constraint)
-        . ' ' . escapeshellarg('phpaml/engine:^0.1.0-beta.9')
+        . ' ' . escapeshellarg('phpaml/engine:^0.1.0-beta.10')
         . ' --no-interaction --prefer-dist --no-progress';
     passthru($command, $exitCode);
     if ($exitCode !== 0) {
@@ -2295,7 +2325,9 @@ declare(strict_types=1);
 namespace App\Views\States;
 
 use AML\View\{Page, View};
-use function AML\View\{Heading, Link, Text, VStack};
+use function AML\View\{import, Heading, Link, Text, VStack};
+
+import('states/route-states.css');
 
 final class NotFoundPage extends Page
 {
@@ -2319,7 +2351,9 @@ declare(strict_types=1);
 namespace App\Views\States;
 
 use AML\View\{Page, View};
-use function AML\View\{Text, VStack};
+use function AML\View\{import, Text, VStack};
+
+import('states/route-states.css');
 
 final class LoadingPage extends Page
 {
@@ -2341,7 +2375,9 @@ declare(strict_types=1);
 namespace App\Views\States;
 
 use AML\View\{Page, View};
-use function AML\View\{Heading, Link, Text, VStack};
+use function AML\View\{import, Heading, Link, Text, VStack};
+
+import('states/route-states.css');
 
 final class ErrorPage extends Page
 {

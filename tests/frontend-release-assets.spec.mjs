@@ -22,6 +22,7 @@ test('all distributed assets survive HTTP serving and production packaging', asy
   expect(css.status()).toBe(200);
   expect(css.headers()['content-type']).toContain('text/css');
   expect(await css.text()).toContain('.view-app');
+  expect(await css.text()).toContain('.route-state');
   const unknown = await request.get('/_aml/modules-unknown.min/missing.js');
   expect(unknown.status()).toBe(404);
   const missing = await request.get('/absent-route');

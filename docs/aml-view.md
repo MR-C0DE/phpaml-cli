@@ -29,8 +29,8 @@ without AML View.
 
 ## Runtime and compatible packages / Runtime et paquets compatibles
 
-CLI `1.7.0-beta.45` selects View `^0.1.0-beta.13` and Engine
-`^0.1.0-beta.9`. The new application's entrypoint uses
+The `1.7.0-beta.46` candidate selects View `^0.1.0-beta.14` and Engine
+`^0.1.0-beta.10`. The new application's entrypoint uses
 `EngineRuntime::externalScript(modular: true)` and serves every allowlisted
 asset through `EngineRuntime::publicAssetPath()` under `/_aml/`.
 
@@ -119,8 +119,20 @@ adding a visual container, like a fragment.
 
 ## Stylesheets and assets / Styles et ressources
 
-AML View collects every `.css` file below `src/views/stylesheets`, regardless
-of folder organization. Keep selectors class-based and attach them explicitly:
+AML View bundles imported CSS plus global `src/views/stylesheets/base.css` and
+CSS below `src/views/themes`. Other files require a top-level declaration in a
+page, component, layout, or state, before its class:
+
+```php
+use function AML\View\import;
+import('pages/home.css'); // relative to src/views/stylesheets
+```
+
+Removing the final import removes that stylesheet after a page reload or
+production rebuild. Imports remain global across routes. Existing applications
+that relied on automatic directory scanning must add imports for non-global
+stylesheets. `aml build` uses the installed View runtime to produce the same CSS
+as development. Keep selectors class-based and attach them explicitly:
 
 ```php
 Heading('Welcome')->class('home-title', 'featured');

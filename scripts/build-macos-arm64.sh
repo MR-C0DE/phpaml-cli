@@ -42,6 +42,7 @@ cp "$ROOT/cli/console.php" "$PACKAGE/runtime/bin/console.php"
 cp "$ROOT/cli/console-import-example.php" "$PACKAGE/runtime/bin/console-import-example.php"
 cp "$ROOT/phpaml.json" "$PACKAGE/phpaml.json"
 chmod 755 "$PACKAGE/bin/aml" "$PACKAGE/runtime/php/bin/php"
+"$PACKAGE/runtime/php/bin/php" "$ROOT/tests/package-integrity.php" "$PACKAGE"
 "$PACKAGE/runtime/php/bin/php" "$ROOT/tests/console-package.php" "$PACKAGE"
 
 tar -czf "$ROOT/dist/aml-macos-arm64.tar.gz" -C "$ROOT/dist" aml-macos-arm64
