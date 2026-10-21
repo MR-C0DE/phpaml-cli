@@ -231,21 +231,20 @@ et prépare une organisation fondée sur `src/` :
 src/
 ├── views/
 │   ├── pages/
-│   │   ├── home/page.php
-│   │   ├── about/page.php
+│   │   ├── home/page.php + home.style.css
+│   │   ├── about/page.php + about.style.css
 │   │   └── users/[id]/page.php
-│   ├── components/Navigation.php
-│   ├── layouts/AppLayout.php
+│   ├── components/
+│   │   ├── Navigation.php + navigation.style.css
+│   │   └── Playground.php + playground.style.css
+│   ├── layouts/AppLayout.php + app.style.css
 │   ├── states/
 │   │   ├── Loading.php
 │   │   ├── Error.php
-│   │   └── NotFound.php
+│   │   ├── NotFound.php
+│   │   └── route.style.css
 │   ├── stylesheets/
-│       ├── base.css
-│       ├── pages/home.css
-│       ├── components/navigation.css
-│       ├── layouts/app.css
-│       └── states/route-states.css
+│   │   └── base.css
 │   └── themes/
 │       ├── light/tokens.css
 │       └── dark/tokens.css
@@ -264,11 +263,25 @@ Les dossiers placés sous `src/views/pages/` deviennent automatiquement les URL
 du site. Les layouts et états sont associés depuis leurs dossiers dédiés.
 Aucun registre manuel n’est nécessaire.
 
-Les styles suivent la même organisation que les vues. View regroupe les feuilles
+Le starter utilise les composants natifs et des modules CSS locaux :
+`Style::create('home.style')` charge `home.style.css` à côté de `page.php`,
+puis `->style($style->title)` applique une classe isolée. Les styles locaux
+accompagnent leur page pendant la navigation. `Playground` montre `TextField`,
+`Picker` et `Toggle` reliés automatiquement à des propriétés `#[State]`, ainsi
+que la composition avec `Style::make()`. Aucun `Element()` ni JavaScript manuel
+n’est nécessaire dans les composants générés.
+
+La mise en page utilise Grid, les requêtes de conteneur, `clamp()` et les
+propriétés logiques. Les tokens globaux suivent le thème du système ; les états
+de focus, le lien d’évitement et la préférence de réduction des animations sont
+prévus. `base.css` contient les fondations communes. Les mises à jour du CLI
+ne remplacent pas les fichiers des applications existantes.
+
+Pour des styles volontairement globaux, View regroupe aussi les feuilles
 déclarées avec `import('pages/home.css')`, relativement à `src/views/stylesheets/`,
 ainsi que `stylesheets/base.css` et les CSS de `themes/`, puis les expose à
-`/_aml/styles.css`. `public/index.php` charge uniquement cette feuille générée :
-aucun CSS applicatif n’est dispersé dans `public/`.
+`/_aml/styles.css`. `public/index.php` charge cette feuille globale ; les modules
+locaux sont émis avec les composants. Aucun CSS applicatif n’est dispersé dans `public/`.
 L’import se déclare en haut du fichier PHP de la vue, avant la classe, avec
 `use function AML\View\import;`. Retirer le dernier import retire la feuille au
 prochain rechargement ou build de production. Les imports restent globaux entre

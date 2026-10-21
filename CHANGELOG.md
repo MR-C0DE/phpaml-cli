@@ -4,6 +4,12 @@
 
 ### 1.7.0-beta.46 candidate
 
+- Refresh the View starter with native semantic components, colocated CSS modules,
+  responsive container queries, shared light/dark tokens and accessible controls.
+  Demonstrate automatic State bindings through TextField, Picker, Toggle and
+  composed `Style::create()` / `Style::make()` styles in a reusable component.
+  Keep `--empty` minimal and existing applications unchanged.
+
 - Pin bundled PHP to `8.4.27` on macOS, Linux and Windows for the security
   fixes for CVE-2026-109618 and CVE-2026-109619. Refuse a different PHP version
   during packaging, installed/portable checks and the macOS publication verifier.

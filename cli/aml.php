@@ -2185,73 +2185,6 @@ function installView(?string $version = null, bool $offline = false, bool $empty
         }
     }
 
-    writeNewFile($root, 'src/views/pages/home/page.php', <<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Views\Pages\Home;
-
-use AML\View\{Page, PageMetadata, View};
-use function AML\View\{Heading, InlineCode, MainContent, Section, Text, VStack, import};
-
-import('pages/home.css');
-
-final class HomePage extends Page
-{
-    public function metadata(): PageMetadata
-    {
-        return (new PageMetadata())
-            ->title('My PHPAML application')
-            ->description('A simple reactive application built with PHPAML View.');
-    }
-
-    public function body(): View
-    {
-        return MainContent(
-            Section(
-                VStack(
-                    Text('INSTALLATION COMPLETE')->class('starter-status'),
-                    Heading('Your PHPAML app is ready.')->bold(),
-                    Text('Start by editing'),
-                    InlineCode('src/views/pages/home/page.php')->class('starter-path'),
-                )->gap(20)->class('home-card'),
-            )->class('home-section', 'shell'),
-        )->class('view-content');
-    }
-}
-
-PHP
-    );
-    writeNewFile($root, 'src/views/pages/about/page.php', <<<'PHP'
-<?php
-
-declare(strict_types=1);
-
-namespace App\Views\Pages\About;
-
-use AML\View\{Page, PageMetadata, View};
-use function AML\View\{Heading, Link, Text, VStack};
-
-final class AboutPage extends Page
-{
-    public function metadata(): PageMetadata
-    {
-        return (new PageMetadata())->title('About — PHPAML View')->description('Frontend navigation powered by PHPAML Engine.');
-    }
-
-    public function body(): View
-    {
-        return VStack(
-            Text('ABOUT')->class('eyebrow'),
-            Heading('A second page.')->bold(),
-            Text('This route is rendered with PHPAML View.'),
-            Link('Return home', '/')->class('button', 'button-primary'),
-        )->gap(20)->padding(40)->class('shell');
-    }
-}
-PHP
-    );
     writeNewFile($root, 'src/views/components/Navigation.php', <<<'PHP'
 <?php
 
@@ -2259,26 +2192,25 @@ declare(strict_types=1);
 
 namespace App\Views\Components;
 
-use AML\View\Component;
-use AML\View\View;
-use function AML\View\{Div, Header, Link, Text, import};
+use AML\View\{Component, Style, View};
+use function AML\View\{Header, HStack, Link};
 use function AML\View\Navigation as NavigationBar;
-
-import('components/navigation.css');
 
 final class Navigation extends Component
 {
     public function body(): View
     {
+        $style = Style::create('navigation.style');
+
         return Header(
             NavigationBar(
-                Link('PHPAML', '/')->class('view-brand'),
-                Div(
-                    Link('Docs', 'https://phpaml.com/docs'),
-                    Link('GitHub', 'https://github.com/MR-C0DE/phpaml-view'),
-                )->class('view-nav-links'),
-            )->class('view-nav', 'shell'),
-        )->class('view-header');
+                Link('phpaml', '/')->attribute('aria-label', 'PHPAML home')->style($style->brand),
+                HStack(
+                    Link('About', '/about'),
+                    Link('Documentation ↗', 'https://phpaml.com/docs'),
+                )->style($style->links),
+            )->attribute('aria-label', 'Main navigation')->class('shell')->style($style->nav),
+        )->style($style->header);
     }
 }
 
@@ -2288,6 +2220,128 @@ function Navigation(): Navigation
 }
 PHP
     );
+    writeNewFile($root, 'src/views/components/Playground.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Views\Components;
+
+use AML\View\{Component, State, Style, View};
+use function AML\View\{Button, Heading, HStack, Label, Paragraph, Picker, Section, Text, TextField, Toggle, VStack};
+
+final class Playground extends Component
+{
+    #[State] private string $name = 'Something great';
+    #[State] private string $accent = '#6d4aff';
+    #[State] private bool $rounded = true;
+
+    public function body(): View
+    {
+        $style = Style::create('playground.style');
+        $preview = Style::make()
+            ->property('--preview-accent', $this->accent)
+            ->borderRadius($this->rounded ? 24 : 8);
+
+        return Section(
+            HStack(
+                Heading('Make it yours.', 2)->id('playground-title'),
+                Text('LIVE PREVIEW')->style($style->badge),
+            )->style($style->heading),
+            Section(
+                Text('YOUR SPACE')->style($style->eyebrow),
+                Heading(trim($this->name) === '' ? 'Your next idea' : $this->name, 3)->id('preview-name'),
+                Paragraph('Built with a little imagination.'),
+            )->id('starter-preview')->attribute('aria-live', 'polite')->style([$style->preview, $preview]),
+            VStack(
+                Label('Give it a name', 'project-name'),
+                TextField('projectName', $this->name)->id('project-name')->attribute('maxlength', 48)
+                    ->attribute('autocomplete', 'off')->placeholder('Your next idea')->style($style->field),
+            )->alignment('stretch')->style($style->fieldGroup),
+            Section(
+                VStack(
+                    Label('Accent color', 'project-accent'),
+                    Picker('accent', ['#6d4aff' => 'Iris', '#126b56' => 'Forest', '#a13d63' => 'Rose'], $this->accent)
+                        ->id('project-accent')->style($style->field),
+                )->alignment('stretch')->style($style->fieldGroup),
+                VStack(
+                    Label('Soft corners', 'project-rounded'),
+                    Toggle('rounded', $this->rounded)->id('project-rounded')->style($style->toggle),
+                )->alignment('start')->style($style->fieldGroup),
+            )->attribute('aria-label', 'Preview appearance')->style($style->options),
+            HStack(
+                Text('Small changes. Instant feedback.')->style($style->hint),
+                Button('Reset preview')->style($style->reset)->onClick(function (): void {
+                    $this->name = 'Something great';
+                    $this->accent = '#6d4aff';
+                    $this->rounded = true;
+                }),
+            )->style($style->footer),
+        )->attribute('aria-labelledby', 'playground-title')->style($style->playground);
+    }
+}
+
+function Playground(): Playground
+{
+    return new Playground();
+}
+PHP
+    );
+    writeNewFile($root, 'src/views/components/navigation.style.css', <<<'CSS'
+.header { inline-size: 100%; border-block-end: 1px solid var(--line); }
+.nav { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; min-block-size: 5rem; }
+.brand { display: inline-flex; align-items: center; gap: .65rem; min-block-size: 2.75rem; font-size: 1.35rem; font-weight: 750; letter-spacing: -.06em; text-decoration: none; }
+.brand::before { content: ''; inline-size: 1.65rem; block-size: 1.65rem; border-radius: .5rem .5rem .5rem .1rem; background: var(--text); box-shadow: inset .5rem 0 var(--lime); }
+.links { gap: 1.5rem; flex-wrap: wrap; justify-content: flex-end; }
+.links a { display: inline-flex; align-items: center; min-block-size: 2.75rem; color: var(--muted); font-size: .8rem; font-weight: 550; text-decoration: none; }
+.links a:hover { color: var(--accent); }
+@media (max-width: 36rem) {
+    .nav { min-block-size: 4.5rem; gap: .75rem; }
+    .links { gap: .75rem; }
+    .links a { font-size: .72rem; }
+}
+CSS
+    );
+    writeNewFile($root, 'src/views/components/playground.style.css', <<<'CSS'
+.playground { min-inline-size: 0; inline-size: 100%; max-inline-size: 32rem; justify-self: center; padding: 1.5rem; border: 1px solid var(--line); border-radius: 1.25rem; background: var(--surface); box-shadow: var(--shadow); container: playground / inline-size; }
+.heading { justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-block-end: 1.25rem; }
+.heading h2 { font-size: 1rem; font-weight: 650; letter-spacing: -.025em; }
+.badge { display: inline-flex; align-items: center; gap: .4rem; color: var(--muted); font: 500 .58rem/1.5 var(--font-mono); letter-spacing: .06em; }
+.badge::before { content: ''; inline-size: .35rem; block-size: .35rem; border-radius: 50%; background: #338151; }
+.preview { position: relative; overflow: hidden; display: grid; align-content: end; gap: .65rem; min-block-size: 13.25rem; padding: 1.5rem; margin-block-end: 1.5rem; color: #fff; background: var(--preview-accent); transition: background-color 180ms ease, border-radius 180ms ease; }
+.preview::after { content: ''; position: absolute; inset-block-start: -3.5rem; inset-inline-end: -2.5rem; inline-size: 11rem; aspect-ratio: 1; border: 1px solid rgb(255 255 255 / 25%); border-radius: 50%; box-shadow: 0 0 0 1.25rem rgb(255 255 255 / 7%), 0 0 0 2.5rem rgb(255 255 255 / 5%); pointer-events: none; }
+.preview h3 { position: relative; z-index: 1; max-inline-size: 16ch; font-size: clamp(1.5rem, 5cqi, 2rem); letter-spacing: -.04em; overflow-wrap: anywhere; }
+.preview p { position: relative; z-index: 1; font-size: .8rem; color: rgb(255 255 255 / 85%); }
+.eyebrow { font: 500 .62rem/1.5 var(--font-mono); letter-spacing: .13em; }
+.fieldGroup { gap: .45rem; min-inline-size: 0; }
+.fieldGroup label { font-size: .75rem; font-weight: 600; }
+.field { min-inline-size: 0; inline-size: 100%; min-block-size: 2.75rem; padding: .6rem .75rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); color: var(--text); font-size: 1rem; transition: border-color 160ms ease; }
+.field:hover { border-color: var(--muted); }
+.field::placeholder { color: var(--muted); }
+.options { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 1.5rem; margin-block-start: 1rem; }
+.toggle { appearance: none; position: relative; flex-shrink: 0; inline-size: 2.75rem; block-size: 1.6rem; margin: .55rem 0; padding: 0; border: 1px solid var(--muted); border-radius: 2rem; background: var(--soft); cursor: pointer; transition: background-color 160ms ease; }
+.toggle::before { content: ''; position: absolute; inset-block-start: .2rem; inset-inline-start: .2rem; inline-size: 1.075rem; block-size: 1.075rem; border-radius: 50%; background: var(--muted); transition: transform 160ms ease; }
+.toggle:checked { background: var(--accent); border-color: var(--accent); }
+.toggle:checked::before { transform: translateX(1.1rem); background: var(--surface); }
+.footer { justify-content: space-between; flex-wrap: wrap; gap: .5rem; margin-block-start: 1rem; }
+.hint { color: var(--muted); font-size: .68rem; }
+.reset { min-block-size: 2.75rem; padding: .25rem 0 .25rem .5rem; border: 0; background: transparent; color: var(--text); font-size: .72rem; font-weight: 600; text-decoration: underline; text-underline-offset: .22em; cursor: pointer; }
+.reset:hover { color: var(--accent); }
+@container playground (max-width: 18rem) {
+    .options { gap: .75rem; }
+    .hint { max-inline-size: 16ch; }
+}
+@media (max-width: 36rem) { .playground { padding: 1.1rem; } }
+@media (prefers-reduced-motion: reduce) {
+    .preview, .field, .toggle, .toggle::before { transition: none; }
+}
+@media (forced-colors: active) {
+    .toggle:checked { background: Highlight; border-color: Highlight; }
+    .toggle::before { background: ButtonText; }
+    .toggle:checked::before { background: HighlightText; }
+}
+CSS
+    );
     writeNewFile($root, 'src/views/layouts/AppLayout.php', <<<'PHP'
 <?php
 
@@ -2295,74 +2349,213 @@ declare(strict_types=1);
 
 namespace App\Views\Layouts;
 
-use AML\View\Layout;
-use AML\View\View;
+use AML\View\{Layout, Style, View};
 use function App\Views\Components\Navigation;
-use function AML\View\{Footer, Slot, Text, VStack, import};
-
-import('layouts/app.css');
+use function AML\View\{Footer, HStack, Link, Slot, Text, VStack};
 
 final class AppLayout extends Layout
 {
     public function body(): View
     {
+        $style = Style::create('app.style');
+
         return VStack(
+            Link('Skip to content', '#main-content')->style($style->skip),
             Navigation(),
             Slot(),
             Footer(
-                Text('PHPAML View'),
-            )->class('view-footer', 'shell'),
-        )->class('view-app');
+                HStack(
+                    Text('Built with PHPAML View.'),
+                    Link('Open source. Yours to build. ↗', 'https://github.com/MR-C0DE/phpaml-view'),
+                )->style($style->footerContent),
+            )->class('shell')->style($style->footer),
+        )->alignment('stretch')->id('app-shell')->style($style->app);
     }
 }
 PHP
     );
-    writeNewFile($root, 'src/views/states/NotFound.php', <<<'PHP'
+    writeNewFile($root, 'src/views/layouts/app.style.css', <<<'CSS'
+.app { min-block-size: 100vh; min-block-size: 100svh; }
+.app > main { flex: 1; }
+.footer { padding-block: 1.5rem; border-block-start: 1px solid var(--line); color: var(--muted); font-size: .75rem; }
+.footerContent { justify-content: space-between; flex-wrap: wrap; gap: .5rem 1.5rem; }
+.footer a { display: inline-flex; align-items: center; min-block-size: 2rem; text-decoration: none; }
+.footer a:hover { color: var(--accent); }
+.skip { position: fixed; z-index: 100; inset-block-start: .75rem; inset-inline-start: .75rem; transform: translateY(-180%); padding: .75rem 1rem; border-radius: .5rem; background: var(--text); color: var(--bg); font-weight: 600; }
+.skip:focus { transform: translateY(0); }
+@media print { .skip, .footer { display: none; } }
+CSS
+    );
+    writeNewFile($root, 'src/views/pages/about/about.style.css', <<<'CSS'
+.about { padding-block: clamp(2.5rem, 7vw, 5rem); }
+.back { display: inline-flex; align-items: center; min-block-size: 2.75rem; margin-block-end: 2rem; color: var(--muted); font-size: .85rem; }
+.back::before { content: '←'; margin-inline-end: .5rem; }
+.header { max-inline-size: 48rem; margin-block-end: 3.5rem; }
+.eyebrow { color: var(--accent); font: 500 .68rem/1.5 var(--font-mono); letter-spacing: .14em; }
+.title { margin-block: 1rem; max-inline-size: 15ch; font-size: clamp(2.5rem, 7vw, 4.25rem); font-weight: 650; letter-spacing: -.055em; }
+.intro { max-inline-size: 46ch; color: var(--muted); font-size: 1.1rem; }
+.concepts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); gap: 2rem; }
+.article { min-inline-size: 0; display: flex; flex-direction: column; gap: 1rem; }
+.article h2 { font-size: 1.15rem; font-weight: 650; }
+.article p { color: var(--muted); font-size: .875rem; }
+.code { margin-block-start: auto; min-block-size: 10rem; padding: 1.25rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--surface); color: var(--text); font-size: .73rem; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.note { margin-block-start: 3.5rem; padding-block-start: 1.5rem; border-block-start: 1px solid var(--line); color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
+CSS
+    );
+    writeNewFile($root, 'src/views/pages/about/page.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
-namespace App\Views\States;
+namespace App\Views\Pages\About;
 
-use AML\View\{Page, View};
-use function AML\View\{import, Heading, Link, Text, VStack};
+use AML\View\{Page, PageMetadata, Style, View};
+use function AML\View\{Article, CodeBlock, Heading, InlineCode, Link, MainContent, Paragraph, Section, Text};
 
-import('states/route-states.css');
-
-final class NotFoundPage extends Page
+final class AboutPage extends Page
 {
+    public function metadata(): PageMetadata
+    {
+        return (new PageMetadata())
+            ->title('About — PHPAML View')
+            ->description('Native components, local styles and reactive State. Meet your PHPAML starter.');
+    }
+
     public function body(): View
     {
-        return VStack(
-            Text('404')->class('eyebrow'),
-            Heading('This page does not exist.')->size(48)->bold(),
-            Text('No AML View page matches ' . $this->param('path', '/')),
-            Link('Return home', '/')->class('button', 'button-primary'),
-        )->gap(20)->padding(40)->class('shell', 'route-state');
+        $style = Style::create('about.style');
+
+        return MainContent(
+            Link('Return home', '/')->style($style->back),
+            Section(
+                Text('MEET YOUR STARTER')->style($style->eyebrow),
+                Heading('Small pieces. Real possibilities.')->style($style->title),
+                Paragraph('Readable PHP, styles that stay in their own space, and an interface that responds to you.')
+                    ->style($style->intro),
+            )->style($style->header),
+            Section(
+                Article(
+                    Heading('Compose your interface', 2),
+                    Paragraph('Start with native components. A page describes what appears; a reusable component keeps its own behavior.'),
+                    CodeBlock("return VStack(\n    Heading('Make something great.'),\n    Text('Start small. Keep going.'),\n)->gap(16);")->style($style->code),
+                )->style($style->article),
+                Article(
+                    Heading('Keep your styles close', 2),
+                    Paragraph('A local CSS module lives next to its PHP file. Classes are isolated, so a title on one page cannot accidentally restyle another.'),
+                    CodeBlock("\$style = Style::create('home.style');\n\nHeading('Hello, world.')\n    ->style(\$style->title);")->style($style->code),
+                )->style($style->article),
+                Article(
+                    Heading('Let State do the work', 2),
+                    Paragraph('Use a State value in your text, controls or Style. Engine keeps the rendered interface in sync as the value changes.'),
+                    CodeBlock("#[State] private string \$name = 'André';\n\nTextField('name', \$this->name);\nText('Hello, ' . \$this->name);")->style($style->code),
+                )->style($style->article),
+            )->attribute('aria-label', 'Starter concepts')->style($style->concepts),
+            Paragraph('This page is ', InlineCode('src/views/pages/about/page.php'), '. Internal links use Engine navigation; your browser history still works.')
+                ->style($style->note),
+        )->id('main-content')->attribute('tabindex', '-1')->class('shell')->style($style->about);
     }
 }
 PHP
     );
-    writeNewFile($root, 'src/views/states/Loading.php', <<<'PHP'
+    writeNewFile($root, 'src/views/pages/home/home.style.css', <<<'CSS'
+.home { padding-block: clamp(3rem, 7vw, 6rem) 3.5rem; container: home / inline-size; }
+.hero { display: grid; gap: 3rem; align-items: center; }
+.copy { gap: 1.5rem; min-inline-size: 0; }
+.eyebrow { color: var(--muted); font: 550 .68rem/1.5 var(--font-mono); letter-spacing: .14em; }
+.title { max-inline-size: 10ch; font-size: clamp(3.25rem, 7vw, 5.4rem); font-weight: 650; line-height: 1.03; letter-spacing: -.045em; }
+.intro { max-inline-size: 36ch; font-size: 1.125rem; color: var(--muted); }
+.actions { gap: 1.4rem; flex-wrap: wrap; margin-block: .5rem; }
+.docs { display: inline-flex; align-items: center; min-block-size: 2.75rem; font-size: .9rem; font-weight: 600; text-decoration: none; }
+.docs:hover { color: var(--accent); }
+.source { max-inline-size: 100%; color: var(--muted); font-size: .75rem; overflow-wrap: anywhere; }
+.source code { color: var(--text); font-size: .72rem; }
+.guide { padding-block-start: 3.5rem; margin-block-start: 4.5rem; border-block-start: 1px solid var(--line); }
+.sectionHeading { justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-block-end: 2rem; }
+.sectionHeading h2 { font-size: 1.3rem; font-weight: 600; letter-spacing: -.03em; }
+.steps { display: grid; gap: 2rem; }
+.step { min-inline-size: 0; display: grid; align-content: start; gap: .65rem; }
+.number { color: var(--accent); font: 500 .8rem/1.5 var(--font-mono); margin-block-end: .25rem; }
+.step h3 { font-size: 1rem; font-weight: 650; }
+.step p { max-inline-size: 35ch; color: var(--muted); font-size: .875rem; }
+.step code { color: var(--muted); font-size: .7rem; overflow-wrap: anywhere; margin-block-start: .35rem; }
+@container home (min-width: 52rem) {
+    .hero { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 4rem; }
+}
+@container home (min-width: 38rem) {
+    .steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.5rem; }
+}
+@media (max-width: 36rem) {
+    .title { font-size: clamp(3rem, 13vw, 4rem); }
+    .guide { margin-block-start: 3rem; padding-block-start: 2rem; }
+}
+CSS
+    );
+    writeNewFile($root, 'src/views/pages/home/page.php', <<<'PHP'
 <?php
 
 declare(strict_types=1);
 
-namespace App\Views\States;
+namespace App\Views\Pages\Home;
 
-use AML\View\{Page, View};
-use function AML\View\{import, Text, VStack};
+use AML\View\{Page, PageMetadata, Style, View};
+use function App\Views\Components\Playground;
+use function AML\View\{Article, Heading, HStack, InlineCode, Link, MainContent, Paragraph, Section, Text, VStack};
 
-import('states/route-states.css');
-
-final class LoadingPage extends Page
+final class HomePage extends Page
 {
+    public function metadata(): PageMetadata
+    {
+        return (new PageMetadata())
+            ->title('My PHPAML application')
+            ->description('Your next idea starts here. A reactive interface built with PHPAML View.');
+    }
+
     public function body(): View
     {
-        return VStack(
-            Text('Loading…')->class('loading-title'),
-            Text('AML View is preparing the next interface.'),
-        )->gap(12)->padding(40)->class('shell', 'route-state');
+        $style = Style::create('home.style');
+
+        return MainContent(
+            Section(
+                VStack(
+                    Text('A FRESH START')->style($style->eyebrow),
+                    Heading('Your next idea starts here.')->id('welcome-title')->style($style->title),
+                    Paragraph('A little PHP. A lot of possibility. Build an interface that feels like you, one component at a time.')
+                        ->style($style->intro),
+                    HStack(
+                        Link('Explore the starter', '/about')->class('button', 'button-primary'),
+                        Link('Read the docs ↗', 'https://phpaml.com/docs')->style($style->docs),
+                    )->style($style->actions),
+                    Paragraph('Start with ', InlineCode('src/views/pages/home/page.php'))->style($style->source),
+                )->alignment('start')->style($style->copy),
+                Playground(),
+            )->attribute('aria-labelledby', 'welcome-title')->style($style->hero),
+            Section(
+                HStack(
+                    Heading('A simple place to begin.', 2),
+                    Text('THREE SMALL STEPS')->style($style->eyebrow),
+                )->style($style->sectionHeading),
+                Section(
+                    Article(
+                        Text('01')->style($style->number),
+                        Heading('Make it yours', 3),
+                        Paragraph('Change the first page. Keep the pieces you love and make room for your own.'),
+                        InlineCode('pages/home/page.php'),
+                    )->style($style->step),
+                    Article(
+                        Text('02')->style($style->number),
+                        Heading('Find your style', 3),
+                        Paragraph('Give each component its own styles. Share your colors and spacing through design tokens.'),
+                        InlineCode('pages/home/home.style.css'),
+                    )->style($style->step),
+                    Article(
+                        Text('03')->style($style->number),
+                        Heading('Bring it to life', 3),
+                        Paragraph('Connect a value to State. The text, controls and styles follow along automatically.'),
+                        InlineCode('components/Playground.php'),
+                    )->style($style->step),
+                )->attribute('aria-label', 'Getting started')->style($style->steps),
+            )->style($style->guide),
+        )->id('main-content')->attribute('tabindex', '-1')->class('shell')->style($style->home);
     }
 }
 PHP
@@ -2374,74 +2567,198 @@ declare(strict_types=1);
 
 namespace App\Views\States;
 
-use AML\View\{Page, View};
-use function AML\View\{import, Heading, Link, Text, VStack};
-
-import('states/route-states.css');
+use AML\View\{Page, Style, View};
+use function AML\View\{Heading, Link, MainContent, Paragraph, Text};
 
 final class ErrorPage extends Page
 {
     public function body(): View
     {
-        return VStack(
-            Text('APPLICATION ERROR')->class('eyebrow'),
-            Heading('Something went wrong.')->size(48)->bold(),
-            Text('The incident was contained. You can safely try again.'),
+        $style = Style::create('route.style');
+
+        return MainContent(
+            Text('LET’S TRY THAT AGAIN')->style($style->eyebrow),
+            Heading('Something went wrong.')->style($style->title),
+            Paragraph('The page could not be loaded. Return home and try again.')->style($style->description),
             Link('Return home', '/')->class('button', 'button-primary'),
-        )->gap(20)->padding(40)->class('shell', 'route-state');
+        )->id('main-content')->attribute('tabindex', '-1')->class('shell')->style($style->state);
     }
 }
 PHP
     );
+    writeNewFile($root, 'src/views/states/Loading.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Views\States;
+
+use AML\View\{Page, Style, View};
+use function AML\View\{Heading, MainContent, Paragraph};
+
+final class LoadingPage extends Page
+{
+    public function body(): View
+    {
+        $style = Style::create('route.style');
+
+        return MainContent(
+            Heading('A moment, please.')->style($style->title),
+            Paragraph('Preparing your next page…')->style($style->description),
+        )->id('main-content')->attribute('role', 'status')->attribute('aria-busy', 'true')
+            ->class('shell')->style($style->state);
+    }
+}
+PHP
+    );
+    writeNewFile($root, 'src/views/states/NotFound.php', <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+namespace App\Views\States;
+
+use AML\View\{Page, Style, View};
+use function AML\View\{Heading, Link, MainContent, Paragraph, Text};
+
+final class NotFoundPage extends Page
+{
+    public function body(): View
+    {
+        $style = Style::create('route.style');
+
+        return MainContent(
+            Text('404 / A LITTLE DETOUR')->style($style->eyebrow),
+            Heading('This page does not exist.')->style($style->title),
+            Paragraph('No page matches ' . $this->param('path', '/'))->style($style->description),
+            Link('Return home', '/')->class('button', 'button-primary'),
+        )->id('main-content')->attribute('tabindex', '-1')->class('shell')->style($style->state);
+    }
+}
+PHP
+    );
+    writeNewFile($root, 'src/views/states/route.style.css', <<<'CSS'
+.state { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1.5rem; min-block-size: 65vh; padding-block: 4rem; }
+.eyebrow { color: var(--accent); font: 500 .75rem/1.5 var(--font-mono); letter-spacing: .12em; }
+.title { max-inline-size: 16ch; font-size: clamp(2.5rem, 7vw, 4.25rem); font-weight: 650; letter-spacing: -.055em; }
+.description { max-inline-size: 48ch; color: var(--muted); overflow-wrap: anywhere; }
+CSS
+    );
     writeNewFile($root, 'src/views/stylesheets/base.css', <<<'CSS'
-:root { color-scheme:light; --bg:#f7f7f8; --surface:#fff; --text:#19191d; --muted:#686872; --line:#dedee3; --accent:#5b42e8; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-* { box-sizing:border-box; }
-body { margin:0; min-width:20rem; color:var(--text); background:var(--bg); line-height:1.6; }
-a { color:inherit; }
-.shell { width:min(62rem,calc(100% - 2rem)); margin-inline:auto; }
-.button { min-height:2.75rem; padding:0 1rem; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); border-radius:5px; color:var(--text); background:var(--surface); font:inherit; font-weight:700; cursor:pointer; }
-.button:hover { border-color:#b9b9c1; }
-.button-primary { border-color:var(--accent); color:#fff; background:var(--accent); }
-.button-secondary { background:var(--surface); }
-CSS
-    );
-    writeNewFile($root, 'src/views/stylesheets/components/navigation.css', <<<'CSS'
-.view-header { width:100%; border-bottom:1px solid var(--line); background:var(--surface); }
-.view-nav { min-height:4rem; display:flex; align-items:center; gap:1.5rem; }
-.view-brand { font-weight:850; letter-spacing:.04em; text-decoration:none; }
-.view-nav-links { min-width:0; margin-left:auto; display:flex; align-items:center; justify-content:flex-end; gap:1.15rem; }
-.view-nav-links a { color:var(--muted); font-size:.92rem; font-weight:650; text-decoration:none; }
-CSS
-    );
-    writeNewFile($root, 'src/views/stylesheets/layouts/app.css', <<<'CSS'
-.view-app { min-height:100vh; display:flex; flex-direction:column; }
-.view-content { width:100%; flex:1; }
-.view-footer { padding-block:1.25rem; border-top:1px solid var(--line); color:var(--muted); font-size:.82rem; }
-@media (max-width:38rem) { .view-footer { align-items:flex-start; flex-direction:column; } }
-CSS
-    );
-    writeNewFile($root, 'src/views/stylesheets/pages/home.css', <<<'CSS'
-.home-section { min-height:calc(100vh - 7.5rem); padding-block:6rem; display:flex; align-items:center; justify-content:center; }
-.home-card { width:min(100%,42rem); align-items:center; text-align:center; }
-.eyebrow { color:var(--accent); font:.78rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:800; letter-spacing:.12em; }
-.starter-status { color:#198754; font:.75rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:800; letter-spacing:.1em; }
-.home-card h1 { margin:0; font-size:clamp(2.35rem,6vw,4rem); line-height:1.05; letter-spacing:-.05em; }
-.home-card > span:not(.eyebrow) { color:var(--muted); font-size:1.05rem; }
-.starter-path { padding:.55rem .75rem; border:1px solid var(--line); border-radius:5px; color:var(--text); background:var(--surface); font:600 .88rem/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; }
-@media (max-width:38rem) { .home-section { padding-block:3rem; } }
-CSS
-    );
-    writeNewFile($root, 'src/views/stylesheets/states/route-states.css', <<<'CSS'
-.route-state { min-height:calc(100vh - 10rem); justify-content:center; }
-.loading-title { color:var(--lime); font-size:1.15rem; font-weight:850; }
-CSS
-    );
-    writeNewFile($root, 'src/views/themes/light/tokens.css', <<<'CSS'
-[data-theme="light"] { color-scheme:light; --bg:#f7f6fa; --panel:#ffffff; --panel-soft:#f0edf6; --ink:#17121f; --muted:#625d6d; --line:rgba(23,18,31,.13); --violet:#6d3de8; --lime:#6f9600; --header-bg:rgba(247,246,250,.86); --soft-fill:rgba(23,18,31,.035); --shadow:0 24px 65px rgba(48,34,71,.11); }
+/* Global foundations. Component styles live beside their PHP files. */
+@layer reset, tokens, base;
+
+@layer reset {
+    *, *::before, *::after { box-sizing: border-box; }
+    body, h1, h2, h3, p, pre { margin: 0; }
+    button, input, select { font: inherit; }
+    img { display: block; max-inline-size: 100%; }
+}
+
+@layer tokens {
+    :root {
+        color-scheme: light;
+        --bg: #f7f7f2;
+        --surface: #ffffff;
+        --text: #22251f;
+        --muted: #65695f;
+        --line: #dfe2d8;
+        --accent: #6844e5;
+        --accent-strong: #5130bf;
+        --lime: #dcf4a6;
+        --soft: #eef0e8;
+        --shadow: 0 16px 48px -24px rgb(35 39 26 / 24%);
+        --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        /* Shared aliases for components that use the optional theme tokens. */
+        --panel: var(--surface);
+        --panel-soft: var(--soft);
+        --ink: var(--text);
+        --violet: var(--accent);
+    }
+    @media (prefers-color-scheme: dark) {
+        :root:not([data-theme]) {
+            color-scheme: dark;
+            --bg: #151712;
+            --surface: #20231c;
+            --text: #f1f3ea;
+            --muted: #afb5a6;
+            --line: #3b4034;
+            --accent: #b8a2ff;
+            --accent-strong: #d2c4ff;
+            --soft: #2b3025;
+            --shadow: 0 16px 48px -24px rgb(0 0 0 / 50%);
+        }
+    }
+}
+
+@layer base {
+    html { font-family: var(--font-sans); -webkit-text-size-adjust: 100%; }
+    body { min-inline-size: 20rem; background: var(--bg); color: var(--text); line-height: 1.6; }
+    a { color: inherit; text-underline-offset: .22em; }
+    button, a, input, select { -webkit-tap-highlight-color: transparent; }
+    :where(a, button, input, select):focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+    :where(h1, h2, h3) { line-height: 1.15; text-wrap: balance; }
+    :where(p) { text-wrap: pretty; }
+    :where(code, pre) { font-family: var(--font-mono); }
+    ::selection { background: var(--lime); color: #22251f; }
+    .shell { inline-size: min(72rem, calc(100% - 3rem)); margin-inline: auto; }
+    .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-block-size: 3rem;
+        padding: .75rem 1.25rem;
+        border: 1px solid var(--line);
+        border-radius: .65rem;
+        background: var(--surface);
+        color: var(--text);
+        font-weight: 650;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background-color 160ms ease, border-color 160ms ease;
+    }
+    .button-primary { background: var(--text); border-color: var(--text); color: var(--bg); }
+    .button-secondary { background: var(--surface); }
+    @media (hover: hover) {
+        .button:hover { border-color: var(--accent); }
+        .button-primary:hover { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    }
+    @media (max-width: 36rem) { .shell { inline-size: calc(100% - 2rem); } }
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+    }
+}
 CSS
     );
     writeNewFile($root, 'src/views/themes/dark/tokens.css', <<<'CSS'
-[data-theme="dark"] { color-scheme:dark; --bg:#09070d; --panel:#15111f; --panel-soft:#100d17; --ink:#f8f7ff; --muted:#aaa6ba; --line:rgba(255,255,255,.11); --violet:#9b72ff; --lime:#c7ff3d; --header-bg:rgba(9,7,13,.82); --soft-fill:rgba(255,255,255,.04); --shadow:0 24px 70px rgba(0,0,0,.28); }
+[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #151712;
+    --surface: #20231c;
+    --text: #f1f3ea;
+    --muted: #afb5a6;
+    --line: #3b4034;
+    --accent: #b8a2ff;
+    --accent-strong: #d2c4ff;
+    --soft: #2b3025;
+    --shadow: 0 16px 48px -24px rgb(0 0 0 / 50%);
+}
+CSS
+    );
+    writeNewFile($root, 'src/views/themes/light/tokens.css', <<<'CSS'
+[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f7f7f2;
+    --surface: #ffffff;
+    --text: #22251f;
+    --muted: #65695f;
+    --line: #dfe2d8;
+    --accent: #6844e5;
+    --accent-strong: #5130bf;
+    --soft: #eef0e8;
+    --shadow: 0 16px 48px -24px rgb(35 39 26 / 24%);
+}
 CSS
     );
     writeNewFile($root, 'tests/aml-view.php', <<<'PHP'
@@ -2459,7 +2776,7 @@ $tests = [
         if (!$result instanceof \AML\View\PageResult) {
             throw new RuntimeException('The home route did not return a page.');
         }
-        if (!str_contains($result->rootHtml(), 'Your PHPAML app is ready')) {
+        if (!str_contains($result->rootHtml(), 'Your next idea starts here')) {
             throw new RuntimeException('The home page content is missing.');
         }
     },
@@ -2471,7 +2788,7 @@ $tests = [
     },
     'stylesheets are collected' => static function () use ($root): void {
         $styles = (new \AML\View\FileApplication($root . '/src/views'))->styles();
-        if (!str_contains($styles, '.home-section') || !str_contains($styles, '.view-nav')) {
+        if (!str_contains($styles, '.shell') || !str_contains($styles, '--accent:')) {
             throw new RuntimeException('AML View stylesheets were not collected.');
         }
     },
@@ -2513,7 +2830,7 @@ PHP
             'src/views/stylesheets/components',
             'src/views/stylesheets/layouts',
             'src/views/stylesheets/states',
-            'src/views/stylesheets/pages/home.css',
+            'src/views/pages/home/home.style.css',
         ] as $generatedDemoPath) {
             removeGeneratedPath($root . '/' . $generatedDemoPath);
         }

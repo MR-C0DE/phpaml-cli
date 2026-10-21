@@ -155,8 +155,10 @@ for (const name of ['styles', 'reactive-styles', 'style-conditions', 'style-fina
 // after removing an import while leaving its stylesheet on disk.
 const homePage = resolve(application, 'src/views/pages/home/page.php');
 const homeSource = readFileSync(homePage, 'utf8');
-const homeImport = "import('pages/home.css');";
-if (!homeSource.includes(homeImport)) throw new Error('The generated home page must explicitly import its stylesheet.');
+const homeImport = "\\AML\\View\\import('release-import.css');\n\n";
+const importedHome = homeSource.replace('final class HomePage', homeImport + 'final class HomePage');
+const importedStyles = resolve(application, 'src/views/stylesheets/release-import.css');
+writeFileSync(importedStyles, '.release-imported-css { color: red; }\n');
 const unusedStyles = resolve(application, 'src/views/stylesheets/release-unused.css');
 writeFileSync(unusedStyles, '.release-unused-css { color: red; }\n');
 const developmentCSS = () => run(php, ['-r', 'require $argv[1]; echo (new \\AML\\View\\FileApplication($argv[2]))->styles();',
@@ -165,20 +167,21 @@ const productionCSS = () => run(php, ['-r', '$z=new ZipArchive; if($z->open($arg
   resolve(application, 'output/phpaml-build.zip')], {env});
 try {
   for (const imported of [true, false]) {
-    writeFileSync(homePage, imported ? homeSource : homeSource.replace(homeImport, ''));
+    writeFileSync(homePage, imported ? importedHome : homeSource);
     step(`css-${imported ? 'imported' : 'removed'}-build`, php, [cli, 'build', '--skip-tests'], {cwd: application, env});
     const development = developmentCSS(), production = productionCSS();
     if (development !== production) throw new Error('Development and production CSS differ.');
-    if (production.includes('.home-section') !== imported || production.includes('.release-unused-css')) {
+    if (production.includes('.release-imported-css') !== imported || production.includes('.release-unused-css')) {
       throw new Error('Installed distribution ignored stylesheet import ownership.');
     }
-    if (!production.includes('.route-state') || !existsSync(resolve(application, 'src/views/stylesheets/pages/home.css'))) {
-      throw new Error('State styles or the original unimported stylesheet disappeared.');
+    if (!production.includes('.shell') || !existsSync(importedStyles)) {
+      throw new Error('Global foundations or the unimported stylesheet disappeared.');
     }
   }
 } finally {
   writeFileSync(homePage, homeSource);
   rmSync(unusedStyles, {force: true});
+  rmSync(importedStyles, {force: true});
 }
 step('app-build', php, [cli, 'build'], {cwd: application, env});
 const production = resolve(work, 'production'); extract(resolve(application, 'output/phpaml-build.zip'), production);

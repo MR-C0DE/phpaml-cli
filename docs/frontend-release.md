@@ -16,10 +16,17 @@ remain independently versioned:
 | CLI | `1.7.0-beta.46` | Scaffolding, installation and build |
 | View | `0.1.0-beta.14` | CLI requires `^0.1.0-beta.14` |
 | Engine | `0.1.0-beta.10` | CLI and View require `^0.1.0-beta.10` |
-| Template | `0.5.0-beta.10` | Existing starter, unchanged |
+| Template | `0.5.0-beta.10` | Classic MVC foundation, unchanged |
 | Framework | `0.3.0-beta.7` | Existing server foundation, unchanged |
 
 ## Release notes
+
+The CLI-generated View starter is refreshed separately from the classic MVC
+template: native semantic components, colocated `.style.css` modules, fluid
+typography, container queries and shared light/dark design tokens. Its reusable
+`Playground` component demonstrates TextField, Picker, Toggle and automatic
+State-to-Style bindings. No new View/Engine API is introduced. The `--empty`
+starter stays minimal and existing projects are left intact.
 
 Style supports fluent/named/composed PHP styles, local CSS files, reactive
 values, native pseudo states/elements, media/supports/container conditions and
@@ -87,7 +94,10 @@ application's tests and diagnostics, builds its production ZIP, checks every
 manifest hash, and diagnoses the extracted production app with local test
 deployment settings. It then verifies development and production with both
 complete and modular runtimes on Chromium, Firefox and WebKit: navigation,
-history, CSS, 404 responses and every served Engine asset. WebKit is an engine
+history, CSS, 404 responses and every served Engine asset. The starter checks
+also exercise input escaping, reset, keyboard toggle, reactive styles without
+DOM replacement, scoped stylesheet cleanup, narrow layouts, dark mode and
+reduced motion. WebKit is an engine
 test, not a claim that a particular installed Safari version was tested.
 
 `--prepare-only` performs packaging and PHP checks without browsers. It leaves

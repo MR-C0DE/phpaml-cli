@@ -27,6 +27,14 @@ Use `aml create-view .` in the current directory. AML installs View and
 Engine automatically. `aml create` keeps creating a classic MVC application
 without AML View.
 
+The beta.46 starter uses native components and colocated CSS modules. Its
+`Playground` component demonstrates a text field, Picker and Toggle bound to
+private State, including reactive CSS variables and `Style::make()` composition.
+The responsive layout uses container queries, fluid typography, keyboard focus
+styles and reduced-motion preferences. Light/dark colors follow the operating
+system; explicit `data-theme="light"` or `data-theme="dark"` tokens are available.
+Existing applications are not rewritten when the CLI is updated.
+
 ## Runtime and compatible packages / Runtime et paquets compatibles
 
 The `1.7.0-beta.46` candidate selects View `^0.1.0-beta.14` and Engine
@@ -61,11 +69,15 @@ src/
 │   └── WebApp.php            # optional backend routes
 └── views/
     ├── pages/
-    │   ├── home/page.php     # /
-    │   ├── about/page.php    # /about
+    │   ├── home/
+    │   │   ├── page.php      # /
+    │   │   └── home.style.css
+    │   ├── about/
+    │   │   ├── page.php      # /about
+    │   │   └── about.style.css
     │   └── users/[id]/page.php
-    ├── components/
-    ├── layouts/
+    ├── components/           # Navigation.php, Playground.php + *.style.css
+    ├── layouts/              # AppLayout.php + app.style.css
     ├── states/               # Loading, Error and NotFound
     ├── stylesheets/
     ├── themes/
@@ -83,7 +95,8 @@ phpaml.json
 
 `src/views`, `src/controllers` and `src/models` are mandatory. `public/` is
 reserved for files needing a direct URL. Interface images belong in
-`src/views/assets`; CSS belongs in `src/views/stylesheets`. Shared settings are
+`src/views/assets`; local CSS modules live beside their PHP component, while
+global foundations belong in `src/views/stylesheets`. Shared settings are
 stored in `phpaml.json`, secrets in `.env`, and generated configuration in
 `runtime/config/app.php`; never edit the generated file manually.
 
@@ -92,24 +105,24 @@ stored in `phpaml.json`, secrets in `.env`, and generated configuration in
 ```php
 <?php
 
-use AML\View\{Page, State, View};
-use function AML\View\{Button, Heading, Progress, Text, VStack};
+use AML\View\{Page, State, Style, View};
+use function AML\View\{Button, Heading, Text, VStack};
 
 final class Home extends Page
 {
-    #[State]
-    public int $count = 0;
+    #[State] private int $count = 0;
 
     public function body(): View
     {
+        $style = Style::create('home.style');
+
         return VStack(
-            Heading('AML View')->size(42)->bold(),
-            Text($this->state('count')),
-            Progress($this->state('count'), 100)
-                ->attribute('aria-label', 'Completion'),
-            Button('Remove one')->sets('count', $this->state('count')->minus(1)),
-            Button('Add one')->sets('count', $this->state('count')->plus(1)),
-        )->class('home-hero')->gap(16)->padding(40);
+            Heading('Make something great.')->style($style->title),
+            Text('Interactions: ' . $this->count),
+            Button('Try it')->onClick(function (): void {
+                $this->count++;
+            }),
+        )->gap(16)->style($style->panel);
     }
 }
 ```
@@ -118,6 +131,20 @@ Built-in elements are called without `new`. `View(...)` groups siblings without
 adding a visual container, like a fragment.
 
 ## Stylesheets and assets / Styles et ressources
+
+New starters use `Style::create('home.style')` in `body()` to load
+`home.style.css` beside the PHP file. Apply the exported styles with
+`->style($style->title)`. Class and animation names are scoped to that module;
+the styles travel with their rendered page during navigation. A CSS variable
+can follow State through `->style([$style->title, ['--accent' => $this->accent]])`.
+Only values are reactive; module class names and selectors stay fixed.
+
+For the example above, `home.style.css` contains:
+
+```css
+.panel { padding: clamp(1rem, 4vw, 3rem); }
+.title { font-size: clamp(2rem, 6vw, 4rem); letter-spacing: -.04em; }
+```
 
 AML View bundles imported CSS plus global `src/views/stylesheets/base.css` and
 CSS below `src/views/themes`. Other files require a top-level declaration in a
@@ -128,7 +155,8 @@ use function AML\View\import;
 import('pages/home.css'); // relative to src/views/stylesheets
 ```
 
-Removing the final import removes that stylesheet after a page reload or
+This explicit global import remains available when a shared stylesheet is
+appropriate. Removing the final import removes that stylesheet after a page reload or
 production rebuild. Imports remain global across routes. Existing applications
 that relied on automatic directory scanning must add imports for non-global
 stylesheets. `aml build` uses the installed View runtime to produce the same CSS

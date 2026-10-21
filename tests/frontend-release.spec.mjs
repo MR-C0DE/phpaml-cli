@@ -5,6 +5,59 @@ const require = createRequire(resolve(process.env.PHPAML_ENGINE_SOURCE, 'package
 const {test, expect} = require('@playwright/test');
 const {verifyStyleFinalization} = await import(pathToFileURL(resolve(process.env.PHPAML_ENGINE_SOURCE, 'tests/browser/style-finalization-checks.mjs')));
 
+test('generated styles and State power the modern starter across layouts and preferences', async ({page}, info) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.setViewportSize({width: 1440, height: 1100});
+  await page.emulateMedia({colorScheme: 'light'});
+  await page.goto('/');
+  await expect(page.locator('[data-aml-engine-mounted="true"]')).toBeVisible();
+  await expect(page.getByRole('main')).toHaveCount(1);
+  const preview = page.locator('#starter-preview');
+  const name = page.getByRole('textbox', {name: 'Give it a name'});
+  const color = page.getByRole('combobox', {name: 'Accent color'});
+  const rounded = page.getByRole('switch', {name: 'Soft corners'});
+  const sheets = await page.locator('style[data-aml-style]').count();
+  await page.evaluate(() => { window.__starterPreview = document.getElementById('starter-preview'); });
+  await name.fill('<b>André & friends</b>');
+  await expect(page.locator('#preview-name')).toHaveText('<b>André & friends</b>');
+  await expect(page.locator('#preview-name b')).toHaveCount(0);
+  await color.selectOption('#126b56');
+  await expect(preview).toHaveCSS('background-color', 'rgb(18, 107, 86)');
+  await rounded.uncheck();
+  await expect(preview).toHaveCSS('border-radius', '8px');
+  await rounded.focus();
+  await page.keyboard.press('Space');
+  await expect(rounded).toBeChecked();
+  await expect(preview).toHaveCSS('border-radius', '24px');
+  await name.fill('   ');
+  await expect(page.locator('#preview-name')).toHaveText('Your next idea');
+  await page.getByRole('button', {name: 'Reset preview'}).click();
+  await expect(name).toHaveValue('Something great');
+  await expect(color).toHaveValue('#6d4aff');
+  await expect(preview).toHaveCSS('background-color', 'rgb(109, 74, 255)');
+  expect(await page.evaluate(() => window.__starterPreview === document.getElementById('starter-preview'))).toBe(true);
+  expect(await page.locator('style[data-aml-style]').count()).toBe(sheets);
+  const visual = info.project.name === 'development-modules-chromium';
+  if (visual) await page.screenshot({path: info.outputPath('starter-desktop.png'), fullPage: true});
+  for (const width of [375, 320]) {
+    await page.setViewportSize({width, height: 850});
+    await expect(preview).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  if (visual) await page.screenshot({path: info.outputPath('starter-mobile.png'), fullPage: true});
+  await page.emulateMedia({colorScheme: 'dark', reducedMotion: 'reduce'});
+  await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(21, 23, 18)');
+  await expect(preview).toHaveCSS('transition-duration', '0s');
+  if (visual) await page.screenshot({path: info.outputPath('starter-dark.png'), fullPage: true});
+  await page.getByRole('link', {name: 'Explore the starter'}).click();
+  await expect(page.getByRole('heading', {name: 'Small pieces. Real possibilities.'})).toBeVisible();
+  await expect(page.getByRole('main')).toHaveCount(1);
+  expect(await page.locator('style[data-aml-style]').allTextContents()).not.toEqual(expect.arrayContaining([expect.stringContaining('--preview-accent')]));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('generated routes, styles, client navigation and runtime selection', async ({page}, info) => {
   test.setTimeout(60_000);
   const errors = [], failures = [], documents = [];
@@ -17,7 +70,7 @@ test('generated routes, styles, client navigation and runtime selection', async 
   page.on('response', response => { if (response.status() >= 500) failures.push(`${response.status()} ${response.url()}`); });
   page.on('request', request => { if (request.isNavigationRequest()) documents.push(request.url()); });
   await page.goto('/about');
-  await expect(page.getByRole('heading', {name: 'A second page.'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Small pieces. Real possibilities.'})).toBeVisible();
   await page.waitForFunction(() => typeof window.AMLEngine?.mount === 'function');
   const modular = info.project.metadata.runtime === 'modules';
   const script = page.locator('script[data-aml-engine]');
@@ -25,15 +78,15 @@ test('generated routes, styles, client navigation and runtime selection', async 
   expect(await script.getAttribute('type')).toBe(modular ? 'module' : null);
   await page.evaluate(() => { window.__releaseDocument = 'same'; });
   await page.getByRole('link', {name: 'Return home'}).click();
-  await expect(page.getByRole('heading', {name: 'Your PHPAML app is ready.'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Your next idea starts here.'})).toBeVisible();
   await expect(page).toHaveTitle('My PHPAML application');
   expect(await page.evaluate(() => window.__releaseDocument)).toBe('same');
   expect(documents).toHaveLength(1);
-  expect(await page.locator('.view-app').evaluate(element => getComputedStyle(element).display)).toBe('flex');
+  expect(await page.locator('#app-shell').evaluate(element => getComputedStyle(element).display)).toBe('flex');
   await page.goBack();
-  await expect(page.getByRole('heading', {name: 'A second page.'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Small pieces. Real possibilities.'})).toBeVisible();
   await page.goForward();
-  await expect(page.getByRole('heading', {name: 'Your PHPAML app is ready.'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Your next idea starts here.'})).toBeVisible();
   await page.goto('/controls');
   await expect(page.locator('#style-example')).toHaveCSS('padding-top', '24px');
   await page.locator('#style-change').click();

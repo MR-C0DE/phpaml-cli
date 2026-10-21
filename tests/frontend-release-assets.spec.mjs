@@ -21,13 +21,13 @@ test('all distributed assets survive HTTP serving and production packaging', asy
   const css = await request.get('/_aml/styles.css');
   expect(css.status()).toBe(200);
   expect(css.headers()['content-type']).toContain('text/css');
-  expect(await css.text()).toContain('.view-app');
-  expect(await css.text()).toContain('.route-state');
+  expect(await css.text()).toContain('.shell');
   const unknown = await request.get('/_aml/modules-unknown.min/missing.js');
   expect(unknown.status()).toBe(404);
   const missing = await request.get('/absent-route');
   expect(missing.status()).toBe(404);
   expect(await missing.text()).toContain('This page does not exist.');
+  expect(await missing.text()).toContain('data-aml-style');
   expect(missing.headers()['content-security-policy']).toContain("script-src 'self'");
   // A transient test page exercises the existing Error state through the real
   // generated bootstrap. Neither the starter nor the production ZIP is edited.
