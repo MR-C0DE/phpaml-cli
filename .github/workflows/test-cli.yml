@@ -1,6 +1,16 @@
 name: Test AML CLI
 
 on:
+  workflow_dispatch:
+    inputs:
+      engine_ref:
+        description: Matching Engine revision for release verification
+        type: string
+        required: false
+      view_ref:
+        description: Matching View revision for release verification
+        type: string
+        required: false
   push:
     branches:
       - main
@@ -35,11 +45,13 @@ jobs:
         if: runner.os != 'Windows'
         with:
           repository: MR-C0DE/phpaml-engine
+          ref: ${{ inputs.engine_ref || 'main' }}
           path: .integration/engine
       - uses: actions/checkout@v5
         if: runner.os != 'Windows'
         with:
           repository: MR-C0DE/phpaml-view
+          ref: ${{ inputs.view_ref || 'main' }}
           path: .integration/view
       - uses: actions/checkout@v5
         if: runner.os != 'Windows'
