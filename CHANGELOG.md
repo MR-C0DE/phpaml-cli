@@ -2,7 +2,26 @@
 
 ## Unreleased
 
-### 1.7.0-beta.46 candidate
+## 1.7.0-beta.46 — 2026-10-23
+
+- Deliver the coordinated View/Engine release: functional pages and components,
+  local State, constructor-derived factories, reactive IList and optional Icon,
+  finalized Style/CSS, precise nesting diagnostics and faster compilation.
+  Preserve class components and both browser runtimes.
+
+- Add aml install lucide and aml uninstall lucide, pinned to the official
+  lucide-static 1.61.0 archive with SHA-512 verification and upstream licenses.
+  Restore the optional dependency during aml install; preserve modified assets
+  and diagnose remaining Icon references before removal. Ship the installer
+  helper in macOS, Linux and Windows distributions.
+
+- Keep generated files inside their project paths. Refuse traversal and
+  symbolic links during generation and project creation; use exclusive file
+  creation for generators and add cross-platform regression checks.
+
+- Remove duplicate factory functions from the View starter and
+  `make:view-component`: View now derives each function's signature directly
+  from the component constructor when loading the application.
 
 - Refresh the View starter with native semantic components, colocated CSS modules,
   responsive container queries, shared light/dark tokens and accessible controls.

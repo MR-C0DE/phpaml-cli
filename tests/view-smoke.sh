@@ -240,7 +240,8 @@ test -f src/views/states/NotFound.php
 test -f src/views/states/Loading.php
 test -f src/views/states/Error.php
 test -f src/views/components/Navigation.php
-grep -q 'function Navigation(): Navigation' src/views/components/Navigation.php
+! grep -q 'function Navigation(' src/views/components/Navigation.php
+! grep -q 'function Playground(' src/views/components/Playground.php
 grep -q 'Navigation(),' src/views/layouts/AppLayout.php
 ! grep -q 'new Navigation()' src/views/layouts/AppLayout.php
 ! grep -q 'Element(' src/views/pages/home/page.php src/views/components/Navigation.php src/views/layouts/AppLayout.php
@@ -408,7 +409,7 @@ test -f src/models/User.php
 grep -q 'final class User' src/models/User.php
 test -f src/views/pages/account/page.php
 test -f src/views/components/UserMenu.php
-grep -q 'function UserMenu(mixed ...\$arguments): UserMenu' src/views/components/UserMenu.php
+! grep -q 'function UserMenu(' src/views/components/UserMenu.php
 test -f src/views/layouts/DashboardLayout.php
 test -f 'src/views/pages/users/[id]/page.php'
 test -f 'src/views/pages/docs/[...slug]/page.php'

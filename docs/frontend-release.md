@@ -1,4 +1,4 @@
-# Frontend release candidate — CLI 1.7.0-beta.46
+# Frontend release — CLI 1.7.0-beta.46
 
 This candidate finalizes explicit CSS imports, Style and the existing beta.46
 Picker, Toggle and Calendar work. The Style API scope is frozen for beta.46;
@@ -59,6 +59,20 @@ status and final security headers. This repairs an existing rendering path.
 En français : cette version harmonise les versions installées, conserve les API
 et vérifie une application réellement créée par le CLI. La séparation des
 modules change le chargement du code, pas les composants de l'application.
+
+## Additional View and Engine changes
+
+The release also includes functional pages/components with local `State()` and
+optional `body()`, constructor-derived component factories, reactive `IList()`
+and optional Lucide-backed `Icon()`. Class components remain supported. Lucide
+is installed explicitly with `aml install lucide` and removed with
+`aml uninstall lucide`; its assets are served by the application.
+
+The final stabilization verifies nested conditions and loops, component bindings,
+CSS/Style and icon recovery. Completed compiler blocks are serialized once per
+compilation. Loop and serialization guards remain enabled, with precise PHP source
+diagnostics and recoverable errors. The full and modular runtimes share these
+behaviors; the compatibility guide defines the supported PHP frontend scope.
 
 ## Reproduce the distribution check
 
@@ -152,7 +166,7 @@ See the [PHP security release](https://www.php.net/releases/8_4_27.php).
 
 `Validate native packages` invokes the Linux, macOS and Windows build workflows
 without publishing. Each platform checks its actual installation, portable
-archive, six packaged source files and console behavior. Linux and Windows also
+archive, every packaged PHP source file and console behavior. Linux and Windows also
 check uninstallation. A local macOS payload extraction alone is not an installer
 validation.
 

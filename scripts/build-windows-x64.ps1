@@ -52,6 +52,7 @@ Copy-Item "$Root\cli\ai-debug.php" "$Package\runtime\bin\ai-debug.php" -Force
 Copy-Item "$Root\cli\deploy.php" "$Package\runtime\bin\deploy.php" -Force
 Copy-Item "$Root\cli\console.php" "$Package\runtime\bin\console.php" -Force
 Copy-Item "$Root\cli\console-import-example.php" "$Package\runtime\bin\console-import-example.php" -Force
+Copy-Item "$Root\cli\lucide.php" "$Package\runtime\bin\lucide.php" -Force
 Copy-Item "$Root\phpaml.json" "$Package\phpaml.json" -Force
 
 & "$Package\bin\aml.exe" version

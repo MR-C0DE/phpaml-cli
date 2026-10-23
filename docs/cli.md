@@ -54,6 +54,26 @@ aml install --offline
 aml install --production
 ```
 
+## Catalogue d’icônes optionnel
+
+```bash
+aml install lucide
+aml install lucide --offline
+aml uninstall lucide
+aml uninstall lucide --force
+```
+
+Lucide `1.61.0` est téléchargé depuis le registre officiel, vérifié par SHA-512,
+puis converti en géométries SVG locales, sans installer npm ni exécuter de code
+du paquet. Les licences amont sont conservées. La dépendance est enregistrée
+dans `phpaml.json` ; les fichiers sont dans `public/assets/phpaml/lucide/1.61.0/`
+et doivent être déployés avec le site. `aml install` restaure également ce module.
+`--offline` utilise l’archive déjà téléchargée dans le cache du CLI.
+
+Le retrait signale les références à `Icon` dans `src/` et `app/` et refuse de
+continuer sans `--force` si elles existent. Les fichiers personnels ou modifiés
+sont préservés. Cette recherche ne garantit pas la détection d’appels dynamiques.
+
 ## Build de production
 
 ```bash

@@ -87,6 +87,12 @@ jobs:
       - name: Test stable and explicit beta update selection
         shell: bash
         run: php ./tests/update-channel-smoke.php
+      - name: Verify generated file boundaries
+        shell: bash
+        run: php ./tests/new-file-security.php
+      - name: Verify optional Lucide installation and removal
+        shell: bash
+        run: php ./tests/lucide.php
       - name: Test aml doctor on Unix
         if: runner.os != 'Windows'
         shell: bash

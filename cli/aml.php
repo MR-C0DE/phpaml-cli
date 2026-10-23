@@ -351,6 +351,7 @@ function showHelp(): void
             '  aml create-console hello && cd hello && aml run',
             '  aml serve 127.0.0.1:8080', '  aml install', '  aml --update --check', '  aml doctor',
             '  aml env:init', '  aml env:set APP_DEBUG false',
+            '  aml install lucide', '  aml uninstall lucide [--force]',
             '  aml db:configure sqlite', '  aml install i18n', '  aml language fr',
         ] as $line) {
             output($line);
@@ -453,6 +454,8 @@ function showHelp(): void
     output('  aml serve 127.0.0.1:8080');
     output('  aml install');
     output('  aml install i18n');
+    output('  aml install lucide');
+    output('  aml uninstall lucide [--force]');
     output('  aml install --version 0.1.0');
     output('  aml --update --check');
     output('  aml doctor');
@@ -946,7 +949,7 @@ PHP
 
     $conflicts = [];
     foreach (array_keys($files) as $relative) {
-        if (file_exists($target . '/' . $relative)) {
+        if (file_exists(newProjectFilePath($target, $relative))) {
             $conflicts[] = $relative;
         }
     }
@@ -957,7 +960,7 @@ PHP
         fail("Impossible de créer '{$target}'.");
     }
     foreach ($files as $relative => $content) {
-        $path = $target . '/' . $relative;
+        $path = newProjectFilePath($target, $relative);
         if (!is_dir(dirname($path)) && !mkdir(dirname($path), 0755, true) && !is_dir(dirname($path))) {
             fail('Impossible de créer ' . dirname($relative) . '.');
         }
@@ -1019,7 +1022,7 @@ function createProject(
     }
     $conflicts = [];
     foreach (array_keys($files) as $relative) {
-        if (file_exists($target . '/' . $relative)) {
+        if (file_exists(newProjectFilePath($target, $relative))) {
             $conflicts[] = $relative;
         }
     }
@@ -1032,7 +1035,7 @@ function createProject(
     }
 
     foreach ($files as $relative => $index) {
-        $destinationPath = $target . '/' . $relative;
+        $destinationPath = newProjectFilePath($target, $relative);
         $directory = dirname($destinationPath);
         if (!is_dir($directory)) {
             mkdir($directory, 0755, true);
@@ -1803,6 +1806,10 @@ function installModules(
     if ($exitCode !== 0) {
         exit($exitCode);
     }
+    if (isset(projectInfo($root)['modules']['lucide'])) {
+        require_once __DIR__ . '/lucide.php';
+        try { installLucide($root, $offline); } catch (Throwable $error) { fail($error->getMessage()); }
+    }
     $manifest = [
         'installed_at' => date(DATE_ATOM),
         'mode' => $production ? 'production' : 'development',
@@ -1846,16 +1853,48 @@ function writeProjectManifest(string $root, array $manifest): void
     }
 }
 
+/** Resolve a generated file without following links supplied by a project. */
+function newProjectFilePath(string $root, string $relative): string
+{
+    $relative = str_replace('\\', '/', $relative);
+    $segments = explode('/', $relative);
+    if ($relative === '' || preg_match('/[:\x00-\x1F\x7F]/', $relative)
+        || array_intersect(['', '.', '..'], $segments) !== []) {
+        fail('Chemin de fichier généré non sécurisé.');
+    }
+    $cursor = rtrim(realpath($root) ?: $root, '/\\');
+    foreach ($segments as $index => $segment) {
+        if (preg_match('/[. ]$/D', $segment)
+            || preg_match('/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iD', $segment)) {
+            fail('Un nom de fichier généré doit être portable et non ambigu.');
+        }
+        $cursor .= DIRECTORY_SEPARATOR . $segment;
+        if (is_link($cursor)) fail('Un fichier généré ne peut pas traverser un lien symbolique.');
+        if ($index < count($segments) - 1 && file_exists($cursor) && !is_dir($cursor)) {
+            fail('Un dossier de génération est occupé par un fichier.');
+        }
+    }
+    return $cursor;
+}
+
 function writeNewFile(string $root, string $relative, string $content): bool
 {
-    $path = $root . '/' . $relative;
+    $path = newProjectFilePath($root, $relative);
     if (is_file($path)) {
         return false;
     }
     if (!is_dir(dirname($path)) && !mkdir(dirname($path), 0755, true) && !is_dir(dirname($path))) {
         fail("Impossible de créer " . dirname($relative) . '.');
     }
-    if (file_put_contents($path, $content, LOCK_EX) === false) {
+    // Exclusive creation also refuses a file/link introduced at the leaf after checking.
+    $stream = @fopen($path, 'x');
+    if ($stream === false) {
+        if (is_file($path) && !is_link($path)) return false;
+        fail("Impossible de créer {$relative}.");
+    }
+    $written = fwrite($stream, $content);
+    fclose($stream);
+    if ($written !== strlen($content)) {
         fail("Impossible de créer {$relative}.");
     }
     output("Créé : {$relative}");
@@ -2214,10 +2253,6 @@ final class Navigation extends Component
     }
 }
 
-function Navigation(): Navigation
-{
-    return new Navigation();
-}
 PHP
     );
     writeNewFile($root, 'src/views/components/Playground.php', <<<'PHP'
@@ -2281,10 +2316,6 @@ final class Playground extends Component
     }
 }
 
-function Playground(): Playground
-{
-    return new Playground();
-}
 PHP
     );
     writeNewFile($root, 'src/views/components/navigation.style.css', <<<'CSS'
@@ -4518,9 +4549,6 @@ function generateViewClass(string $type, string $name): void
         $functions = 'use function AML\\View\\Text;';
     }
     $content = "<?php\n\ndeclare(strict_types=1);\n\nnamespace {$namespace};\n\nuse AML\\View\\{$parent};\nuse AML\\View\\View;\n{$functions}\n\nfinal class {$class} extends {$parent}\n{\n    public function body(): View\n    {\n{$body}\n    }\n}\n";
-    if ($type === 'component') {
-        $content .= "\nfunction {$class}(mixed ...\$arguments): {$class}\n{\n    return new {$class}(...\$arguments);\n}\n";
-    }
     writeNewFile($root, $path, $content);
 }
 
@@ -5732,6 +5760,12 @@ switch ($command) {
     case 'sftp':
         isset($arguments[1]) ? deployShell($arguments[1], true) : fail('Indiquez le nom du profil.');
     case 'install':
+        if (strtolower($arguments[1] ?? '') === 'lucide') {
+            require_once __DIR__ . '/lucide.php';
+            try { installLucide(projectRoot(), in_array('--offline', $arguments, true), optionValue($arguments, '--version')); }
+            catch (Throwable $error) { fail($error->getMessage()); }
+            exit(0);
+        }
         if (($arguments[1] ?? null) === 'data') {
             installData(array_slice($arguments, 2));
         }
@@ -5747,6 +5781,12 @@ switch ($command) {
             in_array('--refresh', $arguments, true),
             in_array('--offline', $arguments, true)
         );
+    case 'uninstall':
+        if (strtolower($arguments[1] ?? '') !== 'lucide') fail('Usage: aml uninstall lucide [--force]');
+        require_once __DIR__ . '/lucide.php';
+        try { uninstallLucide(projectRoot(), in_array('--force', $arguments, true)); }
+        catch (Throwable $error) { fail($error->getMessage()); }
+        exit(0);
     case '--update':
     case 'update':
         updateCli(
