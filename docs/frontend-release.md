@@ -8,8 +8,10 @@ The verification app includes the distributed `/controls`, `/style-check` and
 `/style-conditions` fixtures in development and production. These test pages are
 not inserted into normal starters.
 
-The finalization preserves the current View, Engine and CLI APIs. The packages
-remain independently versioned:
+Existing component calls and the CLI commands remain supported. Custom classes
+that override Element style/State helper methods must adopt their widened
+parameter signatures; see the [View beta.14 migration guide](https://github.com/MR-C0DE/phpaml-view/blob/v0.1.0-beta.14/docs/fr/migration-beta14.md).
+The packages remain independently versioned:
 
 | Component | Version | Selection |
 |---|---|---|

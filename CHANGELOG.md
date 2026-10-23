@@ -4,6 +4,10 @@
 
 ## 1.7.0-beta.46 — 2026-10-23
 
+- Custom Element subclasses overriding style/State helper methods must adopt
+  the widened signatures; ordinary Page/Component classes and existing calls
+  remain supported. See the [View migration guide](https://github.com/MR-C0DE/phpaml-view/blob/v0.1.0-beta.14/docs/fr/migration-beta14.md).
+
 - Deliver the coordinated View/Engine release: functional pages and components,
   local State, constructor-derived factories, reactive IList and optional Icon,
   finalized Style/CSS, precise nesting diagnostics and faster compilation.
